@@ -230,30 +230,68 @@ body {
 /* 오른쪽 사이드바 (수정됨)          */
 /* ======================================== */
 .sidebar-right {
-    width: 100px; /* 접혔을 때 너비 */
+    width: 88px; /* 접혔을 때 너비 */
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-color);
-    padding: 0; /* 내부 패딩 제거 */
     position: sticky;
     top: 0;
     height: 100vh;
-    overflow-y: auto;
     transition: width 0.3s ease;
     flex-shrink: 0;
+    padding-top: 20px; /* 내부 컨텐츠와의 여백 */
+    position: relative;
 }
 
 .sidebar-right.expanded {
     width: 260px; /* 펼쳤을 때 너비 */
 }
 
-.profile-section {
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 20px;
-    height: 69px;
+/* 오른쪽 사이드바 토글 버튼 (디자인 개선) */
+#rightSidebarToggle {
+    position: absolute;
+    top: 50%;
+    left: -15px; /* 버튼 위치 조정 */
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 20px; /* 내부 패딩 직접 지정 */
+    justify-content: center;
+    color: var(--text-secondary);
+    z-index: 101;
+    transition: all 0.3s ease;
+}
+
+#rightSidebarToggle:hover {
+    background: var(--korea-red);
+    color: white;
+    border-color: var(--korea-red-dark);
+    transform: translateY(-50%) scale(1.1); /* 호버 시 확대 효과 */
+}
+
+#rightSidebarToggle i {
+    transition: transform 0.3s ease;
+    font-size: 14px; /* 아이콘 크기 조정 */
+}
+
+.sidebar-right.expanded #rightSidebarToggle i {
+    transform: rotate(180deg);
+}
+
+
+.profile-section {
+    margin-bottom: 24px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* 항상 중앙 정렬 */
+    padding: 0 24px;
+    overflow: hidden;
 }
 
 .profile-avatar-small {
@@ -263,36 +301,17 @@ body {
     overflow: hidden;
     border: 2px solid var(--korea-red);
     flex-shrink: 0;
+    transition: all 0.3s ease;
 }
 
-.sidebar-toggle {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: transform 0.3s;
-    font-size: 16px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+.sidebar-right:not(.expanded) .profile-avatar-small {
+    /* 접혔을 때 특별한 스타일 필요 없음 */
 }
 
-.sidebar-toggle:hover {
-    background: var(--bg-primary);
-}
-
-.sidebar-right.expanded .sidebar-toggle {
-    transform: rotate(180deg);
-}
 
 .quick-links {
-    padding: 0 20px; /* 내부 패딩 직접 지정 */
+    padding: 0 16px; /* 좌우 패딩 조정 */
     overflow: hidden;
-}
-
-/* 사이드바가 접혔을 때의 quick-links 패딩 */
-.sidebar-right:not(.expanded) .quick-links {
-    padding: 0;
 }
 
 .quick-links h4 {
@@ -303,6 +322,7 @@ body {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s;
+    padding: 0 8px; /* 펼쳤을 때 텍스트 위치 보정 */
 }
 
 .sidebar-right.expanded h4 {
@@ -314,6 +334,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    align-items: center; /* 항상 아이템들을 중앙 정렬 */
 }
 
 .quick-link {
@@ -324,7 +345,6 @@ body {
     font-weight: 500;
     text-decoration: none;
     transition: all 0.2s;
-    overflow: hidden;
     height: 52px;
 }
 
@@ -332,16 +352,14 @@ body {
     background: var(--bg-primary);
 }
 
-/* 사이드바가 접혔을 때 링크 스타일 */
+/* 사이드바 상태에 따른 링크 스타일 */
 .sidebar-right:not(.expanded) .quick-link {
     width: 52px;
     justify-content: center;
-    margin: 0 auto; /* 링크 자체를 중앙 정렬 */
 }
 
-/* 사이드바가 펼쳐졌을 때 링크 스타일 */
 .sidebar-right.expanded .quick-link {
-    width: auto;
+    width: 100%; /* 너비 채우기 */
     justify-content: flex-start;
     gap: 16px;
     padding: 0 10px;
