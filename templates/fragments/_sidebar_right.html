@@ -1,9 +1,7 @@
 <aside class="sidebar-right" id="sidebarRight">
     <div class="profile-section">
         <div class="profile-avatar-small">
-            <img src="#" alt="프로필" 
-                 data-default-src="{{ url_for('static', filename='images/default_avatar.png') }}" 
-                 onerror="this.onerror=null; this.src=this.dataset.defaultSrc;">
+            <img src="{{ url_for('static', filename='images/default_avatar.png') }}" alt="프로필">
         </div>
     </div>
     
@@ -36,7 +34,6 @@
             </a>
         </div>
     </div>
-
     <button id="rightSidebarToggle">
         <i class="fas fa-chevron-left"></i>
     </button>

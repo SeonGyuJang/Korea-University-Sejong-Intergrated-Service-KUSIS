@@ -23,6 +23,8 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     overflow-x: hidden;
+    display: flex;
+    min-height: 100vh;
 }
 
 .page-container {
@@ -154,6 +156,7 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 /* 상단 헤더 */
@@ -239,7 +242,7 @@ body {
 .main-content {
     flex-grow: 1;
     position: relative;
-    height: calc(100vh - 69px); /* Adjust for header height */
+    height: calc(100vh - 69px);
 }
 
 
@@ -326,7 +329,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 69px; /* Match header height */
+    height: 69px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
@@ -342,9 +345,16 @@ body {
     transition: all 0.3s ease;
 }
 
+.profile-avatar-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .quick-links {
     padding: 20px 18px;
     overflow-y: auto;
+    overflow-x: hidden; /* 좌우 스크롤 방지 */
     flex-grow: 1;
 }
 
@@ -368,6 +378,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%; /* 부모 너비에 맞춤 */
 }
 
 .sidebar-right:not(.expanded) .link-list {
@@ -375,7 +386,7 @@ body {
 }
 
 .sidebar-right.expanded .link-list {
-    align-items: center; /* Center items when expanded */
+    align-items: center;
 }
 
 .quick-link {
@@ -387,6 +398,7 @@ body {
     text-decoration: none;
     transition: all 0.2s;
     min-height: 48px;
+    max-width: 100%; /* 부모를 넘지 않도록 제한 */
 }
 
 .quick-link:hover {
@@ -404,7 +416,8 @@ body {
     justify-content: flex-start;
     gap: 16px;
     padding: 8px 12px;
-    width: 180px; /* Give a fixed width to center properly */
+    width: 100%; /* 부모 너비에 맞춤 */
+    max-width: 220px; /* 최대 너비 제한 */
 }
 
 .quick-link i {
@@ -427,12 +440,14 @@ body {
     transition: opacity 0.2s, visibility 0.2s;
     width: 0;
     overflow: hidden;
+    text-overflow: ellipsis; /* 텍스트 오버플로우 처리 */
 }
 
 .sidebar-right.expanded .link-text {
     opacity: 1;
     visibility: visible;
     width: auto;
+    max-width: 140px; /* 텍스트 최대 너비 제한 */
 }
 
 .quick-link-add i {

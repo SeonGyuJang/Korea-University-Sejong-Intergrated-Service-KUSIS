@@ -9,9 +9,7 @@
         <div class="widget profile-widget">
             <div class="profile-header">
                 <div class="profile-avatar">
-                    <img src="#" alt="프로필" 
-                         data-default-src="{{ url_for('static', filename='images/default_avatar.png') }}" 
-                         onerror="this.onerror=null; this.src=this.dataset.defaultSrc;">
+                    <img src="{{ url_for('static', filename='images/default_avatar.png') }}" alt="프로필">
                 </div>
                 <div class="profile-info">
                     <h3 class="profile-name">장선규</h3>
