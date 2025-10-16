@@ -28,6 +28,7 @@ body {
 .page-container {
     display: flex;
     width: 100%;
+    position: relative;
 }
 
 /* 왼쪽 사이드바 */
@@ -341,11 +342,11 @@ body {
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, visibility 0.2s;
     padding: 0 8px;
 }
 
-.sidebar-right.expanded h4 {
+.sidebar-right.expanded .quick-links h4 {
     opacity: 1;
     visibility: visible;
 }
@@ -408,11 +409,9 @@ body {
 .link-text {
     white-space: nowrap;
     font-size: 14px;
-}
-
-.sidebar-right:not(.expanded) .link-text {
     opacity: 0;
     visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
     width: 0;
     overflow: hidden;
 }
@@ -420,6 +419,7 @@ body {
 .sidebar-right.expanded .link-text {
     opacity: 1;
     visibility: visible;
+    width: auto;
 }
 
 .quick-link-add i {
@@ -455,6 +455,51 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* 로딩 오버레이 스타일 */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    flex-direction: column;
+    gap: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-spinner {
+    border: 4px solid var(--bg-primary);
+    border-top: 4px solid var(--korea-red);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    font-size: 16px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 
 /* 반응형 */
 @media (max-width: 1200px) {

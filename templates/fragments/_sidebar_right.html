@@ -1,7 +1,9 @@
 <aside class="sidebar-right" id="sidebarRight">
     <div class="profile-section">
         <div class="profile-avatar-small">
-            <img src="https://via.placeholder.com/50" alt="프로필">
+            <img src="#" alt="프로필" 
+                 data-default-src="{{ url_for('static', filename='images/default_avatar.png') }}" 
+                 onerror="this.onerror=null; this.src=this.dataset.defaultSrc;">
         </div>
     </div>
     

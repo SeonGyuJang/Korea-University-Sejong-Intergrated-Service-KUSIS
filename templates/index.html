@@ -3,12 +3,15 @@
 {% block title %}KUSIS - 홈{% endblock %}
 
 {% block content %}
+
 <div class="content-area">
     <div class="left-widgets">
         <div class="widget profile-widget">
             <div class="profile-header">
                 <div class="profile-avatar">
-                    <img src="https://via.placeholder.com/80" alt="프로필">
+                    <img src="#" alt="프로필" 
+                         data-default-src="{{ url_for('static', filename='images/default_avatar.png') }}" 
+                         onerror="this.onerror=null; this.src=this.dataset.defaultSrc;">
                 </div>
                 <div class="profile-info">
                     <h3 class="profile-name">장선규</h3>
@@ -69,8 +72,8 @@
                 <h3><i class="fas fa-bus"></i> 셔틀버스 시간표</h3>
                 <div class="widget-tabs">
                     <button class="tab active" data-tab="all">전체</button>
-                    <button class="tab" data-tab="seoul">서울행</button>
-                    <button class="tab" data-tab="sejong">세종행</button>
+                    <button class="tab" data-tab="seoul">조치원역</button>
+                    <button class="tab" data-tab="sejong">오송역</button>
                 </div>
             </div>
             <div class="shuttle-list" id="shuttleList">
@@ -129,8 +132,6 @@
         </div>
     </div>
 </div>
-
-<iframe id="contentFrame"></iframe>
 
 <div class="modal" id="memoModal">
     <div class="modal-content">

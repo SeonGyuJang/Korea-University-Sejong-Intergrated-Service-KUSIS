@@ -8,12 +8,14 @@ let currentMemo = { day: 0, period: 0, text: '' };
 
 // 임시 데이터
 const SHUTTLE_SCHEDULE_DATA = [
-    {"time": "08:00", "route": "세종 → 서울", "status": "운행예정"},
-    {"time": "09:30", "route": "세종 → 서울", "status": "운행예정"},
-    {"time": "12:00", "route": "서울 → 세종", "status": "운행중"},
-    {"time": "14:30", "route": "세종 → 서울", "status": "운행예정"},
-    {"time": "17:00", "route": "서울 → 세종", "status": "운행예정"},
-    {"time": "19:00", "route": "서울 → 세종", "status": "운행예정"},
+    {"time": "08:00", "route": "학교 → 조치원역", "status": "운행예정"},
+    {"time": "09:30", "route": "학교 → 조치원역", "status": "운행예정"},
+    {"time": "12:00", "route": "학교 → 조치원역", "status": "운행중"},
+    {"time": "14:30", "route": "학교 → 조치원역", "status": "운행예정"},
+    {"time": "17:00", "route": "학교 → 조치원역", "status": "운행예정"},
+    {"time": "19:00", "route": "학교 → 조치원역", "status": "운행예정"},
+    {"time": "20:00", "route": "학교 → 오송역", "status": "운행예정"},
+
 ];
 
 const MEAL_PLAN_DATA = {
@@ -30,18 +32,18 @@ const MEAL_PLAN_DATA = {
 };
 
 const SCHEDULE_DATA_DATA = [
-    {"time": "09:00", "title": "데이터베이스 설계", "location": "세종관 301호"},
-    {"time": "13:00", "title": "웹 프로그래밍", "location": "창의관 205호"},
-    {"time": "15:00", "title": "스터디 모임", "location": "도서관 4층"},
+    {"time": "09:00", "title": "과목1", "location": "석경 424호"},
+    {"time": "13:00", "title": "과목2", "location": "농심국제관 205호"},
+    {"time": "15:00", "title": "과목3", "location": "과기1관 303호"},
 ];
 
 const TIMETABLE_DATA = [
-    {"day": 1, "period": 1, "subject": "데이터베이스", "professor": "김교수", "room": "세종관 301", "memo": ""},
-    {"day": 1, "period": 3, "subject": "웹프로그래밍", "professor": "이교수", "room": "창의관 205", "memo": "과제 제출"},
-    {"day": 2, "period": 2, "subject": "알고리즘", "professor": "박교수", "room": "세종관 405", "memo": ""},
-    {"day": 3, "period": 1, "subject": "데이터베이스", "professor": "김교수", "room": "세종관 301", "memo": ""},
-    {"day": 4, "period": 4, "subject": "컴퓨터구조", "professor": "최교수", "room": "창의관 301", "memo": "중간고사 준비"},
-    {"day": 5, "period": 1, "subject": "운영체제", "professor": "정교수", "room": "세종관 501", "memo": ""},
+    {"day": 1, "period": 1, "subject": "과목1", "professor": "김교수", "room": "석경 424호", "memo": ""},
+    {"day": 1, "period": 3, "subject": "과목2", "professor": "이교수", "room": "농심국제관 205호", "memo": "과제 제출"},
+    {"day": 2, "period": 2, "subject": "과목3", "professor": "박교수", "room": "과기1관 303호", "memo": ""},
+    {"day": 3, "period": 1, "subject": "과목4", "professor": "김교수", "room": "공정대 102호", "memo": ""},
+    {"day": 4, "period": 4, "subject": "과목5", "professor": "최교수", "room": "농심국제관 301호", "memo": "중간고사 준비"},
+    {"day": 5, "period": 1, "subject": "과목6", "professor": "정교수", "room": "과기2관 111호", "memo": ""},
 ];
 
 // 페이지 로드 시 초기화
@@ -124,16 +126,11 @@ function setupEventListeners() {
         });
     }
     
-    // 네비게이션 메뉴 클릭 (iframe 로드 기능 수정)
-    const contentArea = document.querySelector('.content-area');
-    const contentFrame = document.getElementById('contentFrame');
-    const sidebarRight = document.getElementById('sidebarRight');
+    // 네비게이션 메뉴 클릭 (새 탭 로드 기능)
+    const loadingOverlay = document.getElementById('loadingOverlay');
 
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
-            if (e.currentTarget.getAttribute('target') === '_blank') {
-                return;
-            }
             e.preventDefault();
 
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -142,23 +139,20 @@ function setupEventListeners() {
             const page = e.currentTarget.dataset.page;
             const url = e.currentTarget.dataset.url;
 
-            if (page === 'home') {
-                contentFrame.style.display = 'none';
-                contentArea.style.display = 'grid';
-                sidebarRight.style.display = 'flex';
-                contentFrame.src = 'about:blank';
-            } else if (url) {
-                contentArea.style.display = 'none';
-                sidebarRight.style.display = 'none';
-                contentFrame.style.display = 'block';
-                contentFrame.src = url;
-            } else {
-                console.log('Navigate to internal page (not implemented):', page);
-                // URL 없는 메뉴 클릭 시 홈으로 이동
-                contentFrame.style.display = 'none';
-                contentArea.style.display = 'grid';
-                sidebarRight.style.display = 'flex';
-                contentFrame.src = 'about:blank';
+            if (page !== 'home' && url) {
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('active');
+                }
+
+                setTimeout(() => {
+                    window.open(url, '_blank');
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.remove('active');
+                    }
+                    // 클릭 후 활성 상태를 홈으로 되돌리고 싶다면 아래 주석 해제
+                    // document.querySelector('.nav-item[data-page="home"]').classList.add('active');
+                    // e.currentTarget.classList.remove('active');
+                }, 1500); // 1.5초 후 새 탭 열기
             }
         });
     });
@@ -305,9 +299,9 @@ function filterShuttleSchedule(filter) {
     
     let filteredData = window.shuttleData;
     if (filter === 'seoul') {
-        filteredData = window.shuttleData.filter(s => s.route.includes('서울'));
+        filteredData = window.shuttleData.filter(s => s.route.includes('조치원역'));
     } else if (filter === 'sejong') {
-        filteredData = window.shuttleData.filter(s => s.route.includes('세종'));
+        filteredData = window.shuttleData.filter(s => s.route.includes('오송역'));
     }
     
     displayShuttleSchedule(filteredData);

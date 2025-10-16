@@ -23,6 +23,13 @@
         {% include 'fragments/_sidebar_right.html' %}
     </div>
 
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">
+            이동 중입니다... 새로운 탭에서 열립니다.
+        </div>
+    </div>
+
     <script src="https://kit.fontawesome.com/6478f529f2.js" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
     {% block scripts %}{% endblock %}
