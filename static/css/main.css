@@ -263,6 +263,8 @@
 .widget-tabs {
     display: flex;
     gap: 8px;
+    /* 수정: 탭 아래 여백 증가 */
+    margin-bottom: 20px; 
 }
 
 .tab {
@@ -555,8 +557,11 @@
     transform: translateY(-2px);
 }
 
+/* 수정: 다음 2개 셔틀 강조 (초록색) */
 .shuttle-item.next-shuttle {
-    border-left: 3px solid var(--color-success);
+    background: #e6f7ea; /* 연한 초록색 배경 */
+    border: 1px solid #c2e0c6; 
+    border-left: 5px solid var(--color-success); /* 강조된 초록색 좌측 테두리 */
 }
 
 .shuttle-time {
@@ -577,12 +582,14 @@
     text-align: center;
 }
 
+/* 다음 셔틀 텍스트 색상 (5분 초과 시) */
 .shuttle-status.active {
     background: #d4edda;
     color: var(--color-success);
     font-weight: bold;
 }
 
+/* 일반 예정 셔틀 텍스트 색상 */
 .shuttle-status.scheduled {
     background: var(--bg-primary);
     color: var(--text-secondary);
@@ -601,8 +608,8 @@
 
 .shuttle-status.blinking {
     animation: blinker 1s linear infinite;
-    background: #f8d7da;
-    color: var(--color-danger); 
+    background: #f8d7da; /* 붉은색 상태 배경 */
+    color: var(--color-danger); /* 붉은색 텍스트 */
 }
 
 /* 식단 위젯 */

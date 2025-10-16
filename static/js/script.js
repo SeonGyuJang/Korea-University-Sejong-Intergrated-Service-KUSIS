@@ -287,7 +287,6 @@ function updateRealTimeShuttle() {
     let data = window.shuttleData || [];
     
     // 1. 요일 필터링 (2025/10/16 목요일 기준, '평일' 데이터만 필터링)
-    // NOTE: 파일의 기간에 맞춰 목요일(평일)을 가정합니다. 실제 구현 시에는 new Date()를 사용해야 합니다.
     const todayDayOfWeek = 4;
     const dayType = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? '일요일' : '평일';
 
@@ -311,51 +310,49 @@ function updateRealTimeShuttle() {
         }
     });
 
-    // --- 실시간 계산 및 렌더링 ---
+    // --- 실시간 계산, 완료 항목 제거, 시간 순 정렬 ---
     const now = new Date();
     const currentSecondsOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
+    let processedData = data
+        .map(shuttle => {
+            const [hour, minute] = shuttle.time.split(':').map(Number);
+            shuttle.shuttleSecondsOfDay = hour * 3600 + minute * 60;
+            shuttle.remainingTimeSeconds = shuttle.shuttleSecondsOfDay - currentSecondsOfDay;
+            return shuttle;
+        })
+        .filter(shuttle => {
+            // 운행이 완료된 것(출발 시각이 현재 시각보다 0초 이상 지난 경우)은 표시하지 않음
+            // 셔틀 도착 시각이 현재 시간보다 1초 이내로 남은 경우까지만 표시 (출발 직전까지)
+            return shuttle.remainingTimeSeconds > 0; 
+        })
+        .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay); // 시간 순으로 정렬
+
     container.innerHTML = '';
     
-    if (data.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">운행 시간표 정보가 없습니다.</p>';
+    if (processedData.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">운행 예정인 시간표 정보가 없습니다.</p>';
         return;
     }
     
-    let nextShuttleFound = false;
-
-    data.forEach(shuttle => {
-        const [hour, minute] = shuttle.time.split(':').map(Number);
-        const shuttleSecondsOfDay = hour * 3600 + minute * 60;
-        
-        let remainingTimeSeconds = shuttleSecondsOfDay - currentSecondsOfDay;
+    processedData.forEach((shuttle, index) => {
+        const remainingTimeSeconds = shuttle.remainingTimeSeconds;
         let statusText = '';
         let statusClass = 'scheduled';
-        let isNextShuttle = false;
-
-        // 1분 미만으로 남은 버스는 '운행중' 또는 '도착'으로 처리 가능하지만, 여기서는 '5분 이내'로 통일
         
-        if (remainingTimeSeconds < -300) { 
-            // 5분 이상 지난 버스는 '운행완료'
-            statusText = '운행완료';
-            statusClass = 'completed';
-        } else if (remainingTimeSeconds > -300 && remainingTimeSeconds <= 300) { 
-             // 5분 이내로 남은 버스 (300초 = 5분)
-            isNextShuttle = true;
-            nextShuttleFound = true;
+        // 상위 2개 항목에만 next-shuttle 클래스 적용
+        const isNextShuttle = (index < 2); 
+
+        if (remainingTimeSeconds <= 300) { 
+            // 5분 이내 (깜빡임 효과)
+            const remainingMins = Math.floor(remainingTimeSeconds / 60);
+            const remainingSecs = remainingTimeSeconds % 60;
             
-            const absRemainingTime = Math.max(0, remainingTimeSeconds);
-            const remainingMins = Math.floor(absRemainingTime / 60);
-            const remainingSecs = absRemainingTime % 60;
-
             statusText = `도착까지 ${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초`;
-            statusClass = 'active blinking'; // 5분 이내 깜빡임 효과
+            statusClass = 'active blinking'; // active와 blinking 함께 적용
 
-        } else if (remainingTimeSeconds > 300 && !nextShuttleFound) {
-            // 다음에 올 예정인 버스 (5분 초과)
-            isNextShuttle = true;
-            nextShuttleFound = true;
-
+        } else {
+            // 5분 초과
             const remainingHours = Math.floor(remainingTimeSeconds / 3600);
             const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
             
@@ -365,26 +362,13 @@ function updateRealTimeShuttle() {
             } else {
                  minDisplay = `${remainingMins}분 남음`;
             }
-
             statusText = `도착까지 ${minDisplay}`;
-            statusClass = 'active';
-
-        } else if (remainingTimeSeconds > 300) {
-             // 그 이후의 운행 예정 버스
-            const remainingHours = Math.floor(remainingTimeSeconds / 3600);
-            const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
-            statusText = `운행 예정 (${remainingHours}h ${remainingMins}m)`;
-            statusClass = 'scheduled';
+            // 5분 초과 항목은 next-shuttle이더라도 green status 텍스트는 적용하지 않고 scheduled(회색) 유지 (시각적 일관성)
+            statusClass = 'scheduled'; 
         }
         
-        // 운행 완료된 버스는 목록 하단으로 보냄 (또는 1시간 이상 지난 버스는 제외)
-        if (remainingTimeSeconds < -3600) {
-             return;
-        }
-
         const item = document.createElement('div');
         item.className = 'shuttle-item';
-        // 다음 버스는 강조
         if (isNextShuttle) {
              item.classList.add('next-shuttle');
         }
