@@ -50,9 +50,13 @@ def load_meal_data():
     data = {}
     try:
         with open(STUDENT_MENU_PATH, 'r', encoding='utf-8') as f:
-            data['student'] = json.load(f)['메뉴']
+            student_data = json.load(f)
+            data['student'] = student_data['메뉴']
+            data['student_period'] = student_data['기간']
         with open(STAFF_MENU_PATH, 'r', encoding='utf-8') as f:
-            data['faculty'] = json.load(f)['메뉴']
+            staff_data = json.load(f)
+            data['faculty'] = staff_data['메뉴']
+            data['faculty_period'] = staff_data['기간']
     except Exception as e:
         print(f"Error loading meal data: {e}")
         data = {'student': {}, 'faculty': {}}
@@ -135,6 +139,29 @@ def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
             
     return formatted_menu
 
+def format_weekly_meal_for_client(weekly_meal_data):
+    """주간 식단 데이터를 API 응답 형식에 맞게 정제"""
+    formatted_data = {
+        "기간": weekly_meal_data.get('student_period', weekly_meal_data.get('faculty_period', {})),
+        "식단": {}
+    }
+    
+    # 모든 날짜 키를 추출하고 정렬합니다. 
+    all_date_keys = sorted(set(weekly_meal_data['student'].keys()).union(set(weekly_meal_data['faculty'].keys())))
+    
+    for cafeteria_type in ['student', 'faculty']:
+        formatted_data['식단'][cafeteria_type] = {}
+        menu_data = weekly_meal_data.get(cafeteria_type, {})
+        
+        for date_key in all_date_keys:
+            # format_meal_for_client 재사용하여 일별 정제
+            formatted_data['식단'][cafeteria_type][date_key] = format_meal_for_client(
+                menu_data, date_key, cafeteria_type
+            )
+            
+    return formatted_data
+
+
 # 전역 변수로 데이터 로드 및 오늘의 식단 키 설정
 SHUTTLE_SCHEDULE_DATA = load_bus_schedule()
 MEAL_PLAN_DATA = load_meal_data()
@@ -146,6 +173,8 @@ TODAY_MEAL_KEY = get_today_meal_key()
 @app.route('/')
 def index():
     return render_template('index.html')
+
+# 이전에 추가했던 /shuttle-full, /meal-full 경로는 팝업(모달) 방식으로 변경되면서 제거됨.
 
 @app.route('/api/shuttle')
 def get_shuttle():
@@ -178,6 +207,14 @@ def get_meal():
             "lunch": "식단 정보 없음",
             "dinner": "식단 정보 없음"
         })
+
+@app.route('/api/meal/week')
+def get_weekly_meal():
+    """이번주 전체 식단표 정보를 정제하여 제공"""
+    # MEAL_PLAN_DATA는 이미 로드된 주간 데이터입니다.
+    formatted_data = format_weekly_meal_for_client(MEAL_PLAN_DATA)
+    return jsonify(formatted_data)
+
 
 # 샘플 데이터 (요청된 수정 사항이 아니므로 유지)
 SCHEDULE_DATA = [

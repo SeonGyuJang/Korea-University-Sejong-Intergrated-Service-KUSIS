@@ -97,23 +97,38 @@ function setupEventListeners() {
         });
     });
     
-    // 모달 관련 이벤트
-    const modalCloseBtn = document.querySelector('.modal-close');
-    const btnCancel = document.querySelector('.btn-cancel');
-    const btnSave = document.querySelector('.btn-save');
-    const memoModal = document.getElementById('memoModal');
-
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
-    if(btnCancel) btnCancel.addEventListener('click', closeModal);
-    if(btnSave) btnSave.addEventListener('click', saveMemo);
-    
-    if (memoModal) {
-        memoModal.addEventListener('click', (e) => {
-            if (e.target.id === 'memoModal') {
-                closeModal();
+    // 모달 관련 이벤트 (memoModal, shuttleModal, mealModal 모두 포함)
+    const allModals = document.querySelectorAll('.modal');
+    allModals.forEach(modal => {
+        // 모달 배경 클릭 시 닫기
+        modal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
             }
         });
-    }
+        // 닫기 버튼 클릭 시 닫기 (클래스 'modal-close'를 가진 모든 버튼)
+        modal.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+        });
+    });
+
+    const btnSave = document.querySelector('#memoModal .btn-save');
+    if(btnSave) btnSave.addEventListener('click', saveMemo);
+    
+    // --- 전체 보기 버튼 이벤트 리스너 수정 (모달 열기) ---
+    document.querySelectorAll('.full-view-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const target = e.currentTarget.dataset.target;
+            if (target === 'shuttleModal') {
+                openShuttleModal();
+            } else if (target === 'mealModal') {
+                openMealModal();
+            }
+        });
+    });
+    // --- 수정 완료 ---
     
     // 네비게이션 메뉴 클릭 (새 탭 로드 기능)
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -382,6 +397,57 @@ function updateRealTimeShuttle() {
     });
 }
 
+// --- 신규: 셔틀버스 전체 시간표 모달 기능 ---
+function openShuttleModal() {
+    const modal = document.getElementById('shuttleModal');
+    const container = modal.querySelector('.shuttle-full-table-container');
+    
+    // 셔틀 데이터가 없으면 로드 시도
+    if (!window.shuttleData) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 데이터를 로드 중입니다...</p>';
+        loadShuttleSchedule().then(() => renderFullShuttleTable(container));
+    } else {
+        renderFullShuttleTable(container);
+    }
+    
+    modal.classList.add('active');
+}
+
+function renderFullShuttleTable(container) {
+    let data = window.shuttleData || [];
+    
+    if (data.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 정보가 없습니다.</p>';
+        return;
+    }
+    
+    // 시간, 타입, 경로 순으로 정렬
+    data.sort((a, b) => {
+        if (a.type === b.type) {
+            return a.time.localeCompare(b.time);
+        }
+        // 평일이 일요일보다 먼저 오도록 정렬 (임의 설정)
+        if (a.type === '평일') return -1;
+        if (b.type === '평일') return 1;
+        return a.type.localeCompare(b.type); 
+    });
+
+    let html = '<table class="shuttle-full-table"><thead><tr><th>출발 시각</th><th>노선 구분</th><th>경로</th><th>비고</th></tr></thead><tbody>';
+    
+    data.forEach(shuttle => {
+        html += `
+            <tr>
+                <td>${shuttle.time}</td>
+                <td>${shuttle.type}</td>
+                <td>${shuttle.route}</td>
+                <td>${shuttle.note}</td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 
 // 식단 로드 (API 사용, 중식 3단계 분리 반영)
 async function loadMealPlan(cafeteria) {
@@ -432,6 +498,97 @@ async function loadMealPlan(cafeteria) {
         if (document.getElementById('lunch-snack_plus')) document.getElementById('lunch-snack_plus').textContent = '데이터 로드 실패';
         if (document.getElementById('lunch-faculty')) document.getElementById('lunch-faculty').textContent = '데이터 로드 실패';
     }
+}
+
+
+// --- 신규: 주간 식단표 모달 기능 ---
+async function openMealModal() {
+    const modal = document.getElementById('mealModal');
+    const container = modal.querySelector('.meal-full-table-container');
+    
+    container.innerHTML = '<p style="text-align: center; padding: 20px;">주간 식단표를 불러오는 중입니다...</p>';
+    modal.classList.add('active');
+    
+    try {
+        const response = await fetch('/api/meal/week');
+        const data = await response.json();
+        renderWeeklyMealTable(container, data);
+    } catch (error) {
+        console.error('Failed to load weekly meal plan:', error);
+        container.innerHTML = '<p style="text-align: center; color: var(--color-danger); padding: 20px;">주간 식단 데이터를 로드하는 데 실패했습니다.</p>';
+    }
+}
+
+function renderWeeklyMealTable(container, data) {
+    if (!data.식단 || Object.keys(data.식단).length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px;">이번 주 식단 정보가 없습니다.</p>';
+        return;
+    }
+
+    // 학생 식당 기준으로 날짜 키 추출 및 정렬
+    const studentMenu = data.식단.student || {};
+    const dates = Object.keys(studentMenu).sort();
+    
+    let html = '<table class="meal-full-table"><thead><tr><th style="min-width: 100px;">구분</th>';
+    dates.forEach(date => {
+        html += `<th>${date}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    
+    const cafeteriaOrder = ['student', 'faculty'];
+    
+    // 학생 식당 렌더링
+    const student = data.식단.student;
+    if (student) {
+        // 학생 식당 조식
+        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">학생 식당 - 조식</td>`;
+        dates.forEach(date => {
+            html += `<td>${student[date].breakfast || '정보 없음'}</td>`;
+        });
+        html += `</tr>`;
+        
+        // 학생 식당 중식 (3가지 코너)
+        const studentLunchMenus = [
+            { id: 'korean', name: '한식' },
+            { id: 'ala_carte', name: '일품/분식' },
+            { id: 'snack_plus', name: 'Plus' }
+        ];
+        
+        studentLunchMenus.forEach((meal, index) => {
+            html += `<tr>`;
+            if (index === 0) {
+                html += `<td rowspan="3" style="background: var(--bg-primary); font-weight: 600; vertical-align: middle;">학생 식당 - 중식</td>`;
+            }
+            dates.forEach(date => {
+                const dailyLunch = student[date].lunch;
+                const menuText = typeof dailyLunch === 'object' ? dailyLunch[meal.id] : dailyLunch;
+                html += `<td><span class="meal-category-title">${meal.name}</span><div class="meal-menu-text">${menuText || '정보 없음'}</div></td>`;
+            });
+            html += `</tr>`;
+        });
+
+        // 학생 식당 석식
+        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">학생 식당 - 석식</td>`;
+        dates.forEach(date => {
+            html += `<td>${student[date].dinner || '정보 없음'}</td>`;
+        });
+        html += `</tr>`;
+    }
+    
+    // 교직원 식당 렌더링
+    const faculty = data.식단.faculty;
+    if (faculty) {
+        // 교직원 식당 중식 (단일 메뉴)
+        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">교직원 식당 - 중식</td>`;
+        dates.forEach(date => {
+            // 교직원 식당은 lunch가 객체가 아닌 문자열
+            html += `<td>${faculty[date].lunch || '정보 없음'}</td>`;
+        });
+        html += `</tr>`;
+    }
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
 }
 
 // 오늘의 일정 로드/표시/시간표/메모 함수 (변경 없음, 유지)

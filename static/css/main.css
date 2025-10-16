@@ -245,6 +245,26 @@
     color: var(--korea-red);
 }
 
+/* 신규: 전체 보기 버튼 스타일 */
+.full-view-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.full-view-btn:hover {
+    border-color: var(--korea-red);
+    color: var(--korea-red);
+    background: #fef5f7;
+}
+
 .btn-more {
     background: none;
     border: none;
@@ -527,6 +547,13 @@
     flex-wrap: wrap; /* 탭이 많아져서 줄바꿈 허용 */
 }
 
+/* shuttle-widget header controls adjustment */
+.shuttle-widget .widget-header .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .shuttle-widget .current-time {
     font-size: 14px;
     font-weight: 600;
@@ -619,6 +646,29 @@
     gap: 10px;
     padding-top: 8px;
 }
+
+/* FIX: 식단 위젯 헤더 스타일 재정의 */
+.meal-widget .widget-header {
+    display: flex;
+    flex-direction: column; /* 제목/버튼 그룹과 탭 그룹을 세로로 분리 */
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+/* 신규: 제목과 전체 보기 버튼 그룹 스타일 */
+.meal-widget .widget-header .header-title-group {
+    display: flex;
+    justify-content: space-between; /* 버튼을 오른쪽으로 밀기 위해 */
+    align-items: center;
+    width: 100%; /* 너비를 100%로 설정 */
+    margin-bottom: 8px; /* 탭과의 간격 조정 */
+}
+
+.meal-widget .widget-header .widget-tabs {
+    margin-bottom: 0; 
+}
+
 
 .meal-item {
     padding: 16px;
@@ -875,6 +925,78 @@
 
 .btn-save:hover {
     background: var(--korea-red-dark);
+}
+
+/* 신규: LARGE MODAL STYLE for Full View */
+.modal.large-modal .modal-content {
+    max-width: 900px; 
+    width: 90%;
+    height: 90vh; /* 높이도 확장 */
+    display: flex;
+    flex-direction: column;
+}
+
+.modal.large-modal .modal-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+/* 신규: 모달 내 테이블 스타일 */
+.shuttle-full-table-container,
+.meal-full-table-container {
+    overflow-x: auto;
+}
+
+.shuttle-full-table,
+.meal-full-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 700px;
+}
+
+.shuttle-full-table th, .shuttle-full-table td,
+.meal-full-table th, .meal-full-table td {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: center;
+}
+
+.shuttle-full-table th,
+.meal-full-table th {
+    background: var(--bg-primary);
+    font-weight: 600;
+    color: var(--korea-red);
+    white-space: nowrap;
+}
+
+.shuttle-full-table tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+/* Weekly Meal Table Specific Styles */
+.meal-full-table td {
+    vertical-align: top;
+    text-align: left;
+    white-space: pre-wrap;
+    line-height: 1.5;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.meal-full-table .meal-category-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 8px;
+    display: block;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 4px;
+}
+.meal-full-table .meal-category-title:first-child {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
 }
 
 /* 스크롤바 스타일 */
