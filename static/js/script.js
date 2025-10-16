@@ -302,7 +302,9 @@ function updateRealTimeShuttle() {
     let data = window.shuttleData || [];
     
     // 1. 요일 필터링 (2025/10/16 목요일 기준, '평일' 데이터만 필터링)
-    const todayDayOfWeek = 4;
+    // 실제 날짜는 2025/10/16 (목요일)로 가정
+    const TODAY_DATE = new Date(2025, 9, 16); // Month is 0-indexed, so 9 is October
+    const todayDayOfWeek = TODAY_DATE.getDay(); // 0=Sunday, 4=Thursday(목요일)
     const dayType = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? '일요일' : '평일';
 
     data = data.filter(s => s.type === dayType || s.type === '기타');
@@ -311,14 +313,14 @@ function updateRealTimeShuttle() {
     data = data.filter(s => {
         switch (currentFilter) {
             case 'school_to_station':
-                // 학교 → 조치원역 방면 노선 필터링
-                return s.route === '학교 → 조치원역' || s.route === '학교 → 조치원역/오송역';
+                // 학교 → 조치원역 방면 노선 필터링 (오송 경유 포함)
+                return s.route.includes('학교 → 조치원역');
             case 'station_to_school':
-                // 조치원역 → 학교 노선 필터링
-                return s.route === '조치원/오송역 → 학교';
+                // 조치원역 → 학교 노선 필터링 (오송 경유 포함)
+                return s.route.includes('조치원/오송역 → 학교') || s.route === '조치원역 → 학교';
             case 'osong':
-                // 오송역 노선 필터링
-                return s.route.includes('오송역');
+                // 오송역 노선 필터링 (Osong_Included 그룹 필터)
+                return s.route_group === 'Osong_Included';
             case 'all':
             default:
                 return true;
@@ -327,7 +329,14 @@ function updateRealTimeShuttle() {
 
     // --- 실시간 계산, 완료 항목 제거, 시간 순 정렬 ---
     const now = new Date();
+    // 현재는 2025/10/16 00:00:00 기준으로 계산
     const currentSecondsOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    
+    // 실제 시간 대신 임시 고정 시간(예: 17:30)을 사용하려면 아래 주석 해제 (디버깅용)
+    // const DEBUG_HOUR = 17;
+    // const DEBUG_MINUTE = 30;
+    // const currentSecondsOfDay = DEBUG_HOUR * 3600 + DEBUG_MINUTE * 60;
+
 
     let processedData = data
         .map(shuttle => {
@@ -338,7 +347,6 @@ function updateRealTimeShuttle() {
         })
         .filter(shuttle => {
             // 운행이 완료된 것(출발 시각이 현재 시각보다 0초 이상 지난 경우)은 표시하지 않음
-            // 셔틀 도착 시각이 현재 시간보다 1초 이내로 남은 경우까지만 표시 (출발 직전까지)
             return shuttle.remainingTimeSeconds > 0; 
         })
         .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay); // 시간 순으로 정렬
@@ -402,7 +410,6 @@ function openShuttleModal() {
     const modal = document.getElementById('shuttleModal');
     const container = modal.querySelector('.shuttle-full-table-container');
     
-    // 셔틀 데이터가 없으면 로드 시도
     if (!window.shuttleData) {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 데이터를 로드 중입니다...</p>';
         loadShuttleSchedule().then(() => renderFullShuttleTable(container));
@@ -421,32 +428,59 @@ function renderFullShuttleTable(container) {
         return;
     }
     
-    // 시간, 타입, 경로 순으로 정렬
-    data.sort((a, b) => {
-        if (a.type === b.type) {
-            return a.time.localeCompare(b.time);
+    // 데이터 그룹화: { '평일': { 'Jochiwon': [...], 'Osong_Included': [...] }, '일요일': {...} }
+    const groupedData = data.reduce((acc, shuttle) => {
+        acc[shuttle.type] = acc[shuttle.type] || {};
+        const groupKey = shuttle.route_group === 'Osong_Included' ? 'Osong' : 'Jochiwon';
+        acc[shuttle.type][groupKey] = acc[shuttle.type][groupKey] || [];
+        acc[shuttle.type][groupKey].push(shuttle);
+        return acc;
+    }, {});
+
+    // 시간 순으로 정렬
+    for (const day in groupedData) {
+        for (const routeGroup in groupedData[day]) {
+            groupedData[day][routeGroup].sort((a, b) => a.time.localeCompare(b.time));
         }
-        // 평일이 일요일보다 먼저 오도록 정렬 (임의 설정)
-        if (a.type === '평일') return -1;
-        if (b.type === '평일') return 1;
-        return a.type.localeCompare(b.type); 
+    }
+
+    let html = '';
+    const dayOrder = ['평일', '일요일'];
+    const routeOrder = ['Jochiwon', 'Osong'];
+
+    dayOrder.forEach(dayType => {
+        if (groupedData[dayType]) {
+            routeOrder.forEach(routeGroup => {
+                const shuttles = groupedData[dayType][routeGroup];
+                if (shuttles && shuttles.length > 0) {
+                    const groupName = routeGroup === 'Jochiwon' ? '조치원역 ↔ 학교 노선' : '오송역 포함 노선';
+                    
+                    html += `<span class="shuttle-group-header">${dayType} - ${groupName}</span>`;
+                    
+                    html += `<table class="shuttle-full-table">
+                        <thead><tr><th>출발 시각</th><th>노선 구분</th><th>비고</th></tr></thead><tbody>`;
+                    
+                    shuttles.forEach(shuttle => {
+                        html += `
+                            <tr>
+                                <td>${shuttle.time}</td>
+                                <td>${shuttle.route}</td>
+                                <td>${shuttle.note}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+            });
+        }
     });
 
-    let html = '<table class="shuttle-full-table"><thead><tr><th>출발 시각</th><th>노선 구분</th><th>경로</th><th>비고</th></tr></thead><tbody>';
-    
-    data.forEach(shuttle => {
-        html += `
-            <tr>
-                <td>${shuttle.time}</td>
-                <td>${shuttle.type}</td>
-                <td>${shuttle.route}</td>
-                <td>${shuttle.note}</td>
-            </tr>
-        `;
-    });
-    
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    if (html === '') {
+         container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 정보가 없습니다.</p>';
+    } else {
+         container.innerHTML = html;
+    }
 }
 
 // 식단 로드 (API 사용, 중식 3단계 분리 반영)
@@ -525,23 +559,41 @@ function renderWeeklyMealTable(container, data) {
         return;
     }
 
-    // 학생 식당 기준으로 날짜 키 추출 및 정렬
     const studentMenu = data.식단.student || {};
-    const dates = Object.keys(studentMenu).sort();
     
-    let html = '<table class="meal-full-table"><thead><tr><th style="min-width: 100px;">구분</th>';
+    // 날짜 키 추출 및 토요일/일요일 필터링 (사용자 요청 반영)
+    const dates = Object.keys(studentMenu)
+        .filter(dateKey => !dateKey.includes('(토)') && !dateKey.includes('(일)'))
+        .sort();
+    
+    if (dates.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px;">이번 주(평일) 식단 정보가 없습니다.</p>';
+        return;
+    }
+
+    let html = '<table class="meal-full-table"><thead><tr><th style="min-width: 120px;">구분</th>';
     dates.forEach(date => {
         html += `<th>${date}</th>`;
     });
     html += '</tr></thead><tbody>';
     
-    const cafeteriaOrder = ['student', 'faculty'];
+    const mealTypes = [
+        { id: 'breakfast', name: '조식', isStudentOnly: true },
+        { id: 'lunch-korean', name: '한식', isStudentOnly: true },
+        { id: 'lunch-ala_carte', name: '일품/분식', isStudentOnly: true },
+        { id: 'lunch-snack_plus', name: 'Plus', isStudentOnly: true },
+        { id: 'lunch', name: '중식', isStudentOnly: false, isFacultyOnly: true },
+        { id: 'dinner', name: '석식', isStudentOnly: true }
+    ];
     
-    // 학생 식당 렌더링
     const student = data.식단.student;
+    const faculty = data.식단.faculty;
+
+    // 학생 식당 렌더링
     if (student) {
+        
         // 학생 식당 조식
-        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">학생 식당 - 조식</td>`;
+        html += `<tr><td class="meal-type-cell">학생 식당 - 조식</td>`;
         dates.forEach(date => {
             html += `<td>${student[date].breakfast || '정보 없음'}</td>`;
         });
@@ -557,18 +609,18 @@ function renderWeeklyMealTable(container, data) {
         studentLunchMenus.forEach((meal, index) => {
             html += `<tr>`;
             if (index === 0) {
-                html += `<td rowspan="3" style="background: var(--bg-primary); font-weight: 600; vertical-align: middle;">학생 식당 - 중식</td>`;
+                html += `<td class="meal-type-cell" rowspan="3">학생 식당 - 중식</td>`;
             }
             dates.forEach(date => {
                 const dailyLunch = student[date].lunch;
-                const menuText = typeof dailyLunch === 'object' ? dailyLunch[meal.id] : dailyLunch;
-                html += `<td><span class="meal-category-title">${meal.name}</span><div class="meal-menu-text">${menuText || '정보 없음'}</div></td>`;
+                const menuText = typeof dailyLunch === 'object' ? dailyLunch[meal.id] : (dailyLunch || '정보 없음');
+                html += `<td><span class="meal-category-title">${meal.name}</span><div class="meal-menu-text">${menuText}</div></td>`;
             });
             html += `</tr>`;
         });
 
         // 학생 식당 석식
-        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">학생 식당 - 석식</td>`;
+        html += `<tr><td class="meal-type-cell">학생 식당 - 석식</td>`;
         dates.forEach(date => {
             html += `<td>${student[date].dinner || '정보 없음'}</td>`;
         });
@@ -576,12 +628,10 @@ function renderWeeklyMealTable(container, data) {
     }
     
     // 교직원 식당 렌더링
-    const faculty = data.식단.faculty;
     if (faculty) {
         // 교직원 식당 중식 (단일 메뉴)
-        html += `<tr><td style="background: var(--bg-primary); font-weight: 600;">교직원 식당 - 중식</td>`;
+        html += `<tr><td class="meal-type-cell">교직원 식당 - 중식</td>`;
         dates.forEach(date => {
-            // 교직원 식당은 lunch가 객체가 아닌 문자열
             html += `<td>${faculty[date].lunch || '정보 없음'}</td>`;
         });
         html += `</tr>`;

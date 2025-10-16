@@ -304,7 +304,7 @@
 }
 
 .tab.active {
-    background: var(--korea-red);
+    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
     color: white;
     border-color: var(--korea-red);
 }
@@ -855,6 +855,7 @@
     font-weight: 600;
 }
 
+/* 닫기 버튼 (X) 스타일: 기존 스타일 유지 및 적용 확인 */
 .modal-close {
     background: none;
     border: none;
@@ -910,12 +911,15 @@
 }
 
 .btn-cancel {
+    /* 모달 하단 닫기 버튼 디자인 개선 */
     background: var(--bg-primary);
     color: var(--text-secondary);
 }
 
 .btn-cancel:hover {
+    /* 호버 시 배경색 변경 */
     background: #ddd;
+    color: var(--text-primary);
 }
 
 .btn-save {
@@ -927,11 +931,11 @@
     background: var(--korea-red-dark);
 }
 
-/* 신규: LARGE MODAL STYLE for Full View */
+/* 신규: LARGE MODAL STYLE for Full View - 트렌디한 디자인 */
 .modal.large-modal .modal-content {
-    max-width: 900px; 
-    width: 90%;
-    height: 90vh; /* 높이도 확장 */
+    max-width: 90%; 
+    width: 900px;
+    height: 90vh; 
     display: flex;
     flex-direction: column;
 }
@@ -942,61 +946,118 @@
     padding: 24px;
 }
 
-/* 신규: 모달 내 테이블 스타일 */
+/* 신규: 모달 내 테이블 스타일 - 트렌디한 디자인 적용 */
 .shuttle-full-table-container,
 .meal-full-table-container {
     overflow-x: auto;
+    padding: 10px 0; /* 상하 여백 추가 */
 }
 
+/* 테이블 공통 스타일 */
 .shuttle-full-table,
 .meal-full-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate; /* border-spacing 사용을 위해 */
+    border-spacing: 0 8px; /* 행 간격 추가 */
     font-size: 13px;
     min-width: 700px;
 }
 
-.shuttle-full-table th, .shuttle-full-table td,
-.meal-full-table th, .meal-full-table td {
+/* 테이블 헤더 */
+.shuttle-full-table thead th,
+.meal-full-table thead th {
+    background: var(--korea-red);
+    color: white;
+    font-weight: 700;
+    padding: 12px 10px;
+    border: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+}
+
+.shuttle-full-table tbody tr,
+.meal-full-table tbody tr {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); /* 행별 그림자 */
+    transition: all 0.2s;
+}
+
+.shuttle-full-table tbody tr:hover,
+.meal-full-table tbody tr:hover {
+    background-color: #fef5f7; /* 호버 효과 */
+}
+
+/* 테이블 셀 스타일 */
+.shuttle-full-table td, .meal-full-table td {
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
+    border-left: none;
+    border-right: none;
     padding: 10px;
     text-align: center;
 }
 
-.shuttle-full-table th,
-.meal-full-table th {
-    background: var(--bg-primary);
-    font-weight: 600;
-    color: var(--korea-red);
-    white-space: nowrap;
-}
+/* 첫 번째 셀, 마지막 셀의 border-radius 처리 */
+.shuttle-full-table td:first-child, .meal-full-table td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.shuttle-full-table td:last-child, .meal-full-table td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+.shuttle-full-table thead th:first-child { border-top-left-radius: 8px; }
+.shuttle-full-table thead th:last-child { border-top-right-radius: 8px; }
+.meal-full-table thead th:first-child { border-top-left-radius: 8px; }
+.meal-full-table thead th:last-child { border-top-right-radius: 8px; }
 
-.shuttle-full-table tr:nth-child(even) {
-    background: #f8f9fa;
+/* 셔틀 테이블 그룹 헤더 */
+.shuttle-group-header {
+    background: var(--bg-primary);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 15px 10px;
+    margin-top: 20px;
+    border-bottom: 2px solid var(--korea-red);
+    display: block;
+    text-align: left;
+    white-space: nowrap;
 }
 
 /* Weekly Meal Table Specific Styles */
 .meal-full-table td {
     vertical-align: top;
     text-align: left;
-    white-space: pre-wrap;
-    line-height: 1.5;
+    white-space: pre-wrap; /* 텍스트 줄바꿈 개선 */
+    line-height: 1.6;
+    font-size: 13px;
+    color: var(--text-primary);
+    padding: 15px 10px;
+}
+
+/* 식단 카테고리 제목 */
+.meal-full-table .meal-category-title {
+    font-weight: 700;
+    color: var(--korea-red);
+    margin-bottom: 5px;
+    display: block;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed var(--border-color);
+    font-size: 12px;
+}
+.meal-full-table .meal-menu-text {
     font-size: 12px;
     color: var(--text-secondary);
 }
 
-.meal-full-table .meal-category-title {
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-top: 8px;
-    display: block;
-    border-top: 1px dashed var(--border-color);
-    padding-top: 4px;
+/* 요일 구분 셀 배경 */
+.meal-full-table tbody tr:nth-child(even) td {
+    background: #f8f9fa;
 }
-.meal-full-table .meal-category-title:first-child {
-    margin-top: 0;
-    border-top: none;
-    padding-top: 0;
+
+/* 식사 구분 셀 */
+.meal-full-table .meal-type-cell {
+    background: var(--bg-primary) !important;
+    font-weight: 600;
+    color: var(--korea-red);
+    text-align: center;
+    vertical-align: middle;
 }
 
 /* 스크롤바 스타일 */
@@ -1058,5 +1119,10 @@
     .search-box {
         width: auto;
         flex: 1;
+    }
+
+    .modal.large-modal .modal-content {
+        max-width: 95%;
+        width: 95%;
     }
 }

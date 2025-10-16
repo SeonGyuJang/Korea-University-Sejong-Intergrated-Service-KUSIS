@@ -22,23 +22,41 @@ def load_bus_schedule():
             next(f) 
             reader = csv.DictReader(f, fieldnames=['Departure_Time', 'Route', 'Type', 'Note'])
             for row in reader:
-                # 데이터 정제 및 변환
-                route_map = {
-                    'Station_to_School': '조치원/오송역 → 학교',
-                    'School_to_Station': '학교 → 조치원역',
-                    'Station_to_Osong': '조치원역 → 오송역',
-                    'School_to_Osong': '학교 → 조치원역/오송역'
-                }
+                note = row['Note'].strip()
                 
-                route_kr = route_map.get(row['Route'], row['Route'])
+                # 기본 매핑 설정 (조치원 전용으로 간주)
+                if row['Route'] == 'Station_to_School':
+                    route_kr = '조치원역 → 학교'
+                elif row['Route'] == 'School_to_Station':
+                    route_kr = '학교 → 조치원역'
+                elif row['Route'] == 'Station_to_Osong':
+                    route_kr = '조치원역 → 오송역'
+                elif row['Route'] == 'School_to_Osong':
+                    route_kr = '학교 → 조치원역/오송역'
+                else:
+                    route_kr = row['Route']
+                    
+                # 오송역 노선 특수 처리: Note에 '오송역'이 명시된 경우 노선명을 변경하고 그룹을 설정
+                if '오송역' in note:
+                    if row['Route'] == 'Station_to_School':
+                         route_kr = '조치원/오송역 → 학교 (경유)'
+                    elif row['Route'] == 'School_to_Station':
+                         route_kr = '학교 → 조치원역/오송역 (경유)'
+                         
+                # 그룹 설정: Osong_Included 그룹은 별도 노선(Osong) 또는 Note에 '오송역'이 포함된 노선
+                route_group = "Jochiwon"
+                if '오송역' in note or row['Route'].endswith('Osong'):
+                    route_group = "Osong_Included"
+
+
                 type_kr = '평일' if row['Type'] == 'Weekday' else '일요일' if row['Type'] == 'Sunday' else '기타'
                 
-                # 클라이언트에서 사용할 상태 추가 (status 대신 time만 넘김. 클라이언트에서 현재 시간에 맞춰 계산)
                 schedule.append({
                     "time": row['Departure_Time'],
                     "route": route_kr,
                     "type": type_kr,
-                    "note": row['Note'].strip(),
+                    "note": note,
+                    "route_group": route_group # JS에서 노선 그룹 분류를 위한 필드 추가
                 })
         return schedule
     except Exception as e:
@@ -69,6 +87,20 @@ def get_today_meal_key():
     day_of_week_kr = ['월', '화', '수', '목', '금', '토', '일'][today.weekday()]
     return f"{today.month}.{today.day}({day_of_week_kr})"
 
+def menu_to_string(menu_list):
+    """메뉴 리스트를 문자열로 변환 (알레르기, 칼로리 정보 제거)"""
+    cleaned_menu = [
+        item.strip() for item in menu_list 
+        if not item.lower().endswith('kcal') and 
+        not item.isdigit() and 
+        'kcal' not in item.lower()
+    ]
+    # 괄호와 그 안의 내용 제거 (알레르기 정보)
+    cleaned_menu = [item.split('(')[0].strip() for item in cleaned_menu]
+    
+    # 빈 문자열 및 중복 제거 후 반환
+    return ", ".join(sorted(list(set(item for item in cleaned_menu if item))))
+    
 def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
     """API 응답 형식에 맞게 식단 데이터를 정제 (중식 3단계 분리 반영)"""
     formatted_menu = {
@@ -87,20 +119,6 @@ def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
         
     daily_menu = menu_data.get(target_date_key, {})
     
-    # 메뉴 리스트를 문자열로 변환 (알레르기, 칼로리 정보 제거)
-    def menu_to_string(menu_list):
-        cleaned_menu = [
-            item.strip() for item in menu_list 
-            if not item.lower().endswith('kcal') and 
-            not item.isdigit() and 
-            'kcal' not in item.lower()
-        ]
-        # 괄호와 그 안의 내용 제거 (알레르기 정보)
-        cleaned_menu = [item.split('(')[0].strip() for item in cleaned_menu]
-        
-        # 빈 문자열 및 중복 제거 후 반환
-        return ", ".join(sorted(list(set(item for item in cleaned_menu if item))))
-
     if cafeteria_type == 'student':
         # 학생 식당 (조식, 중식-한식/일품/분식/plus, 석식)
         
@@ -173,8 +191,6 @@ TODAY_MEAL_KEY = get_today_meal_key()
 @app.route('/')
 def index():
     return render_template('index.html')
-
-# 이전에 추가했던 /shuttle-full, /meal-full 경로는 팝업(모달) 방식으로 변경되면서 제거됨.
 
 @app.route('/api/shuttle')
 def get_shuttle():
