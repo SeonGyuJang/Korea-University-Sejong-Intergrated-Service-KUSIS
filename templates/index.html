@@ -69,11 +69,13 @@
         <div class="widget shuttle-widget">
             <div class="widget-header">
                 <h3><i class="fas fa-bus"></i> 셔틀버스 시간표</h3>
-                <div class="widget-tabs">
-                    <button class="tab active" data-tab="all">전체</button>
-                    <button class="tab" data-tab="seoul">조치원역</button>
-                    <button class="tab" data-tab="sejong">오송역</button>
-                </div>
+                <div id="currentTimeDisplay" class="current-time"></div>
+            </div>
+            <div class="widget-tabs">
+                <button class="tab active" data-tab="all">전체</button>
+                <button class="tab" data-tab="school_to_station">학교 → 조치원역</button>
+                <button class="tab" data-tab="station_to_school">조치원역 → 학교</button>
+                <button class="tab" data-tab="osong">오송역 노선</button>
             </div>
             <div class="shuttle-list" id="shuttleList">
                 </div>
@@ -88,19 +90,38 @@
                 </div>
             </div>
             <div class="meal-content">
-                <div class="meal-time">
-                    <div class="meal-item">
-                        <h4><i class="fas fa-bread-slice"></i> 조식</h4>
-                        <p id="breakfast">김치찌개, 계란후라이, 김, 깍두기</p>
+                
+                <div class="meal-item">
+                    <h4><i class="fas fa-bread-slice"></i> 조식</h4>
+                    <p id="breakfast">식단 정보 없음</p>
+                </div>
+
+                <div class="meal-item" id="studentLunchContainer">
+                    <h4><i class="fas fa-sun"></i> 중식</h4>
+                    <div class="meal-menu-group" id="studentLunchSection">
+                        <div class="meal-category">
+                            <div class="category-title">한식</div>
+                            <p id="lunch-korean" class="meal-content-text">식단 정보 없음</p>
+                        </div>
+                        <div class="meal-category">
+                            <div class="category-title">일품/분식</div>
+                            <p id="lunch-ala_carte" class="meal-content-text">식단 정보 없음</p>
+                        </div>
+                        <div class="meal-category">
+                            <div class="category-title">Plus</div>
+                            <p id="lunch-snack_plus" class="meal-content-text">식단 정보 없음</p>
+                        </div>
                     </div>
-                    <div class="meal-item">
-                        <h4><i class="fas fa-sun"></i> 중식</h4>
-                        <p id="lunch">돈까스, 스파게티, 샐러드, 과일</p>
-                    </div>
-                    <div class="meal-item">
-                        <h4><i class="fas fa-moon"></i> 석식</h4>
-                        <p id="dinner">제육볶음, 된장찌개, 나물, 김치</p>
-                    </div>
+                </div>
+
+                <div class="meal-item" id="facultyLunchContainer" style="display: none;">
+                    <h4><i class="fas fa-sun"></i> 중식</h4>
+                    <p id="lunch-faculty">식단 정보 없음</p>
+                </div>
+
+                <div class="meal-item">
+                    <h4><i class="fas fa-moon"></i> 석식</h4>
+                    <p id="dinner">식단 정보 없음</p>
                 </div>
             </div>
         </div>

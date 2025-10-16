@@ -91,7 +91,7 @@ def crawl_and_save_menu():
         # 학생 식단표와 교직원 식단표 찾기
         student_menu = soup.find_all('div', class_='diet-menu')[1]
         staff_menu = soup.find_all('div', class_='diet-menu')[0]
-        
+            
         # 날짜 정보 추출
         date_range = student_menu.find('p', class_='title').text.split(' ')[0:3]
         period_info = {

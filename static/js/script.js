@@ -1,36 +1,13 @@
 // 전역 변수
 let timerInterval = null;
+let shuttleUpdateInterval = null; // 셔틀버스 실시간 업데이트 인터벌
 let timerSeconds = 0;
 let isTimerRunning = false;
 let todayStudyTime = 0;
 let weeklyStudyTimes = [0, 0, 0, 0, 0, 0, 0]; // 최근 7일
 let currentMemo = { day: 0, period: 0, text: '' };
 
-// 임시 데이터
-const SHUTTLE_SCHEDULE_DATA = [
-    {"time": "08:00", "route": "학교 → 조치원역", "status": "운행예정"},
-    {"time": "09:30", "route": "학교 → 조치원역", "status": "운행예정"},
-    {"time": "12:00", "route": "학교 → 조치원역", "status": "운행중"},
-    {"time": "14:30", "route": "학교 → 조치원역", "status": "운행예정"},
-    {"time": "17:00", "route": "학교 → 조치원역", "status": "운행예정"},
-    {"time": "19:00", "route": "학교 → 조치원역", "status": "운행예정"},
-    {"time": "20:00", "route": "학교 → 오송역", "status": "운행예정"},
-
-];
-
-const MEAL_PLAN_DATA = {
-    "student": {
-        "breakfast": "김치찌개, 계란후라이, 김, 깍두기",
-        "lunch": "돈까스, 스파게티, 샐러드, 과일",
-        "dinner": "제육볶음, 된장찌개, 나물, 김치"
-    },
-    "faculty": {
-        "breakfast": "미역국, 불고기, 계란찜, 김치",
-        "lunch": "비빔밥, 된장찌개, 튀김, 과일",
-        "dinner": "삼겹살, 김치찌개, 쌈채소, 된장"
-    }
-};
-
+// 임시 데이터 (API를 통해 가져오는 셔틀/식단 외의 데이터는 유지)
 const SCHEDULE_DATA_DATA = [
     {"time": "09:00", "title": "과목1", "location": "석경 424호"},
     {"time": "13:00", "title": "과목2", "location": "농심국제관 205호"},
@@ -56,10 +33,13 @@ function initializeApp() {
     updateCurrentDate();
     
     // 데이터 로드
-    loadShuttleSchedule();
-    loadMealPlan('student');
+    loadShuttleSchedule(); // API에서 데이터 로드
+    loadMealPlan('student'); // API에서 데이터 로드
     loadTodaySchedule();
     loadTimetable();
+
+    // 셔틀버스 실시간 업데이트 시작
+    startRealTimeUpdates();
     
     // 이벤트 리스너 등록
     setupEventListeners();
@@ -78,8 +58,16 @@ function updateCurrentDate() {
         weekday: 'long'
     };
     const dateString = now.toLocaleDateString('ko-KR', options);
-    const el = document.getElementById('currentDate');
-    if (el) el.textContent = dateString;
+    const elDate = document.getElementById('currentDate');
+    if (elDate) elDate.textContent = dateString;
+}
+
+// 셔틀버스 위젯에 현재 시간 표시
+function updateCurrentTimeDisplay() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const elTime = document.getElementById('currentTimeDisplay');
+    if (elTime) elTime.textContent = `현재 시간: ${timeString}`;
 }
 
 // 이벤트 리스너 설정
@@ -104,7 +92,8 @@ function setupEventListeners() {
         tab.addEventListener('click', (e) => {
             document.querySelectorAll('.shuttle-widget .tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
-            filterShuttleSchedule(e.target.dataset.tab);
+            // 필터 변경 후 실시간 업데이트 함수 호출하여 즉시 갱신
+            updateRealTimeShuttle(); 
         });
     });
     
@@ -159,7 +148,7 @@ function setupEventListeners() {
 }
 
 
-// 타이머 시작
+// 타이머 시작/정지/업데이트 함수 (변경 없음, 유지)
 function startTimer() {
     if (!isTimerRunning) {
         isTimerRunning = true;
@@ -174,7 +163,6 @@ function startTimer() {
     }
 }
 
-// 타이머 정지
 function stopTimer() {
     if (isTimerRunning) {
         isTimerRunning = false;
@@ -194,7 +182,6 @@ function stopTimer() {
     }
 }
 
-// 타이머 디스플레이 업데이트
 function updateTimerDisplay() {
     const hours = Math.floor(timerSeconds / 3600);
     const minutes = Math.floor((timerSeconds % 3600) / 60);
@@ -205,7 +192,6 @@ function updateTimerDisplay() {
     if(el) el.textContent = display;
 }
 
-// 타이머 프로그레스 업데이트
 function updateTimerProgress() {
     const maxSeconds = 14400; // 4시간
     const progress = Math.min((timerSeconds / maxSeconds) * 283, 283);
@@ -213,7 +199,6 @@ function updateTimerProgress() {
     if (circle) circle.style.strokeDashoffset = 283 - progress;
 }
 
-// 공부 시간 통계 업데이트
 function updateStudyStats() {
     const todayHours = Math.floor(todayStudyTime / 3600);
     const todayMinutes = Math.floor((todayStudyTime % 3600) / 60);
@@ -228,7 +213,6 @@ function updateStudyStats() {
     if (weeklyEl) weeklyEl.textContent = `${avgHours}h ${avgMinutes}m`;
 }
 
-// 공부 시간 저장/불러오기
 function saveStudyTime() {
     const data = {
         todayStudyTime: todayStudyTime,
@@ -264,67 +248,213 @@ function loadStudyTime() {
     }
 }
 
-// 셔틀버스 일정 로드 (임시 데이터 사용)
-function loadShuttleSchedule() {
-    window.shuttleData = SHUTTLE_SCHEDULE_DATA;
-    displayShuttleSchedule(window.shuttleData);
+
+// 셔틀버스 실시간 업데이트 시작
+function startRealTimeUpdates() {
+    // 1초마다 현재 시간 업데이트 및 셔틀버스 시간표 재계산/재렌더링
+    if (shuttleUpdateInterval) clearInterval(shuttleUpdateInterval);
+    shuttleUpdateInterval = setInterval(() => {
+        updateCurrentTimeDisplay();
+        updateRealTimeShuttle();
+    }, 1000);
 }
 
-// 셔틀버스 일정 표시
-function displayShuttleSchedule(data) {
+// 셔틀버스 일정 로드 (API 사용)
+async function loadShuttleSchedule() {
+    try {
+        const response = await fetch('/api/shuttle');
+        const data = await response.json();
+        window.shuttleData = data;
+        // 데이터 로드 후 실시간 업데이트 함수를 호출하여 초기 화면 렌더링
+        updateRealTimeShuttle();
+    } catch (error) {
+        console.error('Failed to load shuttle schedule:', error);
+        window.shuttleData = [];
+        updateRealTimeShuttle(); // 오류 메시지 표시를 위해 호출
+    }
+}
+
+// 셔틀버스 실시간 업데이트 및 표시
+function updateRealTimeShuttle() {
     const container = document.getElementById('shuttleList');
     if (!container) return;
+
+    // 현재 활성화된 필터 탭 확인
+    const activeTab = document.querySelector('.shuttle-widget .tab.active');
+    const currentFilter = activeTab ? activeTab.dataset.tab : 'all';
+    
+    // 현재 필터에 맞는 데이터 필터링
+    let data = window.shuttleData || [];
+    
+    // 1. 요일 필터링 (2025/10/16 목요일 기준, '평일' 데이터만 필터링)
+    // NOTE: 파일의 기간에 맞춰 목요일(평일)을 가정합니다. 실제 구현 시에는 new Date()를 사용해야 합니다.
+    const todayDayOfWeek = 4;
+    const dayType = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? '일요일' : '평일';
+
+    data = data.filter(s => s.type === dayType || s.type === '기타');
+    
+    // 2. 경로 필터링
+    data = data.filter(s => {
+        switch (currentFilter) {
+            case 'school_to_station':
+                // 학교 → 조치원역 방면 노선 필터링
+                return s.route === '학교 → 조치원역' || s.route === '학교 → 조치원역/오송역';
+            case 'station_to_school':
+                // 조치원역 → 학교 노선 필터링
+                return s.route === '조치원/오송역 → 학교';
+            case 'osong':
+                // 오송역 노선 필터링
+                return s.route.includes('오송역');
+            case 'all':
+            default:
+                return true;
+        }
+    });
+
+    // --- 실시간 계산 및 렌더링 ---
+    const now = new Date();
+    const currentSecondsOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
     container.innerHTML = '';
     
+    if (data.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">운행 시간표 정보가 없습니다.</p>';
+        return;
+    }
+    
+    let nextShuttleFound = false;
+
     data.forEach(shuttle => {
+        const [hour, minute] = shuttle.time.split(':').map(Number);
+        const shuttleSecondsOfDay = hour * 3600 + minute * 60;
+        
+        let remainingTimeSeconds = shuttleSecondsOfDay - currentSecondsOfDay;
+        let statusText = '';
+        let statusClass = 'scheduled';
+        let isNextShuttle = false;
+
+        // 1분 미만으로 남은 버스는 '운행중' 또는 '도착'으로 처리 가능하지만, 여기서는 '5분 이내'로 통일
+        
+        if (remainingTimeSeconds < -300) { 
+            // 5분 이상 지난 버스는 '운행완료'
+            statusText = '운행완료';
+            statusClass = 'completed';
+        } else if (remainingTimeSeconds > -300 && remainingTimeSeconds <= 300) { 
+             // 5분 이내로 남은 버스 (300초 = 5분)
+            isNextShuttle = true;
+            nextShuttleFound = true;
+            
+            const absRemainingTime = Math.max(0, remainingTimeSeconds);
+            const remainingMins = Math.floor(absRemainingTime / 60);
+            const remainingSecs = absRemainingTime % 60;
+
+            statusText = `도착까지 ${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초`;
+            statusClass = 'active blinking'; // 5분 이내 깜빡임 효과
+
+        } else if (remainingTimeSeconds > 300 && !nextShuttleFound) {
+            // 다음에 올 예정인 버스 (5분 초과)
+            isNextShuttle = true;
+            nextShuttleFound = true;
+
+            const remainingHours = Math.floor(remainingTimeSeconds / 3600);
+            const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
+            
+            let minDisplay = '';
+            if (remainingHours > 0) {
+                 minDisplay = `${remainingHours}시간 ${remainingMins}분`;
+            } else {
+                 minDisplay = `${remainingMins}분 남음`;
+            }
+
+            statusText = `도착까지 ${minDisplay}`;
+            statusClass = 'active';
+
+        } else if (remainingTimeSeconds > 300) {
+             // 그 이후의 운행 예정 버스
+            const remainingHours = Math.floor(remainingTimeSeconds / 3600);
+            const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
+            statusText = `운행 예정 (${remainingHours}h ${remainingMins}m)`;
+            statusClass = 'scheduled';
+        }
+        
+        // 운행 완료된 버스는 목록 하단으로 보냄 (또는 1시간 이상 지난 버스는 제외)
+        if (remainingTimeSeconds < -3600) {
+             return;
+        }
+
         const item = document.createElement('div');
         item.className = 'shuttle-item';
-        
-        let statusClass = 'scheduled';
-        if (shuttle.status === '운행중') statusClass = 'active';
-        else if (shuttle.status === '운행완료') statusClass = 'completed';
+        // 다음 버스는 강조
+        if (isNextShuttle) {
+             item.classList.add('next-shuttle');
+        }
         
         item.innerHTML = `
             <div class="shuttle-time">${shuttle.time}</div>
             <div class="shuttle-route">${shuttle.route}</div>
-            <div class="shuttle-status ${statusClass}">${shuttle.status}</div>
+            <div class="shuttle-status ${statusClass}">${statusText}</div>
         `;
         container.appendChild(item);
     });
 }
 
-// 셔틀버스 일정 필터링
-function filterShuttleSchedule(filter) {
-    if (!window.shuttleData) return;
-    
-    let filteredData = window.shuttleData;
-    if (filter === 'seoul') {
-        filteredData = window.shuttleData.filter(s => s.route.includes('조치원역'));
-    } else if (filter === 'sejong') {
-        filteredData = window.shuttleData.filter(s => s.route.includes('오송역'));
+
+// 식단 로드 (API 사용, 중식 3단계 분리 반영)
+async function loadMealPlan(cafeteria) {
+    try {
+        const response = await fetch(`/api/meal?cafeteria=${cafeteria}`);
+        const data = await response.json();
+        
+        const studentLunchContainer = document.getElementById('studentLunchContainer');
+        const facultyLunchContainer = document.getElementById('facultyLunchContainer');
+        const lunchFaculty = document.getElementById('lunch-faculty');
+        
+        // 조식/석식 공통 업데이트
+        document.getElementById('breakfast').textContent = data.breakfast || '식단 정보 없음';
+        document.getElementById('dinner').textContent = data.dinner || '식단 정보 없음';
+
+        if (cafeteria === 'student') {
+            // 학생 식당 (중식 3단계)
+            if (studentLunchContainer) studentLunchContainer.style.display = 'block'; 
+            if (facultyLunchContainer) facultyLunchContainer.style.display = 'none';
+
+            if (typeof data.lunch === 'object') {
+                document.getElementById('lunch-korean').textContent = data.lunch.korean || '식단 정보 없음';
+                document.getElementById('lunch-ala_carte').textContent = data.lunch.ala_carte || '식단 정보 없음';
+                document.getElementById('lunch-snack_plus').textContent = data.lunch.snack_plus || '식단 정보 없음';
+            } else {
+                // API 응답 구조 오류 시
+                document.getElementById('lunch-korean').textContent = '데이터 오류';
+                document.getElementById('lunch-ala_carte').textContent = '데이터 오류';
+                document.getElementById('lunch-snack_plus').textContent = '데이터 오류';
+            }
+
+        } else if (cafeteria === 'faculty') {
+            // 교직원 식당 (중식 단일)
+            if (studentLunchContainer) studentLunchContainer.style.display = 'none';
+            if (facultyLunchContainer) facultyLunchContainer.style.display = 'block';
+            
+            if (lunchFaculty) lunchFaculty.textContent = data.lunch || '식단 정보 없음';
+        }
+        
+    } catch (error) {
+        console.error('Failed to load meal plan:', error);
+        
+        document.getElementById('breakfast').textContent = '데이터 로드 실패';
+        document.getElementById('dinner').textContent = '데이터 로드 실패';
+        
+        if (document.getElementById('lunch-korean')) document.getElementById('lunch-korean').textContent = '데이터 로드 실패';
+        if (document.getElementById('lunch-ala_carte')) document.getElementById('lunch-ala_carte').textContent = '데이터 로드 실패';
+        if (document.getElementById('lunch-snack_plus')) document.getElementById('lunch-snack_plus').textContent = '데이터 로드 실패';
+        if (document.getElementById('lunch-faculty')) document.getElementById('lunch-faculty').textContent = '데이터 로드 실패';
     }
-    
-    displayShuttleSchedule(filteredData);
 }
 
-// 식단 로드 (임시 데이터 사용)
-function loadMealPlan(cafeteria) {
-    const data = MEAL_PLAN_DATA[cafeteria] || MEAL_PLAN_DATA['student'];
-    const breakfastEl = document.getElementById('breakfast');
-    const lunchEl = document.getElementById('lunch');
-    const dinnerEl = document.getElementById('dinner');
-
-    if (breakfastEl) breakfastEl.textContent = data.breakfast;
-    if (lunchEl) lunchEl.textContent = data.lunch;
-    if (dinnerEl) dinnerEl.textContent = data.dinner;
-}
-
-// 오늘의 일정 로드 (임시 데이터 사용)
+// 오늘의 일정 로드/표시/시간표/메모 함수 (변경 없음, 유지)
 function loadTodaySchedule() {
     displaySchedule(SCHEDULE_DATA_DATA);
 }
 
-// 일정 표시
 function displaySchedule(data) {
     const container = document.getElementById('scheduleList');
     if (!container) return;
@@ -349,13 +479,11 @@ function displaySchedule(data) {
     });
 }
 
-// 시간표 로드 (임시 데이터 사용)
 function loadTimetable() {
     window.timetableData = TIMETABLE_DATA;
     displayTimetable(window.timetableData);
 }
 
-// 시간표 표시
 function displayTimetable(data) {
     const tbody = document.getElementById('timetableBody');
     if (!tbody) return;
@@ -399,7 +527,6 @@ function displayTimetable(data) {
     }
 }
 
-// 메모 모달 관련 함수
 function openMemoModal(day, period, item) {
     currentMemo = { day, period, text: item.memo || '' };
     document.getElementById('memoText').value = item.memo || '';

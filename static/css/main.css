@@ -16,6 +16,11 @@
     --border-color: #e1e8ed;
     --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+    /* 새롭게 추가된 변수 */
+    --color-success: #27ae60;
+    --color-danger: #e74c3c;
+    --text-highlight: var(--korea-red);
+    --border-radius: 8px;
 }
 
 /* body 스타일은 layout.css로 통합됨 */
@@ -268,6 +273,7 @@
     font-size: 13px;
     cursor: pointer;
     transition: all 0.3s;
+    flex-shrink: 0; /* 셔틀 탭에서 줄바꿈 방지 */
 }
 
 .tab:hover {
@@ -512,6 +518,19 @@
 }
 
 /* 셔틀버스 위젯 */
+.shuttle-widget .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* 탭이 많아져서 줄바꿈 허용 */
+}
+
+.shuttle-widget .current-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--korea-red);
+}
+
 .shuttle-list {
     display: flex;
     flex-direction: column;
@@ -522,7 +541,7 @@
 
 .shuttle-item {
     display: grid;
-    grid-template-columns: 80px 1fr 100px;
+    grid-template-columns: 80px 1fr 150px; /* 시간, 경로, 상태/남은 시간 */
     gap: 16px;
     padding: 14px;
     background: var(--bg-primary);
@@ -534,6 +553,10 @@
 .shuttle-item:hover {
     background: #fef5f7;
     transform: translateY(-2px);
+}
+
+.shuttle-item.next-shuttle {
+    border-left: 3px solid var(--color-success);
 }
 
 .shuttle-time {
@@ -556,28 +579,38 @@
 
 .shuttle-status.active {
     background: #d4edda;
-    color: #155724;
+    color: var(--color-success);
+    font-weight: bold;
 }
 
 .shuttle-status.scheduled {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
 }
 
 .shuttle-status.completed {
     background: #f8d7da;
     color: #721c24;
+    text-decoration: line-through;
+}
+
+/* 5분 이내 셔틀버스 깜빡이는 효과 */
+@keyframes blinker {
+    50% { opacity: 0.3; }
+}
+
+.shuttle-status.blinking {
+    animation: blinker 1s linear infinite;
+    background: #f8d7da;
+    color: var(--color-danger); 
 }
 
 /* 식단 위젯 */
 .meal-content {
-    padding-top: 8px;
-}
-
-.meal-time {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
+    padding-top: 8px;
 }
 
 .meal-item {
@@ -606,6 +639,45 @@
     color: var(--text-secondary);
     line-height: 1.6;
 }
+
+/* 중식 3단계 분할 스타일 */
+.meal-item#studentLunchContainer {
+    padding-bottom: 16px;
+}
+
+.meal-menu-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.meal-category {
+    padding: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+}
+
+.meal-category .category-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    text-align: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 4px;
+}
+
+.meal-category .meal-content-text {
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
 
 /* 오른쪽 위젯 */
 .right-widgets {
