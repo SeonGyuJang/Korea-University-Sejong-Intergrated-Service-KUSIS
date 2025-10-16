@@ -124,21 +124,46 @@ function setupEventListeners() {
         });
     }
     
-    // 네비게이션 메뉴 클릭
+    // 네비게이션 메뉴 클릭 (iframe 로드 기능 수정)
+    const contentArea = document.querySelector('.content-area');
+    const contentFrame = document.getElementById('contentFrame');
+    const sidebarRight = document.getElementById('sidebarRight');
+
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
-            if (!e.target.closest('a[target="_blank"]')) {
-                e.preventDefault();
-                
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-                
-                const page = e.currentTarget.dataset.page;
-                console.log('Navigate to:', page);
+            if (e.currentTarget.getAttribute('target') === '_blank') {
+                return;
+            }
+            e.preventDefault();
+
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+
+            const page = e.currentTarget.dataset.page;
+            const url = e.currentTarget.dataset.url;
+
+            if (page === 'home') {
+                contentFrame.style.display = 'none';
+                contentArea.style.display = 'grid';
+                sidebarRight.style.display = 'flex';
+                contentFrame.src = 'about:blank';
+            } else if (url) {
+                contentArea.style.display = 'none';
+                sidebarRight.style.display = 'none';
+                contentFrame.style.display = 'block';
+                contentFrame.src = url;
+            } else {
+                console.log('Navigate to internal page (not implemented):', page);
+                // URL 없는 메뉴 클릭 시 홈으로 이동
+                contentFrame.style.display = 'none';
+                contentArea.style.display = 'grid';
+                sidebarRight.style.display = 'flex';
+                contentFrame.src = 'about:blank';
             }
         });
     });
 }
+
 
 // 타이머 시작
 function startTimer() {

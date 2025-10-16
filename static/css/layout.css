@@ -224,7 +224,10 @@ body {
 /* 메인 콘텐츠 영역 */
 .main-content {
     flex-grow: 1;
+    position: relative;
+    height: calc(100vh - 69px); /* Adjust for header height */
 }
+
 
 /* ======================================== */
 /* 오른쪽 사이드바                   */
@@ -238,10 +241,11 @@ body {
     height: 100vh;
     transition: width 0.3s ease;
     flex-shrink: 0;
-    padding-top: 20px;
-    position: relative;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
+
 
 .sidebar-right.expanded {
     width: 260px;
@@ -249,10 +253,6 @@ body {
 
 /* 오른쪽 사이드바 토글 버튼 - 트랜디한 디자인 */
 #rightSidebarToggle {
-    position: absolute;
-    top: 24px;
-    left: 50%;
-    transform: translateX(-50%);
     width: 48px;
     height: 48px;
     background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
@@ -266,21 +266,18 @@ body {
     color: white;
     z-index: 101;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    margin: 24px auto;
 }
 
 .sidebar-right.expanded #rightSidebarToggle {
-    left: auto;
-    right: 16px;
-    transform: none;
+    margin-right: 16px;
+    margin-left: auto;
 }
 
 #rightSidebarToggle:hover {
-    transform: translateX(-50%) scale(1.1);
-    box-shadow: 0 6px 20px rgba(165, 0, 52, 0.4);
-}
-
-.sidebar-right.expanded #rightSidebarToggle:hover {
     transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(165, 0, 52, 0.4);
 }
 
 #rightSidebarToggle::before {
@@ -311,15 +308,15 @@ body {
 }
 
 .profile-section {
-    margin-top: 70px;
-    margin-bottom: 24px;
-    height: 40px;
+    padding: 16px 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 24px;
-    overflow: hidden;
+    height: 69px; /* Match header height */
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
+
 
 .profile-avatar-small {
     width: 40px;
@@ -332,8 +329,9 @@ body {
 }
 
 .quick-links {
-    padding: 0 18px;
-    overflow: hidden;
+    padding: 20px 18px;
+    overflow-y: auto;
+    flex-grow: 1;
 }
 
 .quick-links h4 {
@@ -363,7 +361,7 @@ body {
 }
 
 .sidebar-right.expanded .link-list {
-    align-items: stretch;
+    align-items: center; /* Center items when expanded */
 }
 
 .quick-link {
@@ -392,6 +390,7 @@ body {
     justify-content: flex-start;
     gap: 16px;
     padding: 8px 12px;
+    width: 180px; /* Give a fixed width to center properly */
 }
 
 .quick-link i {
