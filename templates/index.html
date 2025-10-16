@@ -1,259 +1,152 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KUSIS - Korea University Sejong Integrated Service</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head>
-<body>
-    <aside class="sidebar-left">
-        <div class="logo">
-            <div class="logo-icon">K</div>
-            <span class="logo-text">KUSIS</span>
-        </div>
-        <nav class="nav-menu">
-            <a href="#" class="nav-item active" data-page="home">
-                <i class="fas fa-home"></i>
-                <span>홈</span>
-            </a>
-            <a href="#" class="nav-item" data-page="timetable">
-                <i class="fas fa-calendar-alt"></i>
-                <span>시간표관리</span>
-            </a>
-            <a href="#" class="nav-item" data-page="calendar">
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 홈{% endblock %}
+
+{% block content %}
+<div class="content-area">
+    <div class="left-widgets">
+        <div class="widget profile-widget">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <img src="https://via.placeholder.com/80" alt="프로필">
+                </div>
+                <div class="profile-info">
+                    <h3 class="profile-name">장선규</h3>
+                    <p class="profile-id">2023390822</p>
+                    <p class="profile-dept">디지털경영전공</p>
+                </div>
+            </div>
+            <div class="current-date">
                 <i class="fas fa-calendar"></i>
-                <span>캘린더</span>
-            </a>
-            <a href="#" class="nav-item" data-page="study-analysis">
-                <i class="fas fa-chart-line"></i>
-                <span>공부 분석</span>
-            </a>
-            <a href="#" class="nav-item" data-page="friends">
-                <i class="fas fa-users"></i>
-                <span>친구</span>
-            </a>
-            <a href="https://naver.worksmobile.com/products/naver-works/mail/" class="nav-item" data-page="mail">
-                <i class="fas fa-envelope"></i>
-                <span>메일</span>
-            </a>
-            <a href="https://lms.korea.ac.kr/" class="nav-item" data-page="lms">
-                <i class="fas fa-book"></i>
-                <span>LMS</span>
-            </a>
-            <a href="https://portal.korea.ac.kr/front/Intro.kpd" class="nav-item" data-page="kupid">
-                <i class="fas fa-id-card"></i>
-                <span>KUPID</span>
-            </a>
-            <a href="https://kuseum.korea.ac.kr/common/user/loginKulms.do?rtnUrl=21306aa07dd2f16c34d6c553b2e842ba014b25b816e5523c22ff3f6c59ab3da5" class="nav-item" data-page="kuseum">
-                <i class="fas fa-building"></i>
-                <span>KUSEUM</span>
-            </a>
-            <a href="https://sugang.korea.ac.kr/" class="nav-item" data-page="kuseum">
-                <i class="fas fa-edit"></i>
-                <span>고려대 수강신청</span>
-            </a>
-            <a href="https://sejong.korea.ac.kr/koreaSejong/index.do" target="_blank" class="nav-item" data-page="homepage">
-                <i class="fas fa-globe"></i>
-                <span>학교 홈페이지</span>
-            </a>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-        <header class="top-header">
-            <div class="header-left">
-                <button class="menu-toggle">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="검색하기...">
-                </div>
+                <span id="currentDate"></span>
             </div>
-            <div class="header-right">
-                <button class="header-icon">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge">3</span>
-                </button>
-                <button class="header-icon">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
-        </header>
-
-        <div class="content-area">
-            <div class="left-widgets">
-                <div class="widget profile-widget">
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <img src="https://via.placeholder.com/80" alt="프로필">
-                        </div>
-                        <div class="profile-info">
-                            <h3 class="profile-name">장선규</h3>
-                            <p class="profile-id">2023390822</p>
-                            <p class="profile-dept">디지털경영전공</p>
-                        </div>
-                    </div>
-                    <div class="current-date">
-                        <i class="fas fa-calendar"></i>
-                        <span id="currentDate"></span>
-                    </div>
-                    <div class="study-timer">
-                        <div class="timer-display">
-                            <div class="timer-circle">
-                                <svg viewBox="0 0 100 100">
-                                    <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
-                                    <circle class="timer-progress" cx="50" cy="50" r="45" id="timerProgress"></circle>
-                                </svg>
-                                <div class="timer-text">
-                                    <span id="timerDisplay">00:00:00</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="timer-controls">
-                            <button class="btn-timer btn-start" id="startTimer">
-                                <i class="fas fa-play"></i> 시작하기
-                            </button>
-                            <button class="btn-timer btn-stop" id="stopTimer" disabled>
-                                <i class="fas fa-stop"></i> 그만하기
-                            </button>
-                        </div>
-                        <div class="timer-stats">
-                            <div class="stat-item">
-                                <span class="stat-label">오늘</span>
-                                <span class="stat-value" id="todayTime">0h 0m</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">이번주 평균</span>
-                                <span class="stat-value" id="weeklyAvg">0h 0m</span>
-                            </div>
+            <div class="study-timer">
+                <div class="timer-display">
+                    <div class="timer-circle">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="timer-progress" cx="50" cy="50" r="45" id="timerProgress"></circle>
+                        </svg>
+                        <div class="timer-text">
+                            <span id="timerDisplay">00:00:00</span>
                         </div>
                     </div>
                 </div>
-
-                <div class="widget schedule-widget">
-                    <div class="widget-header">
-                        <h3><i class="fas fa-clock"></i> 오늘의 일정</h3>
-                        <button class="btn-more"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="schedule-list" id="scheduleList">
-                        </div>
+                <div class="timer-controls">
+                    <button class="btn-timer btn-start" id="startTimer">
+                        <i class="fas fa-play"></i> 시작하기
+                    </button>
+                    <button class="btn-timer btn-stop" id="stopTimer" disabled>
+                        <i class="fas fa-stop"></i> 그만하기
+                    </button>
                 </div>
-            </div>
-
-            <div class="center-widgets">
-                <div class="widget shuttle-widget">
-                    <div class="widget-header">
-                        <h3><i class="fas fa-bus"></i> 셔틀버스 시간표</h3>
-                        <div class="widget-tabs">
-                            <button class="tab active" data-tab="all">전체</button>
-                            <button class="tab" data-tab="seoul">서울행</button>
-                            <button class="tab" data-tab="sejong">세종행</button>
-                        </div>
+                <div class="timer-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">오늘</span>
+                        <span class="stat-value" id="todayTime">0h 0m</span>
                     </div>
-                    <div class="shuttle-list" id="shuttleList">
-                        </div>
-                </div>
-
-                <div class="widget meal-widget">
-                    <div class="widget-header">
-                        <h3><i class="fas fa-utensils"></i> 오늘의 식단</h3>
-                        <div class="widget-tabs">
-                            <button class="tab active" data-cafeteria="student">학생식당</button>
-                            <button class="tab" data-cafeteria="faculty">교직원식당</button>
-                        </div>
-                    </div>
-                    <div class="meal-content">
-                        <div class="meal-time">
-                            <div class="meal-item">
-                                <h4><i class="fas fa-bread-slice"></i> 조식</h4>
-                                <p id="breakfast">김치찌개, 계란후라이, 김, 깍두기</p>
-                            </div>
-                            <div class="meal-item">
-                                <h4><i class="fas fa-sun"></i> 중식</h4>
-                                <p id="lunch">돈까스, 스파게티, 샐러드, 과일</p>
-                            </div>
-                            <div class="meal-item">
-                                <h4><i class="fas fa-moon"></i> 석식</h4>
-                                <p id="dinner">제육볶음, 된장찌개, 나물, 김치</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="right-widgets">
-                <div class="widget timetable-widget">
-                    <div class="widget-header">
-                        <h3><i class="fas fa-table"></i> 이번주 시간표</h3>
-                        <button class="btn-more"><i class="fas fa-edit"></i></button>
-                    </div>
-                    <div class="timetable-container">
-                        <table class="timetable">
-                            <thead>
-                                <tr>
-                                    <th>시간</th>
-                                    <th>월</th>
-                                    <th>화</th>
-                                    <th>수</th>
-                                    <th>목</th>
-                                    <th>금</th>
-                                </tr>
-                            </thead>
-                            <tbody id="timetableBody">
-                                </tbody>
-                        </table>
+                    <div class="stat-item">
+                        <span class="stat-label">이번주 평균</span>
+                        <span class="stat-value" id="weeklyAvg">0h 0m</span>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <aside class="sidebar-right">
-        <div class="profile-section">
-            <div class="profile-avatar-small">
-                <img src="https://via.placeholder.com/50" alt="프로필">
+        <div class="widget schedule-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-clock"></i> 오늘의 일정</h3>
+                <button class="btn-more"><i class="fas fa-plus"></i></button>
             </div>
+            <div class="schedule-list" id="scheduleList">
+                </div>
         </div>
-        
-        <div class="quick-links">
-            <div class="link-list">
-                <a href="https://www.naver.com" target="_blank" class="quick-link" style="background: #03C75A;">
-                    <i class="fa-solid fa-n"></i>
-                </a>
-                <a href="https://www.google.com" target="_blank" class="quick-link" style="background: #4285F4;">
-                    <i class="fab fa-google"></i>
-                </a>
-                <a href="https://www.youtube.com" target="_blank" class="quick-link" style="background: #FF0000;">
-                    <i class="fab fa-youtube"></i>
-                </a>
-                <a href="https://www.instagram.com" target="_blank" class="quick-link" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);">
-                    <i class="fab fa-instagram"></i>
-                </a>
-                <a href="#" class="quick-link quick-link-add" id="addLinkBtn">
-                    <i class="fas fa-plus"></i>
-                </a>
-            </div>
-        </div>
-    </aside>
+    </div>
 
-    <div class="modal" id="memoModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>수업 메모</h3>
-                <button class="modal-close">&times;</button>
+    <div class="center-widgets">
+        <div class="widget shuttle-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-bus"></i> 셔틀버스 시간표</h3>
+                <div class="widget-tabs">
+                    <button class="tab active" data-tab="all">전체</button>
+                    <button class="tab" data-tab="seoul">서울행</button>
+                    <button class="tab" data-tab="sejong">세종행</button>
+                </div>
             </div>
-            <div class="modal-body">
-                <textarea id="memoText" rows="5" placeholder="메모를 입력하세요..."></textarea>
+            <div class="shuttle-list" id="shuttleList">
+                </div>
+        </div>
+
+        <div class="widget meal-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-utensils"></i> 오늘의 식단</h3>
+                <div class="widget-tabs">
+                    <button class="tab active" data-cafeteria="student">학생식당</button>
+                    <button class="tab" data-cafeteria="faculty">교직원식당</button>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-cancel">취소</button>
-                <button class="btn btn-save">저장</button>
+            <div class="meal-content">
+                <div class="meal-time">
+                    <div class="meal-item">
+                        <h4><i class="fas fa-sunrise"></i> 조식</h4>
+                        <p id="breakfast">김치찌개, 계란후라이, 김, 깍두기</p>
+                    </div>
+                    <div class="meal-item">
+                        <h4><i class="fas fa-sun"></i> 중식</h4>
+                        <p id="lunch">돈까스, 스파게티, 샐러드, 과일</p>
+                    </div>
+                    <div class="meal-item">
+                        <h4><i class="fas fa-moon"></i> 석식</h4>
+                        <p id="dinner">제육볶음, 된장찌개, 나물, 김치</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="/static/js/script.js"></script>
-</body>
-</html>
+    <div class="right-widgets">
+        <div class="widget timetable-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-table"></i> 이번주 시간표</h3>
+                <button class="btn-more"><i class="fas fa-edit"></i></button>
+            </div>
+            <div class="timetable-container">
+                <table class="timetable">
+                    <thead>
+                        <tr>
+                            <th>시간</th>
+                            <th>월</th>
+                            <th>화</th>
+                            <th>수</th>
+                            <th>목</th>
+                            <th>금</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="memoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>수업 메모</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="memoText" rows="5" placeholder="메모를 입력하세요..."></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel">취소</button>
+            <button class="btn btn-save">저장</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% endblock %}
