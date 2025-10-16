@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- 왼쪽 사이드바 -->
     <aside class="sidebar-left">
         <div class="logo">
             <div class="logo-icon">K</div>
@@ -26,6 +25,14 @@
             <a href="#" class="nav-item" data-page="calendar">
                 <i class="fas fa-calendar"></i>
                 <span>캘린더</span>
+            </a>
+            <a href="#" class="nav-item" data-page="study-analysis">
+                <i class="fas fa-chart-line"></i>
+                <span>공부 분석</span>
+            </a>
+            <a href="#" class="nav-item" data-page="friends">
+                <i class="fas fa-users"></i>
+                <span>친구</span>
             </a>
             <a href="#" class="nav-item" data-page="mail">
                 <i class="fas fa-envelope"></i>
@@ -50,9 +57,7 @@
         </nav>
     </aside>
 
-    <!-- 메인 컨텐츠 -->
     <main class="main-content">
-        <!-- 상단 헤더 -->
         <header class="top-header">
             <div class="header-left">
                 <button class="menu-toggle">
@@ -74,11 +79,8 @@
             </div>
         </header>
 
-        <!-- 콘텐츠 영역 -->
         <div class="content-area">
-            <!-- 왼쪽 위젯 -->
             <div class="left-widgets">
-                <!-- 프로필 & 공부 타이머 위젯 -->
                 <div class="widget profile-widget">
                     <div class="profile-header">
                         <div class="profile-avatar">
@@ -127,21 +129,17 @@
                     </div>
                 </div>
 
-                <!-- 오늘의 일정 위젯 -->
                 <div class="widget schedule-widget">
                     <div class="widget-header">
                         <h3><i class="fas fa-clock"></i> 오늘의 일정</h3>
                         <button class="btn-more"><i class="fas fa-plus"></i></button>
                     </div>
                     <div class="schedule-list" id="scheduleList">
-                        <!-- 일정이 동적으로 추가됩니다 -->
-                    </div>
+                        </div>
                 </div>
             </div>
 
-            <!-- 중앙 위젯 -->
             <div class="center-widgets">
-                <!-- 셔틀버스 시간표 -->
                 <div class="widget shuttle-widget">
                     <div class="widget-header">
                         <h3><i class="fas fa-bus"></i> 셔틀버스 시간표</h3>
@@ -152,11 +150,9 @@
                         </div>
                     </div>
                     <div class="shuttle-list" id="shuttleList">
-                        <!-- 셔틀버스 정보가 동적으로 추가됩니다 -->
-                    </div>
+                        </div>
                 </div>
 
-                <!-- 식단표 -->
                 <div class="widget meal-widget">
                     <div class="widget-header">
                         <h3><i class="fas fa-utensils"></i> 오늘의 식단</h3>
@@ -184,9 +180,7 @@
                 </div>
             </div>
 
-            <!-- 오른쪽 위젯 -->
             <div class="right-widgets">
-                <!-- 시간표 위젯 -->
                 <div class="widget timetable-widget">
                     <div class="widget-header">
                         <h3><i class="fas fa-table"></i> 이번주 시간표</h3>
@@ -205,8 +199,7 @@
                                 </tr>
                             </thead>
                             <tbody id="timetableBody">
-                                <!-- 시간표가 동적으로 추가됩니다 -->
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </div>
@@ -214,41 +207,44 @@
         </div>
     </main>
 
-    <!-- 오른쪽 사이드바 -->
     <aside class="sidebar-right">
         <div class="profile-section">
             <div class="profile-avatar-small">
                 <img src="https://via.placeholder.com/50" alt="프로필">
             </div>
-            <div class="profile-name-small">홍길동</div>
         </div>
         
         <div class="quick-links">
             <h4>자주 찾는 사이트</h4>
-            <div class="link-grid">
-                <a href="https://www.naver.com" target="_blank" class="quick-link" style="background: #03C75A;">
-                    <i class="fas fa-n"></i>
+            <div class="link-list">
+                <a href="https://www.naver.com" target="_blank" class="quick-link">
+                    <i class="fa-solid fa-n" style="background: #03C75A;"></i>
+                    <span>네이버</span>
                 </a>
-                <a href="https://www.google.com" target="_blank" class="quick-link" style="background: #4285F4;">
-                    <i class="fab fa-google"></i>
+                <a href="https://www.google.com" target="_blank" class="quick-link">
+                    <i class="fab fa-google" style="background: #4285F4;"></i>
+                    <span>구글</span>
                 </a>
-                <a href="https://www.youtube.com" target="_blank" class="quick-link" style="background: #FF0000;">
-                    <i class="fab fa-youtube"></i>
+                <a href="https://www.youtube.com" target="_blank" class="quick-link">
+                    <i class="fab fa-youtube" style="background: #FF0000;"></i>
+                    <span>유튜브</span>
                 </a>
-                <a href="https://www.instagram.com" target="_blank" class="quick-link" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);">
-                    <i class="fab fa-instagram"></i>
+                <a href="https://www.instagram.com" target="_blank" class="quick-link">
+                    <i class="fab fa-instagram" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);"></i>
+                    <span>인스타그램</span>
                 </a>
-                <a href="https://www.notion.so" target="_blank" class="quick-link" style="background: #000;">
-                    <i class="fas fa-book"></i>
+                <a href="https://www.notion.so" target="_blank" class="quick-link">
+                    <i class="fab fa-brands fa-notion" style="background: #000;"></i>
+                    <span>노션</span>
                 </a>
                 <a href="#" class="quick-link quick-link-add" id="addLinkBtn">
                     <i class="fas fa-plus"></i>
+                    <span>추가하기</span>
                 </a>
             </div>
         </div>
     </aside>
 
-    <!-- 메모 모달 -->
     <div class="modal" id="memoModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -265,6 +261,7 @@
         </div>
     </div>
 
+    <script src="https://kit.fontawesome.com/6478f529f2.js" crossorigin="anonymous"></script>
     <script src="/static/js/script.js"></script>
 </body>
 </html>

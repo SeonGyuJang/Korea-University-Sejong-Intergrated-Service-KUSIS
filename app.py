@@ -31,6 +31,7 @@ SCHEDULE_DATA = [
     {"time": "09:00", "title": "데이터베이스 설계", "location": "세종관 301호"},
     {"time": "13:00", "title": "웹 프로그래밍", "location": "창의관 205호"},
     {"time": "15:00", "title": "스터디 모임", "location": "도서관 4층"},
+    {"time": "18:00", "title": "운동", "location": "체육관"},   
 ]
 
 TIMETABLE = [
