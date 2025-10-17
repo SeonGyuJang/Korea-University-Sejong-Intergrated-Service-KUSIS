@@ -2,36 +2,44 @@
 /* 시간표 관리 페이지 전용 (timetable.css) */
 /* ======================================== */
 
-/* 페이지 레이아웃 재정의 */
+/* [MODIFIED] 페이지 레이아웃 재정의 -> 3단 그리드 */
 .timetable-management-page {
     display: grid;
-    grid-template-columns: 1fr 320px; /* 메인 1fr, 사이드 320px */
+    /* 왼쪽 위젯 | 중앙 시간표 | 오른쪽 상세 정보 */
+    grid-template-columns: 320px 1fr 360px;
     gap: 20px;
     padding: 20px;
     width: 100%;
-    height: calc(100vh - 69px - 40px); /* 헤더, 패딩 제외 */
-    overflow: hidden;
+    /* 전체 높이에서 헤더, 패딩 제외 */
+    height: calc(100vh - 69px - 40px);
+    overflow: hidden; /* 페이지 전체 스크롤 방지 */
 }
 
-.timetable-main-content, .timetable-side-content {
+/* 각 컬럼 기본 스타일 */
+.timetable-side-content,
+.timetable-main-content,
+.timetable-details-side-content { /* [NEW] */
     display: flex;
     flex-direction: column;
     gap: 20px;
-    height: 100%;
+    height: 100%; /* 컬럼 높이 꽉 채우기 */
+    overflow-y: auto; /* 컬럼 내부 스크롤 허용 */
 }
 
+/* 중앙 시간표 위젯이 남은 공간 차지하도록 */
 .timetable-main-content .widget {
-    flex-grow: 1; /* 위젯이 남은 공간을 모두 차지하도록 */
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
 }
 
 /* ======================================== */
-/* 1. 시간표 편집기 */
+/* 1. 시간표 편집기 (기존과 유사, 약간 수정) */
 /* ======================================== */
 .timetable-editor-widget .widget-header {
     flex-wrap: wrap;
     gap: 10px;
+    flex-shrink: 0; /* 헤더 크기 고정 */
 }
 .timetable-controls {
     display: flex;
@@ -46,9 +54,10 @@
     border: 1px solid var(--border-color);
     font-weight: 600;
 }
+/* 시간표 컨테이너가 남은 공간 차지하고 스크롤 */
 .timetable-container {
     flex-grow: 1;
-    overflow-y: auto;
+    overflow: auto; /* 가로, 세로 스크롤 모두 허용 */
     position: relative;
     border: 1px solid var(--border-color);
     border-radius: 0 0 16px 16px; /* 위젯 헤더 제외 */
@@ -57,17 +66,17 @@
 
 .timetable.editable {
     width: 100%;
-    /* (수정) 높이 100% 제거 */
+    min-width: 600px; /* 최소 너비 지정 (가로 스크롤 유도) */
     border-collapse: collapse;
     font-size: 12px;
     table-layout: fixed;
 }
 
-.timetable.editable th, 
+.timetable.editable th,
 .timetable.editable td {
     border: 1px solid var(--border-color);
     text-align: center;
-    padding: 2px;
+    padding: 2px; /* 셀 내부 여백 최소화 */
 }
 
 .timetable.editable th {
@@ -77,66 +86,76 @@
     padding: 10px 8px;
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 20; /* 헤더가 시간축보다 위 */
 }
 
-.timetable.editable td:first-child {
+.timetable.editable td:first-child { /* 시간 축 */
     font-weight: 600;
     font-size: 11px;
     background: var(--bg-primary);
     color: var(--text-secondary);
-    /* (신규) 시간축 스크롤 고정 */
+    padding: 4px; /* 시간 셀 패딩 */
     position: sticky;
     left: 0;
-    z-index: 10;
+    z-index: 10; /* 시간축 고정 */
+    min-width: 60px; /* 시간 표시 너비 확보 */
 }
 
-.timetable.editable td {
+.timetable.editable td { /* 시간표 셀 */
     vertical-align: top;
-    position: relative;
-    height: 50px; /* (수정) JS 계산을 위해 1시간 고정 높이 */
+    position: relative; /* 슬롯 위치 기준 */
+    height: 50px; /* JS 계산을 위해 1시간 고정 높이 */
+    min-width: 80px; /* 요일 셀 최소 너비 */
 }
 
-/* 과목 슬롯 스타일 */
+/* 과목 슬롯 스타일 (기존과 동일) */
 .subject-slot {
     position: absolute;
     left: 2px;
     right: 2px;
-    background: rgba(165, 0, 52, 0.1);
-    border-left: 3px solid var(--korea-red);
+    /* background: rgba(165, 0, 52, 0.1); */ /* JS에서 설정 */
+    border-left: 3px solid var(--korea-red); /* JS에서 설정 */
     border-radius: 4px;
-    padding: 6px;
+    padding: 4px 6px; /* 패딩 약간 조정 */
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     overflow: hidden;
     font-size: 11px;
-    z-index: 10;
+    z-index: 5; /* 기본 슬롯 z-index */
+    box-sizing: border-box; /* 패딩 포함 크기 계산 */
+    display: flex; /* 내부 요소 정렬 */
+    flex-direction: column;
+    justify-content: center; /* 내용물 세로 중앙 정렬 */
 }
 .subject-slot:hover {
-    background: rgba(165, 0, 52, 0.2);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    z-index: 11;
+    /* background: rgba(165, 0, 52, 0.2); */ /* JS에서 설정 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 6; /* 호버 시 위로 */
     transform: scale(1.02);
 }
 .subject-slot .slot-subject {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px; /* 약간 키움 */
     color: var(--korea-red-dark);
+    margin-bottom: 2px; /* 강의실과의 간격 */
+    white-space: nowrap; /* 이름 줄바꿈 방지 */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .subject-slot .slot-room {
     color: var(--text-primary);
-    margin-top: 2px;
 }
 
 
 /* ======================================== */
-/* 2. 사이드 위젯 (탭 구조) */
+/* 2. 왼쪽 사이드 위젯 (기존과 동일) */
 /* ======================================== */
 .widget-tabs-container {
     padding: 8px;
     background: var(--bg-primary);
     border-radius: 12px;
     margin-bottom: 16px;
+    flex-shrink: 0; /* 크기 고정 */
 }
 .widget-tabs {
     display: flex;
@@ -144,117 +163,66 @@
 }
 .widget-tabs .tab {
     flex: 1;
-    padding: 10px 12px; /* (수정) 패딩 증가 */
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 500;
     border: none;
     background: none;
     border-radius: 8px;
-    /* (수정) 중앙 정렬을 위한 Flex 속성 추가 */
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 .widget-tabs .tab.active {
     background: var(--bg-secondary);
     color: var(--korea-red);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
+.widget-tabs .tab:hover:not(.active) {
+    background: rgba(0,0,0,0.05);
+}
 .widget-tab-content {
     display: none;
+    flex-grow: 1; /* 내용이 남은 공간 차지 */
+    overflow-y: auto; /* 내용 길어지면 스크롤 */
 }
 .widget-tab-content.active {
-    /* [MODIFIED] block -> flex로 변경 */
-    display: flex;
-    /* [NEW] 세로 중앙 정렬을 위한 속성 추가 */
+    display: flex; /* 세로 정렬 위해 flex 사용 */
     flex-direction: column;
-    justify-content: center;
+    /* justify-content: center; */ /* 중앙 정렬 제거 (내용이 위부터 채워지도록) */
 }
 
-/* 학점 탭 */
-.credit-summary {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-}
-.credit-progress-circle {
-    position: relative;
-    width: 140px;
-    height: 140px;
-}
-.credit-progress-circle svg {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
-}
-.credit-progress-circle .progress-bg {
-    fill: none;
-    stroke: var(--bg-primary);
-    stroke-width: 10;
-}
-.credit-progress-circle .progress-bar {
-    fill: none;
-    stroke: var(--korea-red);
-    stroke-width: 10;
-    stroke-linecap: round;
-    stroke-dasharray: 283; /* 45*2*PI */
-    stroke-dashoffset: 283;
-    transition: stroke-dashoffset 1s ease-out;
-}
-.credit-progress-circle .credit-text {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-}
-#creditPercentage {
-    font-size: 24px; font-weight: 700; color: var(--korea-red);
-}
-.credit-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    width: 100%;
-}
-.credit-details .stat-item {
-    background: var(--bg-primary); padding: 12px; border-radius: 8px; text-align: center;
-}
-.credit-details .stat-label {
-    display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500;
-}
-.credit-details .stat-value {
-    display: block; font-size: 20px; font-weight: 600; color: var(--korea-red);
-}
-.btn-edit-goal {
-    background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 12px;
-}
+/* 학점 탭 (기존과 동일) */
+.credit-summary { display: flex; flex-direction: column; align-items: center; gap: 15px; padding-top: 10px; }
+.credit-progress-circle { position: relative; width: 140px; height: 140px; }
+.credit-progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.credit-progress-circle .progress-bg { fill: none; stroke: var(--bg-primary); stroke-width: 10; }
+.credit-progress-circle .progress-bar { fill: none; stroke: var(--korea-red); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 1s ease-out; }
+.credit-progress-circle .credit-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+#creditPercentage { font-size: 24px; font-weight: 700; color: var(--korea-red); }
+.credit-details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.credit-details .stat-item { background: var(--bg-primary); padding: 12px; border-radius: 8px; text-align: center; }
+.credit-details .stat-label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500; }
+.credit-details .stat-value { display: block; font-size: 20px; font-weight: 600; color: var(--korea-red); }
+.btn-edit-goal { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 12px; }
 .btn-edit-goal:hover { color: var(--korea-red); }
 .edit-goal-form { display: flex; gap: 5px; align-items: center; justify-content: center; margin-top: 5px; }
 .edit-goal-form input { width: 60px; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px; }
 .btn-small { padding: 4px 8px; font-size: 12px; border-radius: 4px; }
-.credit-remaining {
-    font-size: 14px; color: var(--text-primary); font-weight: 500; background: #fef5f7; padding: 8px 12px; border-radius: 6px; width: 100%; text-align: center;
-}
+.credit-remaining { font-size: 14px; color: var(--text-primary); font-weight: 500; background: #fef5f7; padding: 8px 12px; border-radius: 6px; width: 100%; text-align: center; margin-top: 10px; }
 .credit-remaining span { font-weight: 700; color: var(--korea-red); }
 
-/* 성적(GPA) 탭 */
-.gpa-chart-header {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
-}
+/* 성적(GPA) 탭 (기존과 동일) */
+.gpa-chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .gpa-chart-header h4 { font-size: 14px; font-weight: 600; }
-.gpa-chart-container {
-    height: 250px; /* 차트 높이 확보 */
-}
+.gpa-chart-container { height: 250px; } /* 차트 높이 확보 */
 
-/* Todo 탭 */
-.todo-summary-list {
-    display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;
-}
-.todo-summary-item {
-    background: var(--bg-primary); border-radius: 8px; padding: 12px 16px; border-left: 4px solid var(--korea-red);
-}
+/* Todo 탭 (기존과 동일) */
+.todo-summary-list { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px; /* 스크롤바 공간 */ }
+.todo-summary-item { background: var(--bg-primary); border-radius: 8px; padding: 12px 16px; border-left: 4px solid var(--korea-red); }
 .todo-summary-item.completed { border-left-color: var(--border-color); }
 .todo-summary-item.completed .todo-subject { color: var(--text-secondary); }
 .todo-subject { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
@@ -267,7 +235,141 @@
 
 
 /* ======================================== */
-/* 3. 모달 공통 및 개별 스타일 */
+/* 3. [NEW] 오른쪽 과목 상세 정보 사이드바 */
+/* ======================================== */
+.timetable-details-side-content .widget {
+    display: flex;
+    flex-direction: column;
+}
+.subject-details-widget {
+     flex-shrink: 0; /* 과목 목록 위젯 크기 고정 */
+}
+.weekly-details-widget {
+    flex-grow: 1; /* 주차별 정보가 남은 공간 차지 */
+    min-height: 0; /* 내용 넘칠 때 내부 스크롤 위해 */
+}
+
+/* 과목 목록 */
+.subject-details-list-container {
+    max-height: 250px; /* 최대 높이 지정 */
+    overflow-y: auto;
+    margin: -10px 0; /* 위젯 패딩 상쇄 */
+    padding: 10px 0;
+}
+#subjectDetailsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.subject-details-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.subject-details-item:last-child {
+    border-bottom: none;
+}
+.subject-details-item:hover {
+    background-color: var(--bg-primary);
+}
+.subject-details-item.selected {
+    background-color: #fef5f7; /* 선택 시 배경색 */
+    border-left: 3px solid var(--korea-red);
+    padding-left: 12px;
+}
+.subject-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.subject-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+.subject-prof {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.subject-grade select.grade-select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+    background: var(--bg-secondary);
+}
+.subject-details-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+    font-size: 14px;
+}
+
+/* 주차별 정보 */
+.week-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 8px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+}
+.week-selector button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px 8px;
+    border-radius: 4px;
+}
+.week-selector button:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    color: var(--korea-red);
+}
+.week-selector button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+#currentWeekDisplay {
+    font-weight: 600;
+}
+.weekly-content {
+    flex-grow: 1; /* 남은 공간 차지 */
+    overflow-y: auto; /* 내용 길면 스크롤 */
+    padding-right: 5px; /* 스크롤바 공간 */
+}
+.weekly-content textarea {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    transition: all 0.3s;
+    min-height: 80px;
+}
+.weekly-content textarea:focus {
+    border-color: var(--korea-red);
+    background: var(--bg-secondary);
+}
+.weekly-content textarea:disabled {
+    background: #f8f9fa;
+    cursor: not-allowed;
+}
+.weekly-content .memo-todo-list {
+    max-height: 150px; /* Todo 목록 최대 높이 */
+}
+
+
+/* ======================================== */
+/* 4. 모달 (기존과 동일) */
 /* ======================================== */
 .modal-content.large-modal { max-width: 600px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
@@ -275,36 +377,58 @@
 .form-subtitle { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
 .form-divider { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
 
-/* (수정) 버튼 스타일 상속 및 정의 */
-.btn-secondary { 
-    background: var(--bg-primary); 
-    color: var(--text-primary); 
-    border: 1px solid var(--border-color);
-}
-.btn-secondary:hover {
-    background: #e9ecef;
-}
+.btn-secondary { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-secondary:hover { background: #e9ecef; }
 .btn-danger { background: var(--color-danger); color: white; }
 .btn-danger:hover { background: #c0392b; }
 .btn-primary { background: var(--korea-red); color: white; }
 .btn-primary:hover { background: var(--korea-red-dark); }
 
-/* 타임슬롯 입력 폼 */
 #addTimeSlotContainer, #editTimeSlotContainer { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .timeslot-entry { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
 .timeslot-entry select, .timeslot-entry input { padding: 8px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 6px; }
 .timeslot-delete-btn { background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 16px; }
 
+/* 공통 메모/Todo 스타일 (주차별 섹션에서도 사용) */
+.memo-subtitle { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.memo-subtitle i { color: var(--korea-red); }
+.memo-todo-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); overflow-y: auto; }
+.todo-item { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
+.todo-item:last-child { border-bottom: none; }
+.todo-item.done .todo-label { text-decoration: line-through; color: var(--text-secondary); }
+.todo-item input[type="checkbox"] { width: 15px; height: 15px; margin-right: 8px; flex-shrink: 0; accent-color: var(--korea-red); cursor: pointer; }
+.todo-label { flex-grow: 1; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+.todo-delete-btn { font-size: 16px; color: var(--text-secondary); cursor: pointer; padding: 0 5px; border-radius: 4px; font-weight: bold; }
+.todo-delete-btn:hover { color: var(--color-danger); background: #f8d7da; }
+.todo-empty { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 15px; }
+.memo-todo-add { display: flex; gap: 8px; margin-top: 8px; }
+.memo-todo-add input[type="text"] { flex-grow: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; }
+.memo-todo-add input[type="text"]:focus { border-color: var(--korea-red); }
+.memo-todo-add input[type="text"]:disabled { background: #f8f9fa; cursor: not-allowed;}
+.memo-todo-add button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+
 /* ======================================== */
-/* 4. 반응형 */
+/* 5. 반응형 (기존과 동일) */
 /* ======================================== */
 @media (max-width: 1200px) {
+    /* 화면이 줄면 오른쪽 상세 정보 패널 숨김 */
     .timetable-management-page {
-        grid-template-columns: 1fr;
+        grid-template-columns: 320px 1fr; /* 2단으로 변경 */
+    }
+     .timetable-details-side-content {
+         display: none;
+     }
+}
+@media (max-width: 768px) {
+     /* 더 줄면 왼쪽 위젯도 숨김 처리 (기존 반응형과 유사) */
+     .timetable-management-page {
+        grid-template-columns: 1fr; /* 1단으로 변경 */
         height: auto;
         overflow-y: auto;
     }
-    .timetable-side-content {
-        order: -1; /* 사이드 위젯을 위로 올림 */
-    }
+     .timetable-side-content {
+         /* 필요시 숨김 또는 다른 방식으로 처리 */
+         order: -1; /* 위로 올림 */
+     }
 }

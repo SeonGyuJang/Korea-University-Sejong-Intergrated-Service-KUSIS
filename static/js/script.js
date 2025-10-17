@@ -9,6 +9,14 @@ let currentTimetableItem = null; // (수정) 현재 선택된 'Subject' 객체
 
 let windowTimetableData = []; // (수정) 전역 시간표 데이터 (Subject 배열)
 
+// [NEW] 과목별 색상 팔레트 (필요시 수정)
+const subjectColors = [
+    'rgba(165, 0, 52, 0.1)', 'rgba(199, 0, 63, 0.1)', 'rgba(215, 69, 100, 0.1)',
+    'rgba(140, 0, 40, 0.1)', 'rgba(180, 30, 70, 0.1)', 'rgba(230, 100, 130, 0.1)',
+    'rgba(150, 10, 50, 0.1)', 'rgba(200, 50, 90, 0.1)'
+];
+let subjectColorMap = {}; // 과목 ID -> 색상 매핑
+
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -17,11 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     // 현재 날짜 표시
     updateCurrentDate();
-    
+
     // 데이터 로드 (API 비동기 호출)
     loadShuttleSchedule(); // 셔틀 (기존 유지)
     loadMealPlan('student'); // 식단 (기존 유지)
-    
+
     // (수정) 로그인 상태일 때만 DB 데이터 로드 시도
     if (document.querySelector('.profile-widget .profile-header .profile-name')) {
         loadStudyStats();
@@ -31,7 +39,7 @@ function initializeApp() {
 
     // 셔틀버스 실시간 업데이트 시작
     startRealTimeUpdates();
-    
+
     // 이벤트 리스너 등록
     setupEventListeners();
 }
@@ -39,9 +47,9 @@ function initializeApp() {
 // 현재 날짜 업데이트
 function updateCurrentDate() {
     const now = new Date();
-    const options = { 
-        year: 'numeric', 
-        month: 'long', 
+    const options = {
+        year: 'numeric',
+        month: 'long',
         day: 'numeric',
         weekday: 'long'
     };
@@ -65,7 +73,7 @@ function setupEventListeners() {
     const stopTimerBtn = document.getElementById('stopTimer');
     if (startTimerBtn) startTimerBtn.addEventListener('click', startTimer);
     if (stopTimerBtn) stopTimerBtn.addEventListener('click', stopTimer);
-    
+
     // 식단 탭
     document.querySelectorAll('.meal-widget .tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -74,16 +82,16 @@ function setupEventListeners() {
             loadMealPlan(e.target.dataset.cafeteria);
         });
     });
-    
+
     // 셔틀버스 탭
     document.querySelectorAll('.shuttle-widget .tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             document.querySelectorAll('.shuttle-widget .tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
-            updateRealTimeShuttle(); 
+            updateRealTimeShuttle();
         });
     });
-    
+
     // 모달 관련 이벤트
     const allModals = document.querySelectorAll('.modal');
     allModals.forEach(modal => {
@@ -99,13 +107,13 @@ function setupEventListeners() {
         });
     });
 
-    // 메모/Todo 저장 버튼
+    // 메모/Todo 저장 버튼 (메모 모달이 홈 화면에도 있으므로 유지)
     const btnSaveMemo = document.getElementById('saveMemoBtn');
-    if(btnSaveMemo) btnSaveMemo.addEventListener('click', saveMemo);
-    
-    // Todo 추가 버튼
+    if(btnSaveMemo) btnSaveMemo.addEventListener('click', saveMemo); // saveMemo 함수는 아래에 정의됨
+
+    // Todo 추가 버튼 (메모 모달이 홈 화면에도 있으므로 유지)
     const btnAddTodo = document.getElementById('memoAddTodoBtn');
-    if(btnAddTodo) btnAddTodo.addEventListener('click', addTodoItem);
+    if(btnAddTodo) btnAddTodo.addEventListener('click', addTodoItem); // addTodoItem 함수는 아래에 정의됨
     const inputNewTodo = document.getElementById('memoNewTodoInput');
     if(inputNewTodo) inputNewTodo.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -114,7 +122,7 @@ function setupEventListeners() {
         }
     });
 
-    
+
     // --- 전체 보기 버튼 이벤트 리스너 (모달 열기) ---
     document.querySelectorAll('.full-view-btn').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -126,19 +134,19 @@ function setupEventListeners() {
             }
         });
     });
-    
+
     // 네비게이션 메뉴 클릭
     const loadingOverlay = document.getElementById('loadingOverlay');
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             const linkUrl = e.currentTarget.getAttribute('href');
             const dataUrl = e.currentTarget.dataset.url;
-            
+
             if (linkUrl && linkUrl !== '#' && !dataUrl) {
-                return; 
+                return;
             }
-            e.preventDefault(); 
-            
+            e.preventDefault();
+
             if (linkUrl && linkUrl !== '#') {
                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
                 e.currentTarget.classList.add('active');
@@ -162,7 +170,7 @@ function startTimer() {
         isTimerRunning = true;
         document.getElementById('startTimer').disabled = true;
         document.getElementById('stopTimer').disabled = false;
-        
+
         timerInterval = setInterval(() => {
             timerSeconds++;
             updateTimerDisplay();
@@ -175,14 +183,14 @@ function stopTimer() {
     if (isTimerRunning) {
         isTimerRunning = false;
         clearInterval(timerInterval);
-        
+
         document.getElementById('startTimer').disabled = false;
         document.getElementById('stopTimer').disabled = true;
-        
+
         saveStudyTime(timerSeconds).then(() => {
             loadStudyStats();
         });
-        
+
         timerSeconds = 0;
         updateTimerDisplay();
         updateTimerProgress();
@@ -193,7 +201,7 @@ function updateTimerDisplay() {
     const hours = Math.floor(timerSeconds / 3600);
     const minutes = Math.floor((timerSeconds % 3600) / 60);
     const seconds = timerSeconds % 60;
-    
+
     const display = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     const el = document.getElementById('timerDisplay');
     if(el) el.textContent = display;
@@ -230,9 +238,9 @@ async function loadStudyStats() {
         const response = await fetch('/api/study-stats');
         if (!response.ok) throw new Error('Not logged in or server error');
         const data = await response.json();
-        
-        todayStudyTime = data.today; 
-        
+
+        todayStudyTime = data.today;
+
         const todayHours = Math.floor(data.today / 3600);
         const todayMinutes = Math.floor((data.today % 3600) / 60);
         const todayEl = document.getElementById('todayTime');
@@ -242,7 +250,7 @@ async function loadStudyStats() {
         const avgMinutes = Math.floor((data.weekly_avg % 3600) / 60);
         const weeklyEl = document.getElementById('weeklyAvg');
         if (weeklyEl) weeklyEl.textContent = `${avgHours}h ${avgMinutes}m`;
-        
+
     } catch (error) {
         console.log('Could not load study stats (not logged in?):', error.message);
         const todayEl = document.getElementById('todayTime');
@@ -253,7 +261,7 @@ async function loadStudyStats() {
 }
 
 
-// --- 셔틀버스 함수 ---
+// --- 셔틀버스 함수 (기존과 동일) ---
 function startRealTimeUpdates() {
     if (shuttleUpdateInterval) clearInterval(shuttleUpdateInterval);
     shuttleUpdateInterval = setInterval(() => {
@@ -280,15 +288,15 @@ function updateRealTimeShuttle() {
     if (!container) return;
     const activeTab = document.querySelector('.shuttle-widget .tab.active');
     const currentFilter = activeTab ? activeTab.dataset.tab : 'all';
-    
+
     let data = window.shuttleData || [];
-    
+
     const TODAY_DATE = new Date();
     const todayDayOfWeek = TODAY_DATE.getDay();
     const dayType = (todayDayOfWeek === 0 || todayDayOfWeek === 6) ? '일요일' : '평일';
-    
+
     data = data.filter(s => s.type === dayType || s.type === '기타');
-    
+
     data = data.filter(s => {
         switch (currentFilter) {
             case 'school_to_station': return s.route.includes('학교 → 조치원역');
@@ -308,23 +316,23 @@ function updateRealTimeShuttle() {
             shuttle.remainingTimeSeconds = shuttle.shuttleSecondsOfDay - currentSecondsOfDay;
             return shuttle;
         })
-        .filter(shuttle => shuttle.remainingTimeSeconds > 0) 
+        .filter(shuttle => shuttle.remainingTimeSeconds > 0)
         .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay);
 
     container.innerHTML = '';
-    
+
     if (processedData.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">운행 예정인 시간표 정보가 없습니다.</p>';
         return;
     }
-    
+
     processedData.forEach((shuttle, index) => {
         const remainingTimeSeconds = shuttle.remainingTimeSeconds;
         let statusText = '';
         let statusClass = 'scheduled';
-        const isNextShuttle = (index < 2); 
+        const isNextShuttle = (index < 2);
 
-        if (remainingTimeSeconds <= 300) { 
+        if (remainingTimeSeconds <= 300) {
             const remainingMins = Math.floor(remainingTimeSeconds / 60);
             const remainingSecs = remainingTimeSeconds % 60;
             statusText = `도착까지 ${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초`;
@@ -334,13 +342,13 @@ function updateRealTimeShuttle() {
             const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
             let minDisplay = (remainingHours > 0) ? `${remainingHours}시간 ${remainingMins}분` : `${remainingMins}분 남음`;
             statusText = `도착까지 ${minDisplay}`;
-            statusClass = 'scheduled'; 
+            statusClass = 'scheduled';
         }
-        
+
         const item = document.createElement('div');
         item.className = 'shuttle-item';
         if (isNextShuttle) item.classList.add('next-shuttle');
-        
+
         item.innerHTML = `
             <div class="shuttle-time">${shuttle.time}</div>
             <div class="shuttle-route">${shuttle.route}</div>
@@ -409,21 +417,21 @@ function renderFullShuttleTable(container) {
     container.innerHTML = html || '<p>시간표 정보가 없습니다.</p>';
 }
 
-// --- 식단 함수 ---
+// --- 식단 함수 (기존과 동일) ---
 async function loadMealPlan(cafeteria) {
     try {
         const response = await fetch(`/api/meal?cafeteria=${cafeteria}`);
         const data = await response.json();
-        
+
         const studentLunchContainer = document.getElementById('studentLunchContainer');
         const facultyLunchContainer = document.getElementById('facultyLunchContainer');
         const lunchFaculty = document.getElementById('lunch-faculty');
-        
+
         document.getElementById('breakfast').textContent = data.breakfast || '식단 정보 없음';
         document.getElementById('dinner').textContent = data.dinner || '식단 정보 없음';
 
         if (cafeteria === 'student') {
-            if (studentLunchContainer) studentLunchContainer.style.display = 'block'; 
+            if (studentLunchContainer) studentLunchContainer.style.display = 'block';
             if (facultyLunchContainer) facultyLunchContainer.style.display = 'none';
             if (typeof data.lunch === 'object') {
                 document.getElementById('lunch-korean').textContent = data.lunch.korean || '식단 정보 없음';
@@ -510,7 +518,7 @@ function renderWeeklyMealTable(container, data) {
     container.innerHTML = html;
 }
 
-// --- 일정/시간표/메모 함수 ---
+// --- 일정 함수 (기존과 동일) ---
 
 async function loadTodaySchedule() {
     const container = document.getElementById('scheduleList');
@@ -548,11 +556,14 @@ function displaySchedule(data) {
     });
 }
 
+// --- 시간표/메모 함수 ---
+
 async function loadTimetable() {
     const tbody = document.getElementById('timetableBody');
     if (!tbody) return;
     try {
-        const response = await fetch('/api/timetable-data'); 
+        // API 엔드포인트에서 semester_id 없이 호출 (백엔드에서 기본 학기 처리)
+        const response = await fetch('/api/timetable-data');
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         windowTimetableData = data.subjects || [];
@@ -563,34 +574,48 @@ async function loadTimetable() {
     }
 }
 
-// (수정) 동적 시간표 렌더링 함수
+// [MODIFIED] 동적 시간표 렌더링 함수 + 색상 적용
 function displayTimetable(subjects) {
     const tbody = document.getElementById('timetableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
+    subjectColorMap = {}; // 색상 맵 초기화
 
-    // 1. 과목 데이터로 시간 범위 계산
-    let minHour = 8;  // 기본 시작 시간
-    let maxHour = 18; // 기본 종료 시간
-    
+    // 1. 과목 데이터로 시간 범위 계산 (Req #1)
+    let minHour = 9;  // 기본 시작 시간
+    let maxHour = 18; // 기본 종료 시간 (포함)
+
     if (subjects && subjects.length > 0) {
-        let earliest = 24;
-        let latest = 0;
-        subjects.forEach(s => {
-            s.timeslots.forEach(ts => {
+        let earliestStartHour = 24;
+        let latestEndHour = 0;
+
+        subjects.forEach((subject, index) => {
+            // 과목별 색상 할당 (Req #4)
+            if (!subjectColorMap[subject.id]) {
+                subjectColorMap[subject.id] = subjectColors[index % subjectColors.length];
+            }
+
+            subject.timeslots.forEach(ts => {
                 const startH = parseInt(ts.start.split(':')[0]);
                 const endH = parseInt(ts.end.split(':')[0]);
                 const endM = parseInt(ts.end.split(':')[1]);
-                
-                earliest = Math.min(earliest, startH);
-                // 끝나는 시간이 14:00 정각이면, 13시까지만 그려도 됨. 14:01이면 14시까지 그려야 함.
-                latest = Math.max(latest, (endM > 0 ? endH : endH - 1));
+
+                earliestStartHour = Math.min(earliestStartHour, startH);
+                // 끝나는 시간이 14:01이면 14시까지 포함해야 함 -> latestEndHour는 14
+                // 끝나는 시간이 14:00이면 13시까지만 표시해도 됨 -> latestEndHour는 13
+                latestEndHour = Math.max(latestEndHour, (endM > 0 ? endH : endH - 1));
             });
         });
-        
-        if (earliest < 24) minHour = Math.min(minHour, earliest);
-        if (latest > 0) maxHour = Math.max(maxHour, latest);
+
+        if (earliestStartHour < 24) minHour = Math.min(minHour, earliestStartHour);
+        // maxHour는 마지막 교시가 끝나는 시간 + 1시간까지 보여주기 위함 (Req #1)
+        if (latestEndHour > 0) maxHour = Math.max(maxHour, latestEndHour + 1);
+    } else {
+        // 과목이 없을 경우 기본 시간 범위
+        minHour = 9;
+        maxHour = 18;
     }
+
 
     // 2. 시간표 그리드(행) 생성
     for (let h = minHour; h <= maxHour; h++) {
@@ -607,22 +632,30 @@ function displayTimetable(subjects) {
         `;
         tbody.appendChild(row);
     }
-    
+
     // 3. 과목 슬롯 배치 (DOM 렌더링 후)
     requestAnimationFrame(() => {
         const firstRowCell = tbody.querySelector('td[data-day="1"]');
         if (!firstRowCell) {
              console.warn("Timetable grid not ready.");
+             // 과목이 없을 경우 여기서 종료될 수 있음
+             if (subjects.length === 0) {
+                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">이번 학기에 등록된 과목이 없습니다.</td></tr>`;
+             }
              return;
         }
 
         const cellHeight = firstRowCell.offsetHeight;
         if (!cellHeight || cellHeight === 0) {
-            console.warn("Cell height is 0, cannot position slots.");
+            console.warn("Cell height is 0, cannot position slots. Retrying...");
+            // 높이 계산 재시도
+             setTimeout(() => displayTimetable(subjects), 100);
             return;
         }
 
         subjects.forEach(subject => {
+            const subjectColor = subjectColorMap[subject.id] || 'rgba(165, 0, 52, 0.1)'; // 기본 색상
+
             subject.timeslots.forEach(ts => {
                 const startHour = parseInt(ts.start.split(':')[0]);
                 const startMinute = parseInt(ts.start.split(':')[1]);
@@ -634,22 +667,28 @@ function displayTimetable(subjects) {
                 const cell = tbody.querySelector(`tr[data-hour="${targetHourStr}"] td[data-day="${ts.day}"]`);
 
                 if (!cell) {
-                     console.warn(`Cell not found for day ${ts.day}, hour ${targetHourStr} (Out of range?)`);
+                     // minHour/maxHour 범위 밖에 있는 시간대는 건너뜀
+                     console.warn(`Cell not found for day ${ts.day}, hour ${targetHourStr} (Out of display range?)`);
                      return;
                 }
 
-                // 셀 높이(1시간=50px) 기준으로 offset과 height 계산
+                // 셀 높이(1시간=50px 가정) 기준으로 offset과 height 계산
                 const minutesPerHour = 60;
                 const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-                
+
                 const topOffset = (startMinute / minutesPerHour) * cellHeight;
-                const slotHeight = (durationMinutes / minutesPerHour) * cellHeight;
+                // 높이 계산 시 border 고려하여 1~2px 빼기
+                const slotHeight = Math.max(10, (durationMinutes / minutesPerHour) * cellHeight - 2); // 최소 높이 보장
 
                 const slotDiv = document.createElement('div');
                 slotDiv.className = 'subject-slot';
                 slotDiv.style.top = `${topOffset}px`;
-                slotDiv.style.height = `${slotHeight - 2}px`; // 여백
-                
+                slotDiv.style.height = `${slotHeight}px`;
+                slotDiv.style.backgroundColor = subjectColor; // 색상 적용 (Req #4)
+                // 테두리 색상도 약간 진하게 설정 (선택 사항)
+                slotDiv.style.borderLeft = `3px solid ${subjectColor.replace('0.1', '0.5')}`;
+
+
                 // 뱃지 로직
                 let memoIcon = '';
                 let todoBadge = '';
@@ -665,11 +704,15 @@ function displayTimetable(subjects) {
                     }
                 }
 
-                slotDiv.innerHTML = `
-                    <div class="timetable-badges">${memoIcon}${todoBadge}</div>
-                    <div class="slot-subject">${subject.name}</div>
-                    <div class="slot-room">${ts.room || ''}</div>
-                `;
+                // 슬롯 내용 (높이가 너무 작으면 일부 내용 숨김 처리 가능)
+                let innerHTML = `<div class="timetable-badges">${memoIcon}${todoBadge}</div>
+                                 <div class="slot-subject">${subject.name}</div>`;
+                if (slotHeight > 30) { // 높이가 충분할 때만 강의실 정보 표시
+                    innerHTML += `<div class="slot-room">${ts.room || ''}</div>`;
+                }
+
+                slotDiv.innerHTML = innerHTML;
+
                 slotDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openMemoModal(subject);
@@ -680,131 +723,203 @@ function displayTimetable(subjects) {
     });
 }
 
+
+// --- 메모 모달 관련 함수들 (기존과 동일, 홈 화면에서 사용) ---
 function openMemoModal(subject) {
     if (!subject) return;
 
     currentTimetableItem = subject;
-    
+
     let memoObj = subject.memo || { note: '', todos: [] };
-    if (typeof memoObj === 'string') { // 호환성
+    // 호환성: memo가 문자열일 경우 JSON 파싱 시도
+    if (typeof memoObj === 'string') {
         try { memoObj = JSON.parse(memoObj); }
-        catch(e) { memoObj = { note: memoObj, todos: [] }; }
+        catch(e) { memoObj = { note: memoObj, todos: [] }; } // 파싱 실패 시 초기화
+    }
+     // memoObj가 null이거나 객체가 아닐 경우 초기화
+    if (!memoObj || typeof memoObj !== 'object') {
+        memoObj = { note: '', todos: [] };
+    }
+     // todos가 배열이 아닐 경우 초기화
+    if (!Array.isArray(memoObj.todos)) {
+        memoObj.todos = [];
+    }
+    // note가 문자열이 아닐 경우 초기화
+    if (typeof memoObj.note !== 'string') {
+         memoObj.note = '';
     }
 
-    document.getElementById('memoSubjectName').textContent = subject.name || '메모/Todo';
-    document.getElementById('memoSubjectProfessor').textContent = subject.professor || '-';
-    const room = subject.timeslots && subject.timeslots.length > 0 ? subject.timeslots[0].room : '-';
-    document.getElementById('memoSubjectRoom').textContent = room || '-';
-    document.getElementById('memoText').value = memoObj.note || '';
-    renderTodoList(memoObj.todos || []);
-    
-    document.getElementById('memoModal').classList.add('active');
+    // currentTimetableItem.memo 업데이트
+    currentTimetableItem.memo = memoObj;
+
+
+    // 모달 UI 업데이트
+    const memoModal = document.getElementById('memoModal');
+    if (!memoModal) return; // 모달 없으면 종료
+
+    const subjectNameEl = memoModal.querySelector('#memoSubjectName');
+    const professorEl = memoModal.querySelector('#memoSubjectProfessor');
+    const roomEl = memoModal.querySelector('#memoSubjectRoom');
+    const memoTextEl = memoModal.querySelector('#memoText');
+
+    if (subjectNameEl) subjectNameEl.textContent = subject.name || '메모/Todo';
+    if (professorEl) professorEl.textContent = subject.professor || '-';
+    const room = subject.timeslots && subject.timeslots.length > 0 ? (subject.timeslots[0].room || '-') : '-';
+    if (roomEl) roomEl.textContent = room;
+    if (memoTextEl) memoTextEl.value = memoObj.note || '';
+
+    renderTodoList(memoObj.todos || []); // todos 렌더링
+
+    memoModal.classList.add('active');
 }
 
 function renderTodoList(todos) {
     const todoListUl = document.getElementById('memoTodoList');
+    if (!todoListUl) return; // 대상 없으면 종료
     todoListUl.innerHTML = '';
-    
+
     if (!todos || todos.length === 0) {
         todoListUl.innerHTML = '<li class="todo-empty">할 일이 없습니다.</li>';
         return;
     }
-    
-    if (currentTimetableItem && !currentTimetableItem.memo) {
+
+    // currentTimetableItem과 memo 객체 유효성 검사 및 초기화
+    if (!currentTimetableItem) return;
+    if (!currentTimetableItem.memo) {
         currentTimetableItem.memo = { note: '', todos: [] };
     }
+     if (!Array.isArray(currentTimetableItem.memo.todos)) {
+         currentTimetableItem.memo.todos = [];
+     }
+    // 현재 상태 반영
     currentTimetableItem.memo.todos = todos;
-    
+
+
     todos.forEach((todo, index) => {
         const li = document.createElement('li');
         li.className = todo.done ? 'todo-item done' : 'todo-item';
-        const todoId = `modal-todo-${index}-${Date.now()}`;
-        
+        const todoId = `modal-todo-${index}-${Date.now()}`; // 고유 ID 생성
+
         li.innerHTML = `
             <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
             <label for="${todoId}" class="todo-label">${todo.task}</label>
             <span class="todo-delete-btn" data-index="${index}">&times;</span>
         `;
-        
+
+        // 체크박스 변경 이벤트
         li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
-            currentTimetableItem.memo.todos[index].done = e.target.checked;
-            li.classList.toggle('done', e.target.checked);
+             if (currentTimetableItem && currentTimetableItem.memo && currentTimetableItem.memo.todos[index]) {
+                currentTimetableItem.memo.todos[index].done = e.target.checked;
+                li.classList.toggle('done', e.target.checked);
+             }
         });
-        
+
+        // 삭제 버튼 클릭 이벤트
         li.querySelector('.todo-delete-btn').addEventListener('click', (e) => {
-            const indexToRemove = parseInt(e.target.dataset.index, 10);
-            currentTimetableItem.memo.todos.splice(indexToRemove, 1);
-            renderTodoList(currentTimetableItem.memo.todos);
+             if (currentTimetableItem && currentTimetableItem.memo && currentTimetableItem.memo.todos) {
+                const indexToRemove = parseInt(e.target.dataset.index, 10);
+                currentTimetableItem.memo.todos.splice(indexToRemove, 1);
+                renderTodoList(currentTimetableItem.memo.todos); // 목록 다시 렌더링
+             }
         });
         todoListUl.appendChild(li);
     });
 }
 
+
 function addTodoItem() {
     const input = document.getElementById('memoNewTodoInput');
+    if (!input) return;
     const taskText = input.value.trim();
     if (taskText === '') return;
-    
+
     const newTodo = { task: taskText, done: false };
-    
+
     const todoListUl = document.getElementById('memoTodoList');
+    if (!todoListUl) return;
     const emptyMsg = todoListUl.querySelector('.todo-empty');
-    if (emptyMsg) todoListUl.innerHTML = '';
-    
+    if (emptyMsg) todoListUl.innerHTML = ''; // '할 일 없음' 메시지 제거
+
+     // currentTimetableItem과 memo 객체 유효성 검사 및 초기화
+    if (!currentTimetableItem) return;
     if (!currentTimetableItem.memo) {
         currentTimetableItem.memo = { note: '', todos: [] };
     }
-    if (!currentTimetableItem.memo.todos) {
+    if (!Array.isArray(currentTimetableItem.memo.todos)) {
         currentTimetableItem.memo.todos = [];
     }
-    
+
     currentTimetableItem.memo.todos.push(newTodo);
-    renderTodoList(currentTimetableItem.memo.todos);
-    
-    input.value = '';
+    renderTodoList(currentTimetableItem.memo.todos); // 업데이트된 목록으로 다시 렌더링
+
+    input.value = ''; // 입력 필드 초기화
     input.focus();
 }
 
 
 function closeModal() {
-    document.getElementById('memoModal').classList.remove('active');
+     const memoModal = document.getElementById('memoModal');
+     if (memoModal) memoModal.classList.remove('active');
 }
 
 async function saveMemo() {
-    const memoText = document.getElementById('memoText').value;
-    const todos = currentTimetableItem.memo.todos || [];
-    
+    const memoTextEl = document.getElementById('memoText');
+    if (!currentTimetableItem || !memoTextEl) {
+        alert("오류: 저장할 과목 정보나 메모 입력 필드를 찾을 수 없습니다.");
+        return;
+    }
+
+    const memoText = memoTextEl.value;
+    const todos = currentTimetableItem.memo ? (currentTimetableItem.memo.todos || []) : [];
+
     const memoData = {
         note: memoText.trim(),
         todos: todos
     };
 
-    const subject = currentTimetableItem; 
-    if (!subject || !subject.id) {
-        alert("오류: 저장할 과목 정보가 없습니다.");
+    const subject = currentTimetableItem;
+    if (!subject.id) {
+        alert("오류: 저장할 과목 ID가 없습니다.");
         return;
     }
 
-    const subjectData = { ...subject, memo: memoData };
-    
+    // 서버로 전송할 데이터 준비 (Subject 객체 전체를 보내는 방식 유지)
+    // 단, memo 필드만 업데이트된 memoData로 교체
+    const subjectDataToSend = {
+         ...subject, // 기존 과목 정보 복사
+        memo: memoData // 업데이트된 메모/Todo 데이터
+     };
+    // timeslots는 PUT 요청 시 백엔드에서 필요할 수 있으므로 포함 (백엔드 로직에 따라 조절)
+    // 만약 timeslots 정보가 PUT에서 필요 없다면 제외 가능
+    // subjectDataToSend.timeslots = subject.timeslots;
+
+
     const saveButton = document.getElementById('saveMemoBtn');
+    if (!saveButton) return;
     saveButton.disabled = true;
     saveButton.textContent = '저장 중...';
 
     try {
-        const response = await fetch(`/api/subjects/${subject.id}`, { 
+        const response = await fetch(`/api/subjects/${subject.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subjectData)
+            // 전체 Subject 객체 구조에 맞춰 전송 (백엔드 API 형식에 따름)
+            body: JSON.stringify(subjectDataToSend)
         });
-        
+
         const result = await response.json();
         if (result.status !== 'success') {
             throw new Error(result.message || 'Failed to save memo');
         }
-        
-        subject.memo = memoData;
-        
+
+        // 성공 시 로컬 데이터 업데이트 (이미 currentTimetableItem.memo는 업데이트 되어 있음)
+        // windowTimetableData 배열에서도 해당 과목의 memo 업데이트
+         const index = windowTimetableData.findIndex(s => s.id === subject.id);
+         if (index !== -1) {
+             windowTimetableData[index].memo = memoData;
+         }
+
+
     } catch (error) {
         console.error('Failed to save memo to server:', error);
         alert(`메모 저장에 실패했습니다: ${error.message}`);
@@ -812,7 +927,8 @@ async function saveMemo() {
         saveButton.disabled = false;
         saveButton.textContent = '저장';
     }
-    
-    displayTimetable(windowTimetableData); 
+
+    // 홈 화면 시간표 다시 그리기 (뱃지 업데이트 등)
+    displayTimetable(windowTimetableData);
     closeModal();
 }

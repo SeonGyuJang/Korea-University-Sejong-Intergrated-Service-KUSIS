@@ -1723,3 +1723,44 @@
         gap: 10px;
     }
 }
+
+.subject-slot {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    /* background: rgba(165, 0, 52, 0.1); */ /* JS에서 설정하므로 주석 처리 */
+    /* border: 1px solid var(--korea-red); */ /* border-left만 사용 */
+    border-left: 3px solid var(--korea-red); /* JS에서 더 구체적인 색상으로 덮어쓸 수 있음 */
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    overflow: hidden;
+    font-size: 11px;
+    z-index: 10;
+    box-sizing: border-box; /* 패딩 포함 */
+    display: flex; /* 내용 정렬 */
+    flex-direction: column;
+    justify-content: center;
+}
+.subject-slot:hover {
+    /* background: rgba(165, 0, 52, 0.2); */ /* JS에서 설정 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); /* 호버 시 그림자 */
+    z-index: 11;
+    transform: scale(1.02); /* 약간 확대 효과 */
+}
+.subject-slot .slot-subject {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--korea-red-dark);
+    white-space: nowrap; /* 줄바꿈 방지 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px; /* 강의실과의 간격 */
+}
+.subject-slot .slot-room {
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

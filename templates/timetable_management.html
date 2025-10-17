@@ -9,37 +9,6 @@
 {% block content %}
 <div class="content-area timetable-management-page">
     
-    <div class="timetable-main-content">
-        <div class="widget timetable-editor-widget">
-            <div class="widget-header">
-                <div class="timetable-controls">
-                    <select id="semesterSelect" class="input-group">
-                        <option value="">학기 로딩 중...</option>
-                    </select>
-                </div>
-                <button id="addSubjectBtn" class="btn btn-save">
-                    <i class="fas fa-plus"></i> 새 과목 추가
-                </button>
-            </div>
-            <div class="timetable-container">
-                <table class="timetable editable">
-                    <thead>
-                        <tr>
-                            <th>시간</th>
-                            <th>월</th>
-                            <th>화</th>
-                            <th>수</th>
-                            <th>목</th>
-                            <th>금</th>
-                        </tr>
-                    </thead>
-                    <tbody id="timetableEditorBody">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <div class="timetable-side-content">
         <div class="widget">
             <div class="widget-tabs-container">
@@ -100,6 +69,84 @@
                     <p class="todo-summary-empty">학기를 선택해주세요.</p>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="timetable-main-content">
+        <div class="widget timetable-editor-widget">
+            <div class="widget-header">
+                <div class="timetable-controls">
+                    <select id="semesterSelect" class="input-group">
+                        <option value="">학기 로딩 중...</option>
+                    </select>
+                </div>
+                <button id="addSubjectBtn" class="btn btn-save">
+                    <i class="fas fa-plus"></i> 새 과목 추가
+                </button>
+            </div>
+            <div class="timetable-container">
+                <table class="timetable editable">
+                    <thead>
+                        <tr>
+                            <th>시간</th>
+                            <th>월</th>
+                            <th>화</th>
+                            <th>수</th>
+                            <th>목</th>
+                            <th>금</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetableEditorBody">
+                        <tr><td colspan="6" class="todo-summary-empty">학기를 선택해주세요.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="timetable-details-side-content">
+        <div class="widget subject-details-widget">
+            <div class="widget-header">
+                <h3><i class="fas fa-book-open"></i> 과목 정보</h3>
+            </div>
+            <div class="subject-details-list-container">
+                <ul id="subjectDetailsList">
+                    <li class="subject-details-empty">학기를 선택하면 과목 목록이 표시됩니다.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="widget weekly-details-widget">
+             <div class="widget-header">
+                <h3 id="weeklyDetailsTitle"><i class="fas fa-calendar-week"></i> 주차별 정보</h3>
+             </div>
+             <div class="week-selector">
+                <button id="prevWeekBtn" disabled><i class="fas fa-chevron-left"></i></button>
+                <span id="currentWeekDisplay">주차 선택</span>
+                <button id="nextWeekBtn" disabled><i class="fas fa-chevron-right"></i></button>
+             </div>
+             <div class="weekly-content">
+                <h4 class="memo-subtitle" style="margin-top: 0;">
+                    <i class="fas fa-sticky-note"></i> 주차 메모 ( <span id="weeklyMemoSubjectName">과목 선택</span> )
+                </h4>
+                <textarea id="weeklyMemoText" rows="4" placeholder="과목을 선택하고 메모를 입력하세요..." disabled></textarea>
+
+                <h4 class="memo-subtitle" style="margin-top: 15px;">
+                    <i class="fas fa-check-square"></i> 주차 Todo ( <span id="weeklyTodoSubjectName">과목 선택</span> )
+                </h4>
+                 <ul id="weeklyTodoList" class="memo-todo-list">
+                     <li class="todo-empty">과목을 선택해주세요.</li>
+                 </ul>
+                 <div class="memo-todo-add">
+                     <input type="text" id="weeklyNewTodoInput" placeholder="새로운 할 일..." disabled>
+                     <button id="weeklyAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
+                 </div>
+                 <div style="text-align: right; margin-top: 10px;">
+                     <button id="saveWeeklyMemoTodoBtn" class="btn btn-save btn-small" disabled>주차 정보 저장</button>
+                 </div>
+                 <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; text-align: center;">
+                    ⚠️ 주차별 메모/Todo 기능은 현재 UI만 구현되어 있으며, 실제 데이터 저장/로드는 백엔드 수정이 필요합니다.
+                 </p>
+             </div>
         </div>
     </div>
 </div>
@@ -179,21 +226,7 @@
                 <div id="editTimeSlotContainer"></div>
                 <button type="button" id="editAddTimeSlotBtn" class="btn btn-secondary"><i class="fas fa-plus"></i> 시간 추가</button>
                 <hr class="form-divider">
-                <div class="form-grid">
-                    <div class="input-group full-width">
-                        <label for="editMemoText">메모</label>
-                        <textarea id="editMemoText" rows="3" placeholder="메모를 입력하세요..."></textarea>
-                    </div>
-                    <div class="input-group full-width">
-                        <label for="editMemoTodoList">Todo List</label>
-                        <ul id="editMemoTodoList" class="memo-todo-list"></ul>
-                        <div class="memo-todo-add">
-                            <input type="text" id="editMemoNewTodoInput" placeholder="새로운 할 일...">
-                            <button type="button" id="editMemoAddTodoBtn" class="btn btn-primary"><i class="fas fa-plus"></i></button>
-                        </div>
-                    </div>
-                </div>
-            </form>
+                 </form>
         </div>
         <div class="modal-footer" style="justify-content: space-between;">
             <button class="btn btn-danger" id="deleteSubjectBtn"><i class="fas fa-trash"></i> 삭제</button>
