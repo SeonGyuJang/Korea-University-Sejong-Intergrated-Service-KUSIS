@@ -567,6 +567,17 @@ async function loadTimetable() {
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         windowTimetableData = data.subjects || [];
+        
+        // [수정] 홈 위젯의 과목 전체 메모 파싱 (Req #4)
+        windowTimetableData.forEach(s => {
+            if (typeof s.memo === 'string') {
+                try { s.memo = JSON.parse(s.memo); } catch(e) { s.memo = {note: '', todos: []}; }
+            }
+            if (!s.memo || typeof s.memo !== 'object') s.memo = {note: '', todos: []};
+            if (!Array.isArray(s.memo.todos)) s.memo.todos = [];
+            if (typeof s.memo.note !== 'string') s.memo.note = '';
+        });
+
         displayTimetable(windowTimetableData);
     } catch (error) {
         console.error('Failed to load timetable:', error);
@@ -574,23 +585,26 @@ async function loadTimetable() {
     }
 }
 
-// [MODIFIED] 동적 시간표 렌더링 함수 + 색상 적용
+/**
+ * [수정] displayTimetable (Req #2)
+ * - 재귀적 setTimeout 호출로 인한 스택 오버플로우를 막기 위해
+ * 슬롯 배치 로직을 별도 함수(positionTimetableSlots)로 분리
+ */
 function displayTimetable(subjects) {
     const tbody = document.getElementById('timetableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
     subjectColorMap = {}; // 색상 맵 초기화
 
-    // 1. 과목 데이터로 시간 범위 계산 (Req #1)
-    let minHour = 9;  // 기본 시작 시간
-    let maxHour = 18; // 기본 종료 시간 (포함)
+    // 1. 과목 데이터로 시간 범위 계산 (기존 유지)
+    let minHour = 9;
+    let maxHour = 18;
 
     if (subjects && subjects.length > 0) {
         let earliestStartHour = 24;
         let latestEndHour = 0;
 
         subjects.forEach((subject, index) => {
-            // 과목별 색상 할당 (Req #4)
             if (!subjectColorMap[subject.id]) {
                 subjectColorMap[subject.id] = subjectColors[index % subjectColors.length];
             }
@@ -601,27 +615,23 @@ function displayTimetable(subjects) {
                 const endM = parseInt(ts.end.split(':')[1]);
 
                 earliestStartHour = Math.min(earliestStartHour, startH);
-                // 끝나는 시간이 14:01이면 14시까지 포함해야 함 -> latestEndHour는 14
-                // 끝나는 시간이 14:00이면 13시까지만 표시해도 됨 -> latestEndHour는 13
                 latestEndHour = Math.max(latestEndHour, (endM > 0 ? endH : endH - 1));
             });
         });
 
         if (earliestStartHour < 24) minHour = Math.min(minHour, earliestStartHour);
-        // maxHour는 마지막 교시가 끝나는 시간 + 1시간까지 보여주기 위함 (Req #1)
         if (latestEndHour > 0) maxHour = Math.max(maxHour, latestEndHour + 1);
     } else {
-        // 과목이 없을 경우 기본 시간 범위
         minHour = 9;
         maxHour = 18;
     }
 
 
-    // 2. 시간표 그리드(행) 생성
+    // 2. 시간표 그리드(행) 생성 (기존 유지)
     for (let h = minHour; h <= maxHour; h++) {
         const hourStr = String(h).padStart(2, '0');
         const row = document.createElement('tr');
-        row.setAttribute('data-hour', hourStr); // JS가 시간대를 찾기 위한 속성
+        row.setAttribute('data-hour', hourStr);
         row.innerHTML = `
             <td>${hourStr}:00</td>
             <td data-day="1"></td>
@@ -633,12 +643,27 @@ function displayTimetable(subjects) {
         tbody.appendChild(row);
     }
 
-    // 3. 과목 슬롯 배치 (DOM 렌더링 후)
+    // 3. [수정] 과목 슬롯 배치 함수 호출 (Req #2)
+    if (subjects.length > 0) {
+        positionTimetableSlots(subjects);
+    } else {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">이번 학기에 등록된 과목이 없습니다.</td></tr>`;
+    }
+}
+
+/**
+ * [신규] positionTimetableSlots (Req #2)
+ * - displayTimetable에서 분리된 슬롯 배치 함수
+ * - 재귀 호출이 아닌, 재시도 로직만 포함
+ */
+function positionTimetableSlots(subjects) {
+    const tbody = document.getElementById('timetableBody');
+    if (!tbody) return;
+    
     requestAnimationFrame(() => {
         const firstRowCell = tbody.querySelector('td[data-day="1"]');
         if (!firstRowCell) {
-             console.warn("Timetable grid not ready.");
-             // 과목이 없을 경우 여기서 종료될 수 있음
+             console.warn("Timetable grid not ready (no cell).");
              if (subjects.length === 0) {
                  tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">이번 학기에 등록된 과목이 없습니다.</td></tr>`;
              }
@@ -648,13 +673,13 @@ function displayTimetable(subjects) {
         const cellHeight = firstRowCell.offsetHeight;
         if (!cellHeight || cellHeight === 0) {
             console.warn("Cell height is 0, cannot position slots. Retrying...");
-            // 높이 계산 재시도
-             setTimeout(() => displayTimetable(subjects), 100);
+            // [수정] 재귀 대신, 이 함수만 다시 호출
+            setTimeout(() => positionTimetableSlots(subjects), 100);
             return;
         }
 
         subjects.forEach(subject => {
-            const subjectColor = subjectColorMap[subject.id] || 'rgba(165, 0, 52, 0.1)'; // 기본 색상
+            const subjectColor = subjectColorMap[subject.id] || 'rgba(165, 0, 52, 0.1)';
 
             subject.timeslots.forEach(ts => {
                 const startHour = parseInt(ts.start.split(':')[0]);
@@ -662,34 +687,28 @@ function displayTimetable(subjects) {
                 const endHour = parseInt(ts.end.split(':')[0]);
                 const endMinute = parseInt(ts.end.split(':')[1]);
 
-                // 이 과목이 표시될 시간대의 셀(e.g., 10:00)을 찾음
                 const targetHourStr = String(startHour).padStart(2, '0');
                 const cell = tbody.querySelector(`tr[data-hour="${targetHourStr}"] td[data-day="${ts.day}"]`);
 
                 if (!cell) {
-                     // minHour/maxHour 범위 밖에 있는 시간대는 건너뜀
                      console.warn(`Cell not found for day ${ts.day}, hour ${targetHourStr} (Out of display range?)`);
                      return;
                 }
 
-                // 셀 높이(1시간=50px 가정) 기준으로 offset과 height 계산
                 const minutesPerHour = 60;
                 const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
 
                 const topOffset = (startMinute / minutesPerHour) * cellHeight;
-                // 높이 계산 시 border 고려하여 1~2px 빼기
-                const slotHeight = Math.max(10, (durationMinutes / minutesPerHour) * cellHeight - 2); // 최소 높이 보장
+                const slotHeight = Math.max(10, (durationMinutes / minutesPerHour) * cellHeight - 2); 
 
                 const slotDiv = document.createElement('div');
                 slotDiv.className = 'subject-slot';
                 slotDiv.style.top = `${topOffset}px`;
                 slotDiv.style.height = `${slotHeight}px`;
-                slotDiv.style.backgroundColor = subjectColor; // 색상 적용 (Req #4)
-                // 테두리 색상도 약간 진하게 설정 (선택 사항)
+                slotDiv.style.backgroundColor = subjectColor;
                 slotDiv.style.borderLeft = `3px solid ${subjectColor.replace('0.1', '0.5')}`;
 
-
-                // 뱃지 로직
+                // 뱃지 로직 (기존 유지)
                 let memoIcon = '';
                 let todoBadge = '';
                 if (subject.memo) {
@@ -704,15 +723,14 @@ function displayTimetable(subjects) {
                     }
                 }
 
-                // 슬롯 내용 (높이가 너무 작으면 일부 내용 숨김 처리 가능)
                 let innerHTML = `<div class="timetable-badges">${memoIcon}${todoBadge}</div>
                                  <div class="slot-subject">${subject.name}</div>`;
-                if (slotHeight > 30) { // 높이가 충분할 때만 강의실 정보 표시
+                if (slotHeight > 30) { 
                     innerHTML += `<div class="slot-room">${ts.room || ''}</div>`;
                 }
-
                 slotDiv.innerHTML = innerHTML;
 
+                // [수정] 홈 위젯에서는 '과목 전체 메모' 모달을 엶 (Req #4)
                 slotDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openMemoModal(subject);
@@ -724,38 +742,35 @@ function displayTimetable(subjects) {
 }
 
 
-// --- 메모 모달 관련 함수들 (기존과 동일, 홈 화면에서 사용) ---
+// --- 메모 모달 관련 함수들 (홈 화면 '과목 전체 메모'용) (Req #4) ---
 function openMemoModal(subject) {
     if (!subject) return;
 
     currentTimetableItem = subject;
 
+    // [수정] subject.memo (과목 전체 메모)를 사용
     let memoObj = subject.memo || { note: '', todos: [] };
-    // 호환성: memo가 문자열일 경우 JSON 파싱 시도
+    
+    // (데이터 일관성을 위해 파싱 로직 한 번 더 수행)
     if (typeof memoObj === 'string') {
         try { memoObj = JSON.parse(memoObj); }
-        catch(e) { memoObj = { note: memoObj, todos: [] }; } // 파싱 실패 시 초기화
+        catch(e) { memoObj = { note: memoObj, todos: [] }; } 
     }
-     // memoObj가 null이거나 객체가 아닐 경우 초기화
     if (!memoObj || typeof memoObj !== 'object') {
         memoObj = { note: '', todos: [] };
     }
-     // todos가 배열이 아닐 경우 초기화
     if (!Array.isArray(memoObj.todos)) {
         memoObj.todos = [];
     }
-    // note가 문자열이 아닐 경우 초기화
     if (typeof memoObj.note !== 'string') {
          memoObj.note = '';
     }
 
-    // currentTimetableItem.memo 업데이트
-    currentTimetableItem.memo = memoObj;
-
+    currentTimetableItem.memo = memoObj; // 로컬 객체 업데이트
 
     // 모달 UI 업데이트
     const memoModal = document.getElementById('memoModal');
-    if (!memoModal) return; // 모달 없으면 종료
+    if (!memoModal) return; 
 
     const subjectNameEl = memoModal.querySelector('#memoSubjectName');
     const professorEl = memoModal.querySelector('#memoSubjectProfessor');
@@ -775,7 +790,7 @@ function openMemoModal(subject) {
 
 function renderTodoList(todos) {
     const todoListUl = document.getElementById('memoTodoList');
-    if (!todoListUl) return; // 대상 없으면 종료
+    if (!todoListUl) return;
     todoListUl.innerHTML = '';
 
     if (!todos || todos.length === 0) {
@@ -783,7 +798,6 @@ function renderTodoList(todos) {
         return;
     }
 
-    // currentTimetableItem과 memo 객체 유효성 검사 및 초기화
     if (!currentTimetableItem) return;
     if (!currentTimetableItem.memo) {
         currentTimetableItem.memo = { note: '', todos: [] };
@@ -798,7 +812,7 @@ function renderTodoList(todos) {
     todos.forEach((todo, index) => {
         const li = document.createElement('li');
         li.className = todo.done ? 'todo-item done' : 'todo-item';
-        const todoId = `modal-todo-${index}-${Date.now()}`; // 고유 ID 생성
+        const todoId = `modal-todo-${index}-${Date.now()}`; 
 
         li.innerHTML = `
             <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
@@ -838,9 +852,8 @@ function addTodoItem() {
     const todoListUl = document.getElementById('memoTodoList');
     if (!todoListUl) return;
     const emptyMsg = todoListUl.querySelector('.todo-empty');
-    if (emptyMsg) todoListUl.innerHTML = ''; // '할 일 없음' 메시지 제거
+    if (emptyMsg) todoListUl.innerHTML = ''; 
 
-     // currentTimetableItem과 memo 객체 유효성 검사 및 초기화
     if (!currentTimetableItem) return;
     if (!currentTimetableItem.memo) {
         currentTimetableItem.memo = { note: '', todos: [] };
@@ -862,6 +875,7 @@ function closeModal() {
      if (memoModal) memoModal.classList.remove('active');
 }
 
+// [수정] '과목 전체 메모' 저장 (Req #4)
 async function saveMemo() {
     const memoTextEl = document.getElementById('memoText');
     if (!currentTimetableItem || !memoTextEl) {
@@ -869,6 +883,7 @@ async function saveMemo() {
         return;
     }
 
+    // [수정] currentTimetableItem.memo (로컬 객체)에서 최신 데이터를 가져옴
     const memoText = memoTextEl.value;
     const todos = currentTimetableItem.memo ? (currentTimetableItem.memo.todos || []) : [];
 
@@ -883,16 +898,12 @@ async function saveMemo() {
         return;
     }
 
-    // 서버로 전송할 데이터 준비 (Subject 객체 전체를 보내는 방식 유지)
-    // 단, memo 필드만 업데이트된 memoData로 교체
+    // [수정] 서버로 전송할 데이터 (Req #4)
+    // subject 객체 전체를 보내되, memo 필드만 최신 memoData로 교체
     const subjectDataToSend = {
-         ...subject, // 기존 과목 정보 복사
-        memo: memoData // 업데이트된 메모/Todo 데이터
+         ...subject, 
+        memo: memoData 
      };
-    // timeslots는 PUT 요청 시 백엔드에서 필요할 수 있으므로 포함 (백엔드 로직에 따라 조절)
-    // 만약 timeslots 정보가 PUT에서 필요 없다면 제외 가능
-    // subjectDataToSend.timeslots = subject.timeslots;
-
 
     const saveButton = document.getElementById('saveMemoBtn');
     if (!saveButton) return;
@@ -903,7 +914,6 @@ async function saveMemo() {
         const response = await fetch(`/api/subjects/${subject.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            // 전체 Subject 객체 구조에 맞춰 전송 (백엔드 API 형식에 따름)
             body: JSON.stringify(subjectDataToSend)
         });
 
@@ -912,13 +922,11 @@ async function saveMemo() {
             throw new Error(result.message || 'Failed to save memo');
         }
 
-        // 성공 시 로컬 데이터 업데이트 (이미 currentTimetableItem.memo는 업데이트 되어 있음)
-        // windowTimetableData 배열에서도 해당 과목의 memo 업데이트
+        // 성공 시 전역 데이터(windowTimetableData) 업데이트 (Req #4)
          const index = windowTimetableData.findIndex(s => s.id === subject.id);
          if (index !== -1) {
              windowTimetableData[index].memo = memoData;
          }
-
 
     } catch (error) {
         console.error('Failed to save memo to server:', error);
@@ -928,7 +936,7 @@ async function saveMemo() {
         saveButton.textContent = '저장';
     }
 
-    // 홈 화면 시간표 다시 그리기 (뱃지 업데이트 등)
+    // 홈 화면 시간표 다시 그리기 (뱃지 업데이트 등) (Req #4)
     displayTimetable(windowTimetableData);
     closeModal();
 }

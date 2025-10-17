@@ -80,9 +80,13 @@
                         <option value="">학기 로딩 중...</option>
                     </select>
                 </div>
-                <button id="addSubjectBtn" class="btn btn-save">
-                    <i class="fas fa-plus"></i> 새 과목 추가
-                </button>
+                <!-- [수정] 새 과목 추가 버튼 UI 개선 (Req #7) -->
+                <div id="addSubjectBtnContainer">
+                    <button id="addSubjectBtn" class="btn-add-subject">
+                        <i class="fas fa-plus"></i>
+                        <span>새 과목 추가</span>
+                    </button>
+                </div>
             </div>
             <div class="timetable-container">
                 <table class="timetable editable">
@@ -118,6 +122,8 @@
         <div class="widget weekly-details-widget">
              <div class="widget-header">
                 <h3 id="weeklyDetailsTitle"><i class="fas fa-calendar-week"></i> 주차별 정보</h3>
+                <!-- [신규] 모든 주차 모아보기 버튼 (Req #4) -->
+                <button id="viewAllWeeksBtn" class="btn-more"><i class="fas fa-book-reader"></i> 모아보기</button>
              </div>
              <div class="week-selector">
                 <button id="prevWeekBtn" disabled><i class="fas fa-chevron-left"></i></button>
@@ -140,16 +146,35 @@
                      <input type="text" id="weeklyNewTodoInput" placeholder="새로운 할 일..." disabled>
                      <button id="weeklyAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
                  </div>
-                 <div style="text-align: right; margin-top: 10px;">
-                     <button id="saveWeeklyMemoTodoBtn" class="btn btn-save btn-small" disabled>주차 정보 저장</button>
+                 <div class="save-button-container">
+                    <!-- [수정] 주차 정보 저장 버튼 UI 개선 (Req #6) -->
+                     <button id="saveWeeklyMemoTodoBtn" class="btn-save-weekly" disabled>
+                        <i class="fas fa-save"></i> 주차 정보 저장
+                     </button>
                  </div>
-                 <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px; text-align: center;">
-                    ⚠️ 주차별 메모/Todo 기능은 현재 UI만 구현되어 있으며, 실제 데이터 저장/로드는 백엔드 수정이 필요합니다.
-                 </p>
              </div>
         </div>
     </div>
 </div>
+
+<!-- [신규] 모든 주차 모아보기 모달 (Req #4) -->
+<div class="modal large-modal" id="allWeeksModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>전체 주차 정보</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="accordion" id="allWeeksAccordion">
+                <!-- JS will populate this -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel modal-close">닫기</button>
+        </div>
+    </div>
+</div>
+
 
 <div class="modal" id="addSubjectModal">
     <div class="modal-content large-modal">
