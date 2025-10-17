@@ -14,8 +14,9 @@
                 </div>
                 <div class="profile-info">
                     <h3 class="profile-name">{{ user.name }}</h3>
-                    <p class="profile-id">{{ session.student_id }}</p>
-                    <p class="profile-dept">{{ user.department }}</p>
+                    <p class="profile-detail">{{ session.student_id }}</p>
+                    <p class="profile-detail">{{ user.college }}</p>
+                    <p class="profile-detail">{{ user.department }}</p>
                 </div>
             </div>
             {% else %}
@@ -38,12 +39,12 @@
             </div>
             {% endif %}
             
-            {% if user %}
             <div class="current-date">
                 <i class="fas fa-calendar"></i>
                 <span id="currentDate"></span>
             </div>
             <div class="study-timer">
+                {% if user %}
                 <h4 class="study-timer-title" style="text-align: center; margin-bottom: 15px; font-size: 16px; color: var(--text-primary);">공부 타이머</h4>
                 <div class="timer-display">
                     <div class="timer-circle">
@@ -74,20 +75,31 @@
                         <span class="stat-value" id="weeklyAvg">0h 0m</span>
                     </div>
                 </div>
+                {% else %}
+                <div class="widget-login-overlay">
+                    <i class="fas fa-lock"></i>
+                    <h4>공부 타이머</h4>
+                    <p>로그인 후 사용 가능합니다.</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-save btn-small">로그인</a>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
 
-        {% if user %}
         <div class="widget schedule-widget">
             <div class="widget-header">
                 <h3><i class="fas fa-clock"></i> 오늘의 일정</h3>
-                <button class="btn-more"><i class="fas fa-plus"></i></button>
+                {% if user %}<button class="btn-more"><i class="fas fa-plus"></i></button>{% endif %}
             </div>
             <div class="schedule-list" id="scheduleList">
+                {% if not user %}
+                <div class="widget-login-overlay small">
+                    <i class="fas fa-lock"></i>
+                    <p>일정은 로그인 후 표시됩니다.</p>
+                </div>
+                {% endif %}
                 </div>
         </div>
-        {% endif %}
     </div>
 
     <div class="center-widgets">
@@ -158,14 +170,14 @@
         </div>
     </div>
 
-    {% if user %}
     <div class="right-widgets">
         <div class="widget timetable-widget">
             <div class="widget-header">
                 <h3><i class="fas fa-table"></i> 이번주 시간표</h3>
-                <button class="btn-more"><i class="fas fa-edit"></i></button>
+                {% if user %}<button class="btn-more"><i class="fas fa-edit"></i></button>{% endif %}
             </div>
             <div class="timetable-container">
+                {% if user %}
                 <table class="timetable">
                     <thead>
                         <tr>
@@ -180,10 +192,17 @@
                     <tbody id="timetableBody">
                         </tbody>
                 </table>
+                {% else %}
+                <div class="widget-login-overlay">
+                    <i class="fas fa-lock"></i>
+                    <h4>이번주 시간표</h4>
+                    <p>로그인 후 사용 가능합니다.</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-save btn-small">로그인</a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
 
 <div class="modal" id="memoModal">

@@ -3,25 +3,13 @@ let timerInterval = null;
 let shuttleUpdateInterval = null; // 셔틀버스 실시간 업데이트 인터벌
 let timerSeconds = 0;
 let isTimerRunning = false;
-let todayStudyTime = 0;
-let weeklyStudyTimes = [0, 0, 0, 0, 0, 0, 0]; // 최근 7일
+let todayStudyTime = 0; // DB에서 불러온 오늘의 총 공부 시간 (초)
+// let weeklyStudyTimes = [0, 0, 0, 0, 0, 0, 0]; // (삭제) DB에서 직접 계산함
 let currentMemo = { day: 0, period: 0, text: '' };
 
-// 임시 데이터 (API를 통해 가져오는 셔틀/식단 외의 데이터는 유지)
-const SCHEDULE_DATA_DATA = [
-    {"time": "09:00", "title": "과목1", "location": "석경 424호"},
-    {"time": "13:00", "title": "과목2", "location": "농심국제관 205호"},
-    {"time": "15:00", "title": "과목3", "location": "과기1관 303호"},
-];
-
-const TIMETABLE_DATA = [
-    {"day": 1, "period": 1, "subject": "과목1", "professor": "김교수", "room": "석경 424호", "memo": ""},
-    {"day": 1, "period": 3, "subject": "과목2", "professor": "이교수", "room": "농심국제관 205호", "memo": "과제 제출"},
-    {"day": 2, "period": 2, "subject": "과목3", "professor": "박교수", "room": "과기1관 303호", "memo": ""},
-    {"day": 3, "period": 1, "subject": "과목4", "professor": "김교수", "room": "공정대 102호", "memo": ""},
-    {"day": 4, "period": 4, "subject": "과목5", "professor": "최교수", "room": "농심국제관 301호", "memo": "중간고사 준비"},
-    {"day": 5, "period": 1, "subject": "과목6", "professor": "정교수", "room": "과기2관 111호", "memo": ""},
-];
+// (삭제) 임시 데이터 (API를 통해 가져옴)
+// const SCHEDULE_DATA_DATA = [ ... ];
+// const TIMETABLE_DATA = [ ... ];
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,25 +20,28 @@ function initializeApp() {
     // 현재 날짜 표시
     updateCurrentDate();
     
-    // 데이터 로드
-    loadShuttleSchedule(); // API에서 데이터 로드
-    loadMealPlan('student'); // API에서 데이터 로드
-    loadTodaySchedule();
-    loadTimetable();
+    // 데이터 로드 (API 비동기 호출)
+    loadShuttleSchedule(); // 셔틀 (기존 유지)
+    loadMealPlan('student'); // 식단 (기존 유지)
+    
+    // (수정) 로그인 상태일 때만 DB 데이터 로드 시도
+    if (document.querySelector('.profile-widget .profile-header .profile-name')) {
+        loadStudyStats();
+        loadTodaySchedule();
+        loadTimetable();
+    }
 
     // 셔틀버스 실시간 업데이트 시작
     startRealTimeUpdates();
     
     // 이벤트 리스너 등록
     setupEventListeners();
-    
-    // 저장된 공부 시간 불러오기
-    loadStudyTime();
 }
 
 // 현재 날짜 업데이트
 function updateCurrentDate() {
-    const now = new Date();
+    // (파일 기준일 2025/10/16 목요일로 고정)
+    const now = new Date(2025, 9, 16); // 9 = 10월
     const options = { 
         year: 'numeric', 
         month: 'long', 
@@ -114,8 +105,9 @@ function setupEventListeners() {
         });
     });
 
+    // (수정) 메모 저장 버튼 (DB 연동)
     const btnSave = document.querySelector('#memoModal .btn-save');
-    if(btnSave) btnSave.addEventListener('click', saveMemo);
+    if(btnSave) btnSave.addEventListener('click', saveMemo); // saveMemo 함수 수정됨
     
     // --- 전체 보기 버튼 이벤트 리스너 (모달 열기) ---
     document.querySelectorAll('.full-view-btn').forEach(button => {
@@ -128,50 +120,38 @@ function setupEventListeners() {
             }
         });
     });
-    // --- 수정 완료 ---
     
-    // **[수정] 네비게이션 메뉴 클릭 (내부 링크 이동 로직 추가)**
+    // 네비게이션 메뉴 클릭 (기존 유지)
     const loadingOverlay = document.getElementById('loadingOverlay');
 
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
-            // 1. 클릭된 요소의 href 속성과 data-url 속성을 가져옵니다.
             const linkUrl = e.currentTarget.getAttribute('href');
             const dataUrl = e.currentTarget.dataset.url;
-            // const page = e.currentTarget.dataset.page; // 'admin', 'login' 등
-
-            // 2. 항상 기본 동작 방지 (CSS 효과를 먼저 적용하기 위해)
             e.preventDefault();
 
-            // 3. Active 클래스 업데이트
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             e.currentTarget.classList.add('active');
 
             if (dataUrl) {
-                // 4-1. 외부 링크 (data-url이 있는 경우): 새 탭 열기
                 if (loadingOverlay) {
                     loadingOverlay.classList.add('active');
                 }
-
                 setTimeout(() => {
                     window.open(dataUrl, '_blank');
                     if (loadingOverlay) {
                         loadingOverlay.classList.remove('active');
                     }
-                    // 외부 링크는 현재 페이지를 이동시키지 않으며, 현재 활성 상태를 유지
-                }, 1500); // 1.5초 후 새 탭 열기
+                }, 1500);
             } else if (linkUrl && linkUrl !== '#') {
-                // 4-2. 내부 링크 (data-url이 없고 href가 '#'이 아닌 경우): 현재 탭에서 페이지 이동
-                // 'admin', 'login', 'register', 'logout' 등의 내부 Flask 라우트가 여기에 해당합니다.
                 window.location.href = linkUrl;
             }
         });
     });
-    // **[수정 완료]**
 }
 
 
-// 타이머 시작/정지/업데이트 함수 (변경 없음, 유지)
+// 타이머 시작/정지/업데이트 함수
 function startTimer() {
     if (!isTimerRunning) {
         isTimerRunning = true;
@@ -186,6 +166,7 @@ function startTimer() {
     }
 }
 
+// (수정) 타이머 정지 (DB 저장 및 통계 새로고침)
 function stopTimer() {
     if (isTimerRunning) {
         isTimerRunning = false;
@@ -194,12 +175,16 @@ function stopTimer() {
         document.getElementById('startTimer').disabled = false;
         document.getElementById('stopTimer').disabled = true;
         
-        todayStudyTime += timerSeconds;
-        weeklyStudyTimes[6] += timerSeconds;
-        updateStudyStats();
-        saveStudyTime();
+        // (수정) DB에 방금 측정한 시간(timerSeconds)을 저장 요청
+        saveStudyTime(timerSeconds).then(() => {
+            // 저장이 완료되면, 서버에서 최신 통계(오늘/주간)를 다시 불러와 UI 갱신
+            loadStudyStats();
+        });
         
-        timerSeconds = 0;
+        // (수정) todayStudyTime은 loadStudyStats가 갱신하도록 함
+        // todayStudyTime += timerSeconds; 
+        
+        timerSeconds = 0; // 현재 타이머 리셋
         updateTimerDisplay();
         updateTimerProgress();
     }
@@ -222,59 +207,71 @@ function updateTimerProgress() {
     if (circle) circle.style.strokeDashoffset = 283 - progress;
 }
 
-function updateStudyStats() {
-    const todayHours = Math.floor(todayStudyTime / 3600);
-    const todayMinutes = Math.floor((todayStudyTime % 3600) / 60);
-    const todayEl = document.getElementById('todayTime');
-    if (todayEl) todayEl.textContent = `${todayHours}h ${todayMinutes}m`;
-    
-    const weeklyTotal = weeklyStudyTimes.reduce((a, b) => a + b, 0);
-    const weeklyAvg = weeklyTotal > 0 ? weeklyTotal / 7 : 0;
-    const avgHours = Math.floor(weeklyAvg / 3600);
-    const avgMinutes = Math.floor((weeklyAvg % 3600) / 60);
-    const weeklyEl = document.getElementById('weeklyAvg');
-    if (weeklyEl) weeklyEl.textContent = `${avgHours}h ${avgMinutes}m`;
-}
+// (삭제) updateStudyStats() - loadStudyStats()가 UI 갱신을 대신함
 
-function saveStudyTime() {
+// (수정) saveStudyTime (DB에 "추가할 시간" 전송)
+async function saveStudyTime(durationToAdd) {
+    if (durationToAdd <= 0) return; // 저장할 시간이 없으면 종료
+
     const data = {
-        todayStudyTime: todayStudyTime,
-        weeklyStudyTimes: weeklyStudyTimes,
-        date: new Date().toDateString()
+        duration_to_add: durationToAdd,
+        date: new Date(2025, 9, 16).toISOString().split('T')[0] // 'YYYY-MM-DD' (파일 기준일)
     };
-    localStorage.setItem('studyTime', JSON.stringify(data));
+
+    try {
+        const response = await fetch('/api/study-time', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            throw new Error('Server error while saving study time');
+        }
+        console.log('Study time saved to server.');
+    } catch (error) {
+        console.error('Failed to save study time to server:', error);
+        // (추가) 사용자에게 저장 실패 알림
+        alert('공부 시간 저장에 실패했습니다. 네트워크 연결을 확인해주세요.');
+    }
 }
 
-function loadStudyTime() {
-    const saved = localStorage.getItem('studyTime');
-    if (saved) {
-        const data = JSON.parse(saved);
-        const savedDate = new Date(data.date);
-        const today = new Date();
-        
-        if (savedDate.toDateString() === today.toDateString()) {
-            todayStudyTime = data.todayStudyTime || 0;
-            weeklyStudyTimes = data.weeklyStudyTimes || [0, 0, 0, 0, 0, 0, 0];
-        } else {
-            const daysDiff = Math.floor((today.getTime() - savedDate.getTime()) / (1000 * 3600 * 24));
-            if (daysDiff < 7) {
-                for (let i = 0; i < daysDiff; i++) {
-                    weeklyStudyTimes.shift();
-                    weeklyStudyTimes.push(0);
-                }
-            } else {
-                 weeklyStudyTimes = [0, 0, 0, 0, 0, 0, 0];
-            }
-            todayStudyTime = 0;
+// (수정) loadStudyTime -> loadStudyStats (DB에서 통계 로드)
+async function loadStudyStats() {
+    try {
+        const response = await fetch('/api/study-stats');
+        if (!response.ok) {
+            // 로그인이 안되어 401(Unauthorized) 등이 반환되면 여기로 옴
+            throw new Error('Not logged in or server error');
         }
-        updateStudyStats();
+        const data = await response.json();
+        
+        // 전역 변수인 "오늘 총 공부 시간"을 DB 값으로 설정
+        todayStudyTime = data.today; 
+        
+        // UI 갱신
+        const todayHours = Math.floor(data.today / 3600);
+        const todayMinutes = Math.floor((data.today % 3600) / 60);
+        const todayEl = document.getElementById('todayTime');
+        if (todayEl) todayEl.textContent = `${todayHours}h ${todayMinutes}m`;
+
+        const avgHours = Math.floor(data.weekly_avg / 3600);
+        const avgMinutes = Math.floor((data.weekly_avg % 3600) / 60);
+        const weeklyEl = document.getElementById('weeklyAvg');
+        if (weeklyEl) weeklyEl.textContent = `${avgHours}h ${avgMinutes}m`;
+        
+    } catch (error) {
+        console.log('Could not load study stats (not logged in?):', error.message);
+        // 비로그인 상태이므로 기본값(0h 0m) 유지
+        const todayEl = document.getElementById('todayTime');
+        if (todayEl) todayEl.textContent = `0h 0m`;
+        const weeklyEl = document.getElementById('weeklyAvg');
+        if (weeklyEl) weeklyEl.textContent = `0h 0m`;
     }
 }
 
 
-// 셔틀버스 실시간 업데이트 시작
+// --- 셔틀버스 함수 (기존과 동일) ---
 function startRealTimeUpdates() {
-    // 1초마다 현재 시간 업데이트 및 셔틀버스 시간표 재계산/재렌더링
     if (shuttleUpdateInterval) clearInterval(shuttleUpdateInterval);
     shuttleUpdateInterval = setInterval(() => {
         updateCurrentTimeDisplay();
@@ -282,52 +279,40 @@ function startRealTimeUpdates() {
     }, 1000);
 }
 
-// 셔틀버스 일정 로드 (API 사용)
 async function loadShuttleSchedule() {
     try {
         const response = await fetch('/api/shuttle');
         const data = await response.json();
         window.shuttleData = data;
-        // 데이터 로드 후 실시간 업데이트 함수를 호출하여 초기 화면 렌더링
         updateRealTimeShuttle();
     } catch (error) {
         console.error('Failed to load shuttle schedule:', error);
         window.shuttleData = [];
-        updateRealTimeShuttle(); // 오류 메시지 표시를 위해 호출
+        updateRealTimeShuttle();
     }
 }
 
-// 셔틀버스 실시간 업데이트 및 표시
 function updateRealTimeShuttle() {
     const container = document.getElementById('shuttleList');
     if (!container) return;
-
-    // 현재 활성화된 필터 탭 확인
     const activeTab = document.querySelector('.shuttle-widget .tab.active');
     const currentFilter = activeTab ? activeTab.dataset.tab : 'all';
     
-    // 현재 필터에 맞는 데이터 필터링
     let data = window.shuttleData || [];
     
-    // 1. 요일 필터링 (2025/10/16 목요일 기준, '평일' 데이터만 필터링)
-    // 실제 날짜는 2025/10/16 (목요일)로 가정
-    const TODAY_DATE = new Date(2025, 9, 16); // Month is 0-indexed, so 9 is October
-    const todayDayOfWeek = TODAY_DATE.getDay(); // 0=Sunday, 4=Thursday(목요일)
+    // (파일 기준 2025/10/16 목요일 기준, '평일' 데이터만 필터링)
+    const TODAY_DATE = new Date(2025, 9, 16); 
+    const todayDayOfWeek = TODAY_DATE.getDay();
     const dayType = todayDayOfWeek === 0 || todayDayOfWeek === 6 ? '일요일' : '평일';
-
     data = data.filter(s => s.type === dayType || s.type === '기타');
     
-    // 2. 경로 필터링
     data = data.filter(s => {
         switch (currentFilter) {
             case 'school_to_station':
-                // 학교 → 조치원역 방면 노선 필터링 (오송 경유 포함)
                 return s.route.includes('학교 → 조치원역');
             case 'station_to_school':
-                // 조치원역 → 학교 노선 필터링 (오송 경유 포함)
                 return s.route.includes('조치원/오송역 → 학교') || s.route === '조치원역 → 학교';
             case 'osong':
-                // 오송역 노선 필터링 (Osong_Included 그룹 필터)
                 return s.route_group === 'Osong_Included';
             case 'all':
             default:
@@ -335,14 +320,12 @@ function updateRealTimeShuttle() {
         }
     });
 
-    // --- 실시간 계산, 완료 항목 제거, 시간 순 정렬 ---
     const now = new Date();
-    // 현재는 2025/10/16 00:00:00 기준으로 계산
-    const currentSecondsOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    
-    // 실제 시간 대신 임시 고정 시간(예: 17:30)을 사용하려면 아래 주석 해제 (디버깅용)
-    // const DEBUG_HOUR = 17;
-    // const DEBUG_MINUTE = 30;
+    // (파일 기준 시간으로 고정)
+    const currentSecondsOfDay = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) % (24 * 3600);
+    // (디버깅용 고정 시간)
+    // const DEBUG_HOUR = 9;
+    // const DEBUG_MINUTE = 0;
     // const currentSecondsOfDay = DEBUG_HOUR * 3600 + DEBUG_MINUTE * 60;
 
 
@@ -353,11 +336,8 @@ function updateRealTimeShuttle() {
             shuttle.remainingTimeSeconds = shuttle.shuttleSecondsOfDay - currentSecondsOfDay;
             return shuttle;
         })
-        .filter(shuttle => {
-            // 운행이 완료된 것(출발 시각이 현재 시각보다 0초 이상 지난 경우)은 표시하지 않음
-            return shuttle.remainingTimeSeconds > 0; 
-        })
-        .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay); // 시간 순으로 정렬
+        .filter(shuttle => shuttle.remainingTimeSeconds > 0) 
+        .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay);
 
     container.innerHTML = '';
     
@@ -370,31 +350,18 @@ function updateRealTimeShuttle() {
         const remainingTimeSeconds = shuttle.remainingTimeSeconds;
         let statusText = '';
         let statusClass = 'scheduled';
-        
-        // 상위 2개 항목에만 next-shuttle 클래스 적용
         const isNextShuttle = (index < 2); 
 
         if (remainingTimeSeconds <= 300) { 
-            // 5분 이내 (깜빡임 효과)
             const remainingMins = Math.floor(remainingTimeSeconds / 60);
             const remainingSecs = remainingTimeSeconds % 60;
-            
             statusText = `도착까지 ${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초`;
-            statusClass = 'active blinking'; // active와 blinking 함께 적용
-
+            statusClass = 'active blinking';
         } else {
-            // 5분 초과
             const remainingHours = Math.floor(remainingTimeSeconds / 3600);
             const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
-            
-            let minDisplay = '';
-            if (remainingHours > 0) {
-                 minDisplay = `${remainingHours}시간 ${remainingMins}분`;
-            } else {
-                 minDisplay = `${remainingMins}분 남음`;
-            }
+            let minDisplay = (remainingHours > 0) ? `${remainingHours}시간 ${remainingMins}분` : `${remainingMins}분 남음`;
             statusText = `도착까지 ${minDisplay}`;
-            // 5분 초과 항목은 next-shuttle이더라도 green status 텍스트는 적용하지 않고 scheduled(회색) 유지 (시각적 일관성)
             statusClass = 'scheduled'; 
         }
         
@@ -413,30 +380,24 @@ function updateRealTimeShuttle() {
     });
 }
 
-// --- 신규: 셔틀버스 전체 시간표 모달 기능 ---
 function openShuttleModal() {
     const modal = document.getElementById('shuttleModal');
     const container = modal.querySelector('.shuttle-full-table-container');
-    
     if (!window.shuttleData) {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 데이터를 로드 중입니다...</p>';
         loadShuttleSchedule().then(() => renderFullShuttleTable(container));
     } else {
         renderFullShuttleTable(container);
     }
-    
     modal.classList.add('active');
 }
 
 function renderFullShuttleTable(container) {
     let data = window.shuttleData || [];
-    
     if (data.length === 0) {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 정보가 없습니다.</p>';
         return;
     }
-    
-    // 데이터 그룹화: { '평일': { 'Jochiwon': [...], 'Osong_Included': [...] }, '일요일': {...} }
     const groupedData = data.reduce((acc, shuttle) => {
         acc[shuttle.type] = acc[shuttle.type] || {};
         const groupKey = shuttle.route_group === 'Osong_Included' ? 'Osong' : 'Jochiwon';
@@ -444,30 +405,23 @@ function renderFullShuttleTable(container) {
         acc[shuttle.type][groupKey].push(shuttle);
         return acc;
     }, {});
-
-    // 시간 순으로 정렬
     for (const day in groupedData) {
         for (const routeGroup in groupedData[day]) {
             groupedData[day][routeGroup].sort((a, b) => a.time.localeCompare(b.time));
         }
     }
-
     let html = '';
     const dayOrder = ['평일', '일요일'];
     const routeOrder = ['Jochiwon', 'Osong'];
-
     dayOrder.forEach(dayType => {
         if (groupedData[dayType]) {
             routeOrder.forEach(routeGroup => {
                 const shuttles = groupedData[dayType][routeGroup];
                 if (shuttles && shuttles.length > 0) {
                     const groupName = routeGroup === 'Jochiwon' ? '조치원역 ↔ 학교 노선' : '오송역 포함 노선';
-                    
                     html += `<span class="shuttle-group-header">${dayType} - ${groupName}</span>`;
-                    
                     html += `<table class="shuttle-full-table">
                         <thead><tr><th>출발 시각</th><th>노선 구분</th><th>비고</th></tr></thead><tbody>`;
-                    
                     shuttles.forEach(shuttle => {
                         html += `
                             <tr>
@@ -477,21 +431,15 @@ function renderFullShuttleTable(container) {
                             </tr>
                         `;
                     });
-                    
                     html += '</tbody></table>';
                 }
             });
         }
     });
-
-    if (html === '') {
-         container.innerHTML = '<p style="text-align: center; padding: 20px;">시간표 정보가 없습니다.</p>';
-    } else {
-         container.innerHTML = html;
-    }
+    container.innerHTML = html || '<p style="text-align: center; padding: 20px;">시간표 정보가 없습니다.</p>';
 }
 
-// 식단 로드 (API 사용, 중식 3단계 분리 반영)
+// --- 식단 함수 (기존과 동일) ---
 async function loadMealPlan(cafeteria) {
     try {
         const response = await fetch(`/api/meal?cafeteria=${cafeteria}`);
@@ -501,40 +449,30 @@ async function loadMealPlan(cafeteria) {
         const facultyLunchContainer = document.getElementById('facultyLunchContainer');
         const lunchFaculty = document.getElementById('lunch-faculty');
         
-        // 조식/석식 공통 업데이트
         document.getElementById('breakfast').textContent = data.breakfast || '식단 정보 없음';
         document.getElementById('dinner').textContent = data.dinner || '식단 정보 없음';
 
         if (cafeteria === 'student') {
-            // 학생 식당 (중식 3단계)
             if (studentLunchContainer) studentLunchContainer.style.display = 'block'; 
             if (facultyLunchContainer) facultyLunchContainer.style.display = 'none';
-
             if (typeof data.lunch === 'object') {
                 document.getElementById('lunch-korean').textContent = data.lunch.korean || '식단 정보 없음';
                 document.getElementById('lunch-ala_carte').textContent = data.lunch.ala_carte || '식단 정보 없음';
                 document.getElementById('lunch-snack_plus').textContent = data.lunch.snack_plus || '식단 정보 없음';
             } else {
-                // API 응답 구조 오류 시
                 document.getElementById('lunch-korean').textContent = '데이터 오류';
                 document.getElementById('lunch-ala_carte').textContent = '데이터 오류';
                 document.getElementById('lunch-snack_plus').textContent = '데이터 오류';
             }
-
         } else if (cafeteria === 'faculty') {
-            // 교직원 식당 (중식 단일)
             if (studentLunchContainer) studentLunchContainer.style.display = 'none';
             if (facultyLunchContainer) facultyLunchContainer.style.display = 'block';
-            
             if (lunchFaculty) lunchFaculty.textContent = data.lunch || '식단 정보 없음';
         }
-        
     } catch (error) {
         console.error('Failed to load meal plan:', error);
-        
         document.getElementById('breakfast').textContent = '데이터 로드 실패';
         document.getElementById('dinner').textContent = '데이터 로드 실패';
-        
         if (document.getElementById('lunch-korean')) document.getElementById('lunch-korean').textContent = '데이터 로드 실패';
         if (document.getElementById('lunch-ala_carte')) document.getElementById('lunch-ala_carte').textContent = '데이터 로드 실패';
         if (document.getElementById('lunch-snack_plus')) document.getElementById('lunch-snack_plus').textContent = '데이터 로드 실패';
@@ -542,15 +480,11 @@ async function loadMealPlan(cafeteria) {
     }
 }
 
-
-// --- 신규: 주간 식단표 모달 기능 ---
 async function openMealModal() {
     const modal = document.getElementById('mealModal');
     const container = modal.querySelector('.meal-full-table-container');
-    
     container.innerHTML = '<p style="text-align: center; padding: 20px;">주간 식단표를 불러오는 중입니다...</p>';
     modal.classList.add('active');
-    
     try {
         const response = await fetch('/api/meal/week');
         const data = await response.json();
@@ -566,54 +500,32 @@ function renderWeeklyMealTable(container, data) {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">이번 주 식단 정보가 없습니다.</p>';
         return;
     }
-
     const studentMenu = data.식단.student || {};
-    
-    // 날짜 키 추출 및 토요일/일요일 필터링 (사용자 요청 반영)
     const dates = Object.keys(studentMenu)
         .filter(dateKey => !dateKey.includes('(토)') && !dateKey.includes('(일)'))
         .sort();
-    
     if (dates.length === 0) {
         container.innerHTML = '<p style="text-align: center; padding: 20px;">이번 주(평일) 식단 정보가 없습니다.</p>';
         return;
     }
-
     let html = '<table class="meal-full-table"><thead><tr><th style="min-width: 120px;">구분</th>';
     dates.forEach(date => {
         html += `<th>${date}</th>`;
     });
     html += '</tr></thead><tbody>';
-    
-    const mealTypes = [
-        { id: 'breakfast', name: '조식', isStudentOnly: true },
-        { id: 'lunch-korean', name: '한식', isStudentOnly: true },
-        { id: 'lunch-ala_carte', name: '일품/분식', isStudentOnly: true },
-        { id: 'lunch-snack_plus', name: 'Plus', isStudentOnly: true },
-        { id: 'lunch', name: '중식', isStudentOnly: false, isFacultyOnly: true },
-        { id: 'dinner', name: '석식', isStudentOnly: true }
-    ];
-    
     const student = data.식단.student;
     const faculty = data.식단.faculty;
-
-    // 학생 식당 렌더링
     if (student) {
-        
-        // 학생 식당 조식
         html += `<tr><td class="meal-type-cell">학생 식당 - 조식</td>`;
         dates.forEach(date => {
             html += `<td>${student[date].breakfast || '정보 없음'}</td>`;
         });
         html += `</tr>`;
-        
-        // 학생 식당 중식 (3가지 코너)
         const studentLunchMenus = [
             { id: 'korean', name: '한식' },
             { id: 'ala_carte', name: '일품/분식' },
             { id: 'snack_plus', name: 'Plus' }
         ];
-        
         studentLunchMenus.forEach((meal, index) => {
             html += `<tr>`;
             if (index === 0) {
@@ -626,32 +538,39 @@ function renderWeeklyMealTable(container, data) {
             });
             html += `</tr>`;
         });
-
-        // 학생 식당 석식
         html += `<tr><td class="meal-type-cell">학생 식당 - 석식</td>`;
         dates.forEach(date => {
             html += `<td>${student[date].dinner || '정보 없음'}</td>`;
         });
         html += `</tr>`;
     }
-    
-    // 교직원 식당 렌더링
     if (faculty) {
-        // 교직원 식당 중식 (단일 메뉴)
         html += `<tr><td class="meal-type-cell">교직원 식당 - 중식</td>`;
         dates.forEach(date => {
             html += `<td>${faculty[date].lunch || '정보 없음'}</td>`;
         });
         html += `</tr>`;
     }
-
     html += '</tbody></table>';
     container.innerHTML = html;
 }
 
-// 오늘의 일정 로드/표시/시간표/메모 함수 (변경 없음, 유지)
-function loadTodaySchedule() {
-    displaySchedule(SCHEDULE_DATA_DATA);
+// --- (수정) 일정/시간표/메모 함수 (DB 연동) ---
+
+// (수정) 오늘의 일정 로드 (API 호출)
+async function loadTodaySchedule() {
+    const container = document.getElementById('scheduleList');
+    if (!container) return;
+    
+    try {
+        const response = await fetch('/api/schedule'); // DB 데이터 요청
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        displaySchedule(data);
+    } catch (error) {
+        console.error('Failed to load schedule:', error);
+        if (container) container.innerHTML = '<p style="text-align: center; color: var(--color-danger); padding: 20px;">일정 로드 실패</p>';
+    }
 }
 
 function displaySchedule(data) {
@@ -678,9 +597,24 @@ function displaySchedule(data) {
     });
 }
 
-function loadTimetable() {
-    window.timetableData = TIMETABLE_DATA;
-    displayTimetable(window.timetableData);
+// (수정) 시간표 로드 (API 호출)
+async function loadTimetable() {
+    const tbody = document.getElementById('timetableBody');
+    if (!tbody) return;
+    
+    try {
+        const response = await fetch('/api/timetable'); // DB 데이터 요청
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        
+        // 데이터를 전역 변수에 저장 (메모 기능이 참조)
+        window.timetableData = data; 
+        displayTimetable(data);
+        
+    } catch (error) {
+        console.error('Failed to load timetable:', error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 20px;">시간표 로드 실패</td></tr>';
+    }
 }
 
 function displayTimetable(data) {
@@ -689,7 +623,9 @@ function displayTimetable(data) {
     tbody.innerHTML = '';
     
     const periods = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30'];
-    const timetableMap = data.reduce((map, item) => {
+    
+    // (수정) DB에서 받은 데이터를 맵으로 변환
+    const timetableMap = (data || []).reduce((map, item) => {
         map[`${item.day}-${item.period}`] = item;
         return map;
     }, {});
@@ -712,9 +648,9 @@ function displayTimetable(data) {
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'timetable-cell';
                 cellDiv.innerHTML = `
-                    <div class="timetable-subject">${item.subject}</div>
-                    <div class="timetable-professor">${item.professor}</div>
-                    <div class="timetable-room">${item.room}</div>
+                    <div class="timetable-subject">${item.subject || '과목 없음'}</div>
+                    <div class="timetable-professor">${item.professor || '-'}</div>
+                    <div class="timetable-room">${item.room || '-'}</div>
                     ${item.memo ? '<i class="fas fa-sticky-note timetable-memo-icon"></i>' : ''}
                 `;
                 cellDiv.addEventListener('click', () => openMemoModal(day, period, item));
@@ -736,14 +672,45 @@ function closeModal() {
     document.getElementById('memoModal').classList.remove('active');
 }
 
-function saveMemo() {
+// (수정) 메모 저장 (API 호출)
+async function saveMemo() {
     const memoText = document.getElementById('memoText').value;
+    
+    // 전역 데이터에서 현재 아이템 찾기
     const item = window.timetableData.find(t => t.day === currentMemo.day && t.period === currentMemo.period);
     
     if (item) {
-        item.memo = memoText;
-        console.log('Saving memo (local):', item);
-        displayTimetable(window.timetableData); // 시간표 다시 렌더링
+        item.memo = memoText; // 1. UI 즉시 업데이트 (Optimistic Update)
+        
+        try {
+            // 2. 서버(DB)에 저장 요청
+            const response = await fetch('/api/timetable', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    day: item.day,
+                    period: item.period,
+                    memo: memoText
+                }),
+            });
+            
+            const result = await response.json();
+            if (result.status !== 'success') {
+                throw new Error(result.message || 'Failed to save memo');
+            }
+            console.log('Memo saved successfully to server');
+            
+        } catch (error) {
+            console.error('Failed to save memo to server:', error);
+            alert('메모 저장에 실패했습니다.');
+            // (실패 시 롤백)
+            item.memo = currentMemo.text; 
+        }
+        
+        // 3. UI 다시 렌더링 (메모 아이콘 등 반영)
+        displayTimetable(window.timetableData); 
     }
     
     closeModal();

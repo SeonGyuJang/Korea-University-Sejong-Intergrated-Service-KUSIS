@@ -9,10 +9,35 @@
         </div>
     </div>
     <div class="header-right">
-        <button class="header-icon">
+        <button class="header-icon" id="notificationToggle">
             <i class="fas fa-bell"></i>
             <span class="badge">3</span>
         </button>
+        
+        <div class="notification-dropdown" id="notificationDropdown">
+            <div class="notification-header">
+                <h4>알림</h4>
+            </div>
+            <div class="notification-tabs">
+                <button class="tab active" data-tab="notices">공지사항</button>
+                <button class="tab" data-tab="guides">사용법</button>
+            </div>
+            <div class="notification-content">
+                <div class="tab-content active" id="notices">
+                    <ul>
+                        <li>[공지] KUSIS v1.1 DB 연동 (10/17)</li>
+                        <li>[공지] 셔틀버스 시간표가 갱신되었습니다. (10/15)</li>
+                        <li>[이벤트] 친구 초대 이벤트 (10/14)</li>
+                        <li>[안내] 서버 점검 안내 (10/13)</li>
+                    </ul>
+                </div>
+                <div class="tab-content" id="guides">
+                    <p><strong>공부 타이머:</strong> 시작하기 버튼을 눌러 공부 시간을 측정하세요. 시간은 자동 저장됩니다.</p>
+                    <p><strong>시간표 메모:</strong> 시간표의 과목을 클릭하여 메모를 저장할 수 있습니다.</p>
+                    <p><strong>식단/셔틀:</strong> 전체 보기 버튼으로 주간 식단표와 전체 셔틀 시간표를 확인하세요.</p>
+                </div>
+            </div>
+        </div>
         <button class="header-icon">
             <i class="fas fa-cog"></i>
         </button>
