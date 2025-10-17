@@ -256,7 +256,9 @@ def load_meal_data():
     return data
 
 def get_today_meal_key():
-    today = datetime(2025, 10, 16)
+    # (수정) 2025/10/16일이 아닌 오늘 날짜 기준으로 변경
+    # today = datetime(2025, 10, 16) 
+    today = datetime.now()
     day_of_week_kr = ['월', '화', '수', '목', '금', '토', '일'][today.weekday()]
     return f"{today.month}.{today.day}({day_of_week_kr})"
 
@@ -339,6 +341,8 @@ def timetable_management():
             if s.memo and isinstance(s.memo, str) and s.memo.strip().startswith('{'):
                 try: memo_data = json.loads(s.memo)
                 except json.JSONDecodeError: pass # 파싱 실패 시 기본값 유지
+            elif isinstance(s.memo, dict): # (추가) 이미 dict인 경우 (거의 없음)
+                memo_data = s.memo
 
             initial_subjects_list.append({
                 "id": s.id, "name": s.name, "professor": s.professor,
@@ -365,6 +369,7 @@ def timetable_management():
 
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
 
+    # (수정) json.dumps()를 제거하고 Python 리스트/객체를 직접 전달
     return render_template(
         'timetable_management.html',
         user=user,
@@ -372,10 +377,11 @@ def timetable_management():
         current_credits=total_earned_credits, # 총 이수 학점
         goal_credits=user.total_credits_goal,
         overall_gpa=round(overall_gpa, 2),
-        # (수정) JSON 문자열로 변환하여 전달
-        all_semesters_json=json.dumps([{"id": s.id, "name": s.name} for s in all_semesters]),
+        
+        # (수정) Python 리스트를 '..._list' 변수명으로 전달
+        all_semesters_list=[{"id": s.id, "name": s.name} for s in all_semesters],
         initial_semester_id=initial_semester_id,
-        initial_subjects_json=json.dumps(initial_subjects_list) # 파이썬 리스트를 JSON 문자열로
+        initial_subjects_list=initial_subjects_list 
     )
 
 
@@ -466,7 +472,8 @@ def get_weekly_meal():
 @app.route('/api/schedule')
 @login_required
 def get_schedule():
-    today_str = datetime(2025, 10, 16).strftime('%Y-%m-%d')
+    # (수정) 오늘 날짜 기준
+    today_str = datetime.now().strftime('%Y-%m-%d')
     user_schedules = Schedule.query.filter_by(user_id=session['student_id'], date=today_str).order_by(Schedule.time).all()
     schedule_list = [{"time": s.time, "title": s.title, "location": s.location} for s in user_schedules]
     return jsonify(schedule_list)
@@ -520,6 +527,9 @@ def get_timetable_data():
         if s.memo and isinstance(s.memo, str) and s.memo.strip().startswith('{'):
             try: memo_data = json.loads(s.memo)
             except: pass
+        elif isinstance(s.memo, dict):
+             memo_data = s.memo
+            
         result.append({"id": s.id, "name": s.name, "professor": s.professor, "credits": s.credits, "grade": s.grade, "memo": memo_data, "timeslots": timeslots_data})
     return jsonify({"semester_id": semester_id, "subjects": result})
 
@@ -597,7 +607,18 @@ def handle_subject(subject_id):
             subject.professor = data.get('professor', subject.professor)
             subject.credits = data.get('credits', subject.credits)
             subject.grade = data.get('grade', subject.grade)
-            subject.memo = json.dumps(data.get('memo', json.loads(subject.memo)))
+            
+            # (수정) memo가 dict 형태인지 확인하고 json.dumps
+            memo_data = data.get('memo')
+            if isinstance(memo_data, dict):
+                subject.memo = json.dumps(memo_data)
+            elif memo_data is not None: # 문자열이나 다른 타입이면 (레거시/오류)
+                subject.memo = json.dumps({"note": str(memo_data), "todos": []})
+            # else: memo가 None이면 기존 값 유지 (app.py:808)
+            # (수정) memo가 None일 경우, 기존 메모를 json.loads했다가 dumps하는 것이 아니라
+            # data.get('memo', json.loads(subject.memo)) -> 이 로직이 더 안전할 수 있음
+            # 하지만 js에서 항상 memo 객체를 보낸다고 가정함 (line 970 in script.js)
+            
 
             # 시간표 업데이트 (기존 것 삭제 후 새로 추가)
             TimeSlot.query.filter_by(subject_id=subject.id).delete()
@@ -691,13 +712,27 @@ def get_gpa_stats():
 def get_study_stats():
     # ... (코드 동일) ...
     user_id = session['student_id']
-    today_str = datetime(2025, 10, 16).strftime('%Y-%m-%d')
+    # (수정) 오늘 날짜 기준
+    today = datetime.now()
+    today_str = today.strftime('%Y-%m-%d')
     today_log = StudyLog.query.filter_by(user_id=user_id, date=today_str).first()
     today_seconds = today_log.duration_seconds if today_log else 0
-    seven_days_ago = (datetime(2025, 10, 16) - timedelta(days=6)).strftime('%Y-%m-%d')
-    weekly_logs = StudyLog.query.filter(StudyLog.user_id == user_id, StudyLog.date >= seven_days_ago, StudyLog.date <= today_str).all()
+    
+    # (수정) 오늘을 포함한 최근 7일
+    seven_days_ago_date = (today - timedelta(days=6))
+    seven_days_ago_str = seven_days_ago_date.strftime('%Y-%m-%d')
+    
+    weekly_logs = StudyLog.query.filter(
+        StudyLog.user_id == user_id, 
+        StudyLog.date >= seven_days_ago_str, 
+        StudyLog.date <= today_str
+    ).all()
+    
     total_seconds = sum(log.duration_seconds for log in weekly_logs)
-    weekly_avg_seconds = total_seconds / 7 if len(weekly_logs) >= 7 else total_seconds / len(weekly_logs) if weekly_logs else 0
+    
+    # (수정) 7일 평균 계산 (데이터가 7일치가 안되어도 7로 나눔)
+    weekly_avg_seconds = total_seconds / 7
+    
     return jsonify({"today": today_seconds, "weekly_avg": weekly_avg_seconds})
 
 

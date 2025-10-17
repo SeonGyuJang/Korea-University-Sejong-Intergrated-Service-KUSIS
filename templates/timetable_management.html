@@ -9,6 +9,11 @@
 {% block content %}
 <div class="content-area timetable-management-page">
 
+    <textarea id="all-semesters-data" style="display:none;">{{ all_semesters_list | tojson }}</textarea>
+    <textarea id="initial-subjects-data" style="display:none;">{{ initial_subjects_list | tojson }}</textarea>
+    <div id="initial-data-container" data-initial-semester-id="{{ initial_semester_id | default('null') }}"></div>
+
+
     <div class="left-widgets">
         <div class="widget credit-widget">
             <div class="widget-header">
@@ -53,8 +58,11 @@
         </div>
         
         <div class="widget gpa-chart-widget">
-            <div class="widget-header">
+            <div class="widget-header" style="justify-content: space-between;">
                 <h3><i class="fas fa-chart-line"></i> 학기별 성적</h3>
+                <button id="refreshGpaChartBtn" class="btn-more" style="font-size: 12px; color: var(--text-secondary);">
+                    <i class="fas fa-sync-alt"></i> 새로고침
+                </button>
             </div>
             <div class="gpa-chart-container">
                 <canvas id="gpaChart"></canvas>
@@ -80,6 +88,9 @@
                     <select id="semesterSelect" class="input-group" style="margin-bottom: 0; padding: 8px; font-weight: 600;">
                         <option value="">학기 로딩 중...</option>
                     </select>
+                    <button id="addSemesterBtn" class="btn-more" style="margin-left: 8px;">
+                        <i class="fas fa-plus"></i> 학기 추가
+                    </button>
                 </div>
                 <button id="addSubjectBtn" class="btn btn-save">
                     <i class="fas fa-plus"></i> 과목 추가
@@ -189,6 +200,40 @@
                 <button class="btn btn-cancel modal-close">취소</button>
                 <button class="btn btn-save" id="saveSubjectBtn">저장</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="addSemesterModal">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>새 학기 추가</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addSemesterForm">
+                <div class="input-group">
+                    <label for="semesterName"><i class="fas fa-calendar-alt"></i> 학기 이름</label>
+                    <input type="text" id="semesterName" name="name" required placeholder="예: 2025년 2학기">
+                </div>
+                <div class="input-group">
+                    <label for="semesterYear"><i class="fas fa-calendar-day"></i> 연도</label>
+                    <input type="number" id="semesterYear" name="year" required placeholder="예: 2025" value="2025">
+                </div>
+                <div class="input-group">
+                    <label for="semesterSeason"><i class="fas fa-sun"></i> 시즌</label>
+                    <select id="semesterSeason" name="season" required>
+                        <option value="1학기">1학기</option>
+                        <option value="여름학기">여름학기</option>
+                        <option value="2학기">2학기</option>
+                        <option value="겨울학기">겨울학기</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel modal-close">취소</button>
+            <button class="btn btn-save" id="saveSemesterBtn">추가</button>
         </div>
     </div>
 </div>

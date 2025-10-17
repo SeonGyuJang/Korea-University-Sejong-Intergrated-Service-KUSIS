@@ -63,10 +63,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializePage() {
         setupEventListeners();
 
-        // HTML에서 주입된 데이터 사용
-        allSemesters = ALL_SEMESTERS_DATA || [];
-        currentSemesterId = INITIAL_SEMESTER_ID;
-        currentSubjects = INITIAL_SUBJECTS_DATA || [];
+        // (수정) 숨겨진 HTML 요소에서 데이터 로드
+        try {
+            const allSemestersDataEl = document.getElementById('all-semesters-data');
+            const initialSubjectsDataEl = document.getElementById('initial-subjects-data');
+            const initialDataContainer = document.getElementById('initial-data-container');
+
+            if (allSemestersDataEl && allSemestersDataEl.value) {
+                allSemesters = JSON.parse(allSemestersDataEl.value);
+            } else {
+                allSemesters = [];
+            }
+
+            if (initialSubjectsDataEl && initialSubjectsDataEl.value) {
+                currentSubjects = JSON.parse(initialSubjectsDataEl.value);
+            } else {
+                currentSubjects = [];
+            }
+
+            if (initialDataContainer) {
+                const initialId = initialDataContainer.dataset.initialSemesterId;
+                // 'null' 문자열이 아닌 실제 null 값으로 처리
+                currentSemesterId = (initialId && initialId !== 'null') ? parseInt(initialId, 10) : null;
+            } else {
+                 currentSemesterId = null;
+            }
+            
+            // 데이터 로드 확인
+            // console.log("Loaded Semesters:", allSemesters);
+            // console.log("Initial Semester ID:", currentSemesterId);
+            // console.log("Initial Subjects:", currentSubjects);
+
+        } catch (e) {
+            console.error("Failed to parse initial data from HTML:", e);
+            // 오류 발생 시 기본값으로 초기화
+            allSemesters = [];
+            currentSubjects = [];
+            currentSemesterId = null;
+            // 사용자에게 오류 알림 (선택 사항)
+            alert("페이지 초기 데이터 로딩 중 오류가 발생했습니다. 새로고침하거나 관리자에게 문의하세요.");
+        }
+
 
         // 학기 드롭다운 채우기
         populateSemesterDropdown();
@@ -82,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addSubjectBtn.disabled = true; // 학기가 없으면 과목 추가 불가
         }
 
-        // GPA 그래프 로드 (이제 API 호출)
+        // GPA 그래프 로드 (API 호출)
         loadGpaStats();
 
         // 학점 위젯 초기화 (HTML의 정적 데이터 사용)
@@ -371,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalTitle.textContent = "과목 수정";
         deleteSubjectBtn.style.display = 'block';
         subjectIdInput.value = subject.id;
-        subjectSemesterIdInput.value = currentSemesterId;
+        subjectSemesterIdInput.value = currentSemesterId; // (수정) 현재 학기 ID를 사용해야 함
         nameInput.value = subject.name;
         profInput.value = subject.professor;
         creditsInput.value = subject.credits;
@@ -411,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = todo.done ? 'todo-item done' : 'todo-item';
             // 고유 ID 생성 (삭제 시 필요)
-            const todoId = `todo-${index}-${Date.now()}`;
+            const todoId = `modal-todo-${index}-${Date.now()}`;
             li.innerHTML = `
                 <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
                 <label for="${todoId}" class="todo-label">${todo.task}</label>
@@ -443,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = todoListUl.children.length; // 새 인덱스
         const li = document.createElement('li');
         li.className = 'todo-item';
-        const todoId = `todo-${index}-${Date.now()}`;
+        const todoId = `modal-todo-${index}-${Date.now()}`;
         li.innerHTML = `
             <input type="checkbox" id="${todoId}">
             <label for="${todoId}" class="todo-label">${taskText}</label>

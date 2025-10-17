@@ -772,12 +772,17 @@
     overflow-x: auto;
     min-height: 300px; /* (신규) 비로그인 시 높이 확보 */
     position: relative;
+    /* (수정) index.html의 시간표 높이를 timetable_management와 맞춤 */
+    height: 700px;
 }
 
 .timetable {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
+    /* (수정) index.html 시간표 고정 */
+    table-layout: fixed;
+    height: 100%;
 }
 
 .timetable th, .timetable td {
@@ -790,14 +795,27 @@
     background: var(--bg-primary);
     font-weight: 600;
     color: var(--korea-red);
+    /* (수정) index.html 헤더 높이 고정 */
+    padding: 10px 8px;
+    height: 40px;
 }
 
 .timetable td {
-    height: 70px;
+    /* (수정) index.html 셀 높이 자동, 패딩 축소 */
+    height: auto;
     position: relative;
     vertical-align: top;
-    padding: 4px;
+    padding: 2px;
 }
+
+/* (수정) index.html 시간 셀 스타일 */
+.timetable td:first-child {
+    font-weight: 600;
+    font-size: 11px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
 
 .timetable-cell {
     background: linear-gradient(135deg, rgba(165, 0, 52, 0.1), rgba(199, 0, 63, 0.1));
@@ -825,6 +843,8 @@
     align-items: center;
     color: var(--text-secondary);
     opacity: 0.5;
+    height: 100%; /* (수정) 빈 셀 클릭 영역 확보 */
+    border-radius: 0; /* (수정) 빈 셀 클릭 영역 확보 */
 }
 .timetable-cell.empty.add-new:hover {
     opacity: 1;
@@ -884,6 +904,34 @@
     align-items: center;
     justify-content: center;
     line-height: 1;
+}
+
+/* (신규) index.html 위젯용 subject-slot 스타일 추가 */
+.subject-slot {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    background: rgba(165, 0, 52, 0.1);
+    border: 1px solid var(--korea-red);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    overflow: hidden;
+    font-size: 11px;
+    z-index: 10;
+}
+.subject-slot:hover {
+    background: rgba(165, 0, 52, 0.2);
+    z-index: 11;
+}
+.subject-slot .slot-subject {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--korea-red-dark);
+}
+.subject-slot .slot-room {
+    color: var(--text-primary);
 }
 
 
