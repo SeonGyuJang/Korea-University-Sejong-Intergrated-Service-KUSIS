@@ -247,7 +247,7 @@ body {
 
 
 /* ======================================== */
-/* 오른쪽 사이드바                   */
+/* 오른쪽 사이드바 - [수정] 불안정성 해결 */
 /* ======================================== */
 .sidebar-right {
     width: 88px;
@@ -256,11 +256,15 @@ body {
     position: sticky;
     top: 0;
     height: 100vh;
+    /* [수정] width만 트랜지션 유지 */
     transition: width 0.3s ease;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    /* [유지] 컨텐츠 오버플로우 방지 */
     overflow: hidden;
+    /* [유지] Z-index 문제 해결 */
+    z-index: 50;
 }
 
 
@@ -282,6 +286,7 @@ body {
     justify-content: center;
     color: white;
     z-index: 101;
+    /* [유지] 토글 버튼 애니메이션 */
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
     margin: 24px auto;
@@ -353,8 +358,9 @@ body {
 
 .quick-links {
     padding: 20px 18px;
+    /* [유지] 세로 스크롤만 허용 */
     overflow-y: auto;
-    overflow-x: hidden; /* 좌우 스크롤 방지 */
+    overflow-x: hidden;
     flex-grow: 1;
 }
 
@@ -378,7 +384,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    width: 100%; /* 부모 너비에 맞춤 */
+    width: 100%;
 }
 
 .sidebar-right:not(.expanded) .link-list {
@@ -396,9 +402,14 @@ body {
     color: var(--text-primary);
     font-weight: 500;
     text-decoration: none;
-    transition: all 0.2s;
+    /* [수정] 필요한 속성만 트랜지션 적용 */
+    transition: background 0.2s, color 0.2s, padding 0.3s ease, gap 0.3s ease;
     min-height: 48px;
-    max-width: 100%; /* 부모를 넘지 않도록 제한 */
+    max-width: 100%;
+    /* [수정] 축소 상태의 기본값 설정으로 깜빡임 방지 */
+    width: 48px; 
+    justify-content: center;
+    padding: 0;
 }
 
 .quick-link:hover {
@@ -416,8 +427,8 @@ body {
     justify-content: flex-start;
     gap: 16px;
     padding: 8px 12px;
-    width: 100%; /* 부모 너비에 맞춤 */
-    max-width: 220px; /* 최대 너비 제한 */
+    width: 100%;
+    max-width: 220px;
 }
 
 .quick-link i {
@@ -437,17 +448,20 @@ body {
     font-size: 14px;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
-    width: 0;
+    /* [수정] max-width 트랜지션을 추가하여 부드러운 텍스트 표시 */
+    transition: opacity 0.3s ease, visibility 0.3s ease, max-width 0.3s ease;
+    width: auto;
     overflow: hidden;
-    text-overflow: ellipsis; /* 텍스트 오버플로우 처리 */
+    text-overflow: ellipsis; 
+    /* [수정] 초기 max-width를 0으로 설정 */
+    max-width: 0;
 }
 
 .sidebar-right.expanded .link-text {
     opacity: 1;
     visibility: visible;
     width: auto;
-    max-width: 140px; /* 텍스트 최대 너비 제한 */
+    max-width: 140px;
 }
 
 .quick-link-add i {

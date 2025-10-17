@@ -283,6 +283,8 @@
 .widget-tabs {
     display: flex;
     gap: 8px;
+    /* **수정 사항 적용: 탭이 줄바꿈되도록 허용** */
+    flex-wrap: wrap; 
     /* 수정: 탭 아래 여백 증가 */
     margin-bottom: 20px; 
 }
@@ -295,7 +297,8 @@
     font-size: 13px;
     cursor: pointer;
     transition: all 0.3s;
-    flex-shrink: 0; /* 셔틀 탭에서 줄바꿈 방지 */
+    /* **수정 사항 적용: flex-shrink: 0; 삭제** */
+    /* flex-shrink: 0; */ 
 }
 
 .tab:hover {
@@ -635,8 +638,8 @@
 
 .shuttle-status.blinking {
     animation: blinker 1s linear infinite;
-    background: #f8d7da; /* 붉은색 상태 배경 */
-    color: var(--color-danger); /* 붉은색 텍스트 */
+    background: #f8d7da;
+    color: var(--color-danger);
 }
 
 /* 식단 위젯 */
