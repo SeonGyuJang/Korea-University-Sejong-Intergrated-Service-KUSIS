@@ -276,6 +276,11 @@
     padding: 6px;
     border-radius: 6px;
     transition: all 0.3s;
+    /* (신규) Request 2: a 태그일 경우 */
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-more:hover {
@@ -805,12 +810,38 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    position: relative; /* (신규) 뱃지 위치 기준 */
 }
+
+/* (신규) Request 4: 빈 셀 스타일 */
+.timetable-cell.empty {
+    background: none;
+    justify-content: flex-start;
+    align-items: flex-end;
+}
+.timetable-cell.empty.add-new {
+    background: var(--bg-primary);
+    justify-content: center;
+    align-items: center;
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+.timetable-cell.empty.add-new:hover {
+    opacity: 1;
+    color: var(--korea-red);
+    background: #fef5f7;
+}
+
 
 .timetable-cell:hover {
     background: linear-gradient(135deg, rgba(165, 0, 52, 0.2), rgba(199, 0, 63, 0.2));
     transform: scale(1.02);
 }
+.timetable-cell.empty:hover {
+     background: #fef5f7;
+     transform: none;
+}
+
 
 .timetable-subject {
     font-weight: 600;
@@ -824,13 +855,37 @@
     color: var(--text-secondary);
 }
 
-.timetable-memo-icon {
+/* (수정) Request 4: 뱃지 컨테이너 */
+.timetable-badges {
     position: absolute;
     top: 4px;
     right: 4px;
+    display: flex;
+    gap: 4px;
+}
+
+.timetable-memo-icon {
+    /* (수정) 뱃지 컨테이너로 위치 이동 */
+    position: static; 
     color: var(--korea-red);
     font-size: 10px;
 }
+
+/* (신규) Request 4: Todo 뱃지 */
+.timetable-todo-badge {
+    background: var(--color-danger);
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
 
 /* 모달 */
 .modal {
@@ -892,6 +947,9 @@
 
 .modal-body {
     padding: 24px;
+    /* (신규) Request 4: 모달 내용이 길어질 경우 스크롤 */
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .modal-body textarea {
@@ -947,6 +1005,115 @@
 .btn-save:hover {
     background: var(--korea-red-dark);
 }
+
+/* (신규) Request 4: 메모 모달 내부 스타일 */
+.memo-subject-info {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--korea-red);
+}
+.memo-subject-info h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.memo-subject-info p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.memo-subject-info p i {
+    width: 14px;
+    margin-right: 4px;
+    text-align: center;
+}
+.memo-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.memo-subtitle i {
+    color: var(--korea-red);
+}
+
+/* (신규) Request 4: Todo 리스트 스타일 */
+.memo-todo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-primary);
+}
+.todo-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.todo-item:last-child {
+    border-bottom: none;
+}
+.todo-item.done .todo-label {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+.todo-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    accent-color: var(--korea-red);
+}
+.todo-label {
+    flex-grow: 1;
+    font-size: 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.todo-delete-btn {
+    font-size: 18px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 5px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.todo-delete-btn:hover {
+    color: var(--color-danger);
+    background: #f8d7da;
+}
+.todo-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 15px;
+}
+.memo-todo-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.memo-todo-add input[type="text"] {
+    flex-grow: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    outline: none;
+}
+.memo-todo-add input[type="text"]:focus {
+    border-color: var(--korea-red);
+}
+
 
 /* 신규: LARGE MODAL STYLE for Full View - 트렌디한 디자인 */
 .modal.large-modal .modal-content {
@@ -1096,6 +1263,37 @@
     background: var(--text-secondary);
 }
 
+/* (신규) Request 1: 퀵 링크 삭제 버튼 */
+.quick-link {
+    position: relative;
+}
+.quick-link-delete {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--color-danger);
+    color: white;
+    border-radius: 50%;
+    display: none; /* 평소엔 숨김 */
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.8;
+}
+/* 사이드바가 확장되었을 때만 삭제 버튼 보이기 */
+.sidebar-right.expanded .quick-link:hover .quick-link-delete {
+    display: flex;
+}
+.quick-link-delete:hover {
+    opacity: 1;
+}
+
+
 /* 신규: 폼 관련 스타일 (로그인/회원가입) */
 .input-group {
     margin-bottom: 15px;
@@ -1115,6 +1313,7 @@
 .input-group input[type="text"],
 .input-group input[type="password"],
 .input-group input[type="date"],
+.input-group input[type="number"], /* (신규) Request 3 */
 .input-group select {
     width: 100%;
     padding: 10px 15px;
@@ -1452,5 +1651,13 @@
     .notification-dropdown {
         right: 16px;
         width: calc(100vw - 32px);
+    }
+}
+
+/* (신규) Request 4: 모바일에서 중식 3분할 깨짐 방지 */
+@media (max-width: 500px) {
+    .meal-menu-group {
+        grid-template-columns: 1fr; /* 1열로 변경 */
+        gap: 10px;
     }
 }

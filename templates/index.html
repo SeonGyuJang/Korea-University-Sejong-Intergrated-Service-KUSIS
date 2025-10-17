@@ -174,7 +174,7 @@
         <div class="widget timetable-widget">
             <div class="widget-header">
                 <h3><i class="fas fa-table"></i> 이번주 시간표</h3>
-                {% if user %}<button class="btn-more"><i class="fas fa-edit"></i></button>{% endif %}
+                {% if user %}<a href="{{ url_for('timetable_management') }}" class="btn-more"><i class="fas fa-edit"></i></a>{% endif %}
             </div>
             <div class="timetable-container">
                 {% if user %}
@@ -208,15 +208,36 @@
 <div class="modal" id="memoModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>수업 메모</h3>
+            <h3>수업 메모 / Todo</h3>
             <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-            <textarea id="memoText" rows="5" placeholder="메모를 입력하세요..."></textarea>
+            <div id="memoSubjectInfo" class="memo-subject-info">
+                <h4 id="memoSubjectName"></h4>
+                <p><i class="fas fa-user-tie"></i> <span id="memoSubjectProfessor"></span></p>
+                <p><i class="fas fa-map-marker-alt"></i> <span id="memoSubjectRoom"></span></p>
+            </div>
+            
+            <h4 class="memo-subtitle">
+                <i class="fas fa-sticky-note"></i> 메모
+            </h4>
+            <textarea id="memoText" rows="4" placeholder="메모를 입력하세요..."></textarea>
+            
+            <h4 class="memo-subtitle" style="margin-top: 20px;">
+                <i class="fas fa-check-square"></i> Todo List
+            </h4>
+            <ul id="memoTodoList" class="memo-todo-list">
+                </ul>
+            <div class="memo-todo-add">
+                <input type="text" id="memoNewTodoInput" placeholder="새로운 할 일...">
+                <button id="memoAddTodoBtn" class="btn-timer btn-start" style="flex: 0 0 auto; padding: 8px 12px; border-radius: 8px;">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-cancel modal-close">취소</button>
-            <button class="btn btn-save">저장</button>
+            <button class="btn btn-save" id="saveMemoBtn">저장</button>
         </div>
     </div>
 </div>

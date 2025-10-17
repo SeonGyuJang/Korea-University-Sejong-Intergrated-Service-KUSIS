@@ -5,7 +5,10 @@ let timerSeconds = 0;
 let isTimerRunning = false;
 let todayStudyTime = 0; // DB에서 불러온 오늘의 총 공부 시간 (초)
 // let weeklyStudyTimes = [0, 0, 0, 0, 0, 0, 0]; // (삭제) DB에서 직접 계산함
-let currentMemo = { day: 0, period: 0, text: '' };
+
+// (수정) Request 4: 현재 메모/Todo 객체
+let currentMemoData = { day: 0, period: 0, memo: { note: '', todos: [] } };
+let currentTimetableItem = null; // (신규) 현재 선택된 시간표 항목 전체
 
 // (삭제) 임시 데이터 (API를 통해 가져옴)
 // const SCHEDULE_DATA_DATA = [ ... ];
@@ -105,9 +108,22 @@ function setupEventListeners() {
         });
     });
 
-    // (수정) 메모 저장 버튼 (DB 연동)
-    const btnSave = document.querySelector('#memoModal .btn-save');
-    if(btnSave) btnSave.addEventListener('click', saveMemo); // saveMemo 함수 수정됨
+    // (수정) Request 4: 메모/Todo 저장 버튼
+    const btnSaveMemo = document.getElementById('saveMemoBtn');
+    if(btnSaveMemo) btnSaveMemo.addEventListener('click', saveMemo);
+    
+    // (신규) Request 4: Todo 추가 버튼
+    const btnAddTodo = document.getElementById('memoAddTodoBtn');
+    if(btnAddTodo) btnAddTodo.addEventListener('click', addTodoItem);
+    // (신규) Request 4: Todo 입력창에서 Enter 키로 추가
+    const inputNewTodo = document.getElementById('memoNewTodoInput');
+    if(inputNewTodo) inputNewTodo.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTodoItem();
+        }
+    });
+
     
     // --- 전체 보기 버튼 이벤트 리스너 (모달 열기) ---
     document.querySelectorAll('.full-view-btn').forEach(button => {
@@ -128,7 +144,15 @@ function setupEventListeners() {
         item.addEventListener('click', (e) => {
             const linkUrl = e.currentTarget.getAttribute('href');
             const dataUrl = e.currentTarget.dataset.url;
-            e.preventDefault();
+            
+            // (수정) 로컬 링크(# 제외)는 preventDefault 하지 않음
+            if (linkUrl && linkUrl !== '#' && !dataUrl) {
+                // (기존) window.location.href = linkUrl;
+                // -> 클릭 이벤트를 그대로 진행시킴 (페이지 이동)
+                return; 
+            }
+
+            e.preventDefault(); // dataUrl 또는 # 링크일 때만 기본 동작 방지
 
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -143,8 +167,6 @@ function setupEventListeners() {
                         loadingOverlay.classList.remove('active');
                     }
                 }, 1500);
-            } else if (linkUrl && linkUrl !== '#') {
-                window.location.href = linkUrl;
             }
         });
     });
@@ -607,7 +629,7 @@ async function loadTimetable() {
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         
-        // 데이터를 전역 변수에 저장 (메모 기능이 참조)
+        // (수정) API가 객체를 반환하므로 JSON.parse 필요 없음
         window.timetableData = data; 
         displayTimetable(data);
         
@@ -642,18 +664,59 @@ function displayTimetable(data) {
         for (let day = 1; day <= 5; day++) {
             const cell = document.createElement('td');
             const key = `${day}-${period}`;
+            const item = timetableMap[key];
             
-            if (timetableMap[key]) {
-                const item = timetableMap[key];
+            // (수정) Request 4: 메모/Todo 뱃지 표시
+            let memoIcon = '';
+            let todoBadge = '';
+            
+            if (item && item.memo) {
+                const memo = item.memo; // 이제 memo는 객체
+                if (memo.note) {
+                    memoIcon = '<i class="fas fa-sticky-note timetable-memo-icon"></i>';
+                }
+                if (memo.todos && memo.todos.length > 0) {
+                    const pendingTodos = memo.todos.filter(t => !t.done).length;
+                    if (pendingTodos > 0) {
+                        todoBadge = `<span class="timetable-todo-badge">${pendingTodos}</span>`;
+                    }
+                }
+            }
+
+            if (item && item.subject) {
+                // 과목이 있는 셀
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'timetable-cell';
                 cellDiv.innerHTML = `
+                    <div class="timetable-badges">
+                        ${memoIcon}
+                        ${todoBadge}
+                    </div>
                     <div class="timetable-subject">${item.subject || '과목 없음'}</div>
                     <div class="timetable-professor">${item.professor || '-'}</div>
                     <div class="timetable-room">${item.room || '-'}</div>
-                    ${item.memo ? '<i class="fas fa-sticky-note timetable-memo-icon"></i>' : ''}
                 `;
                 cellDiv.addEventListener('click', () => openMemoModal(day, period, item));
+                cell.appendChild(cellDiv);
+            } else if (item) {
+                // 과목은 없지만 메모/Todo만 있는 셀 (예: 빈 공강)
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'timetable-cell empty'; // (신규) 빈 셀 스타일
+                 cellDiv.innerHTML = `
+                    <div class="timetable-badges">
+                        ${memoIcon}
+                        ${todoBadge}
+                    </div>
+                `;
+                cellDiv.addEventListener('click', () => openMemoModal(day, period, item));
+                cell.appendChild(cellDiv);
+            } else {
+                 // (신규) 완전히 비어있는 셀 (메모/Todo 추가 가능)
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'timetable-cell empty add-new';
+                 cellDiv.innerHTML = `<i class="fas fa-plus"></i>`;
+                // (수정) 새 항목을 위한 openMemoModal 호출 (item이 null)
+                cellDiv.addEventListener('click', () => openMemoModal(day, period, null));
                 cell.appendChild(cellDiv);
             }
             row.appendChild(cell);
@@ -662,29 +725,162 @@ function displayTimetable(data) {
     }
 }
 
+// (수정) Request 4: 메모 & Todo 모달 열기
 function openMemoModal(day, period, item) {
-    currentMemo = { day, period, text: item.memo || '' };
-    document.getElementById('memoText').value = item.memo || '';
+    // (신규) item이 null이면 (빈 셀 클릭) 기본 객체 생성
+    if (!item) {
+        item = {
+            day: day,
+            period: period,
+            subject: '공강 시간',
+            professor: '-',
+            room: '-',
+            memo: { note: '', todos: [] }
+        };
+    }
+
+    // (수정) 전역 변수에 현재 아이템 정보 저장
+    currentTimetableItem = item;
+    
+    // (수정) memo가 객체인지 확인 (오래된 데이터 호환성)
+    let memoObj;
+    if (typeof item.memo === 'object' && item.memo !== null) {
+        memoObj = item.memo;
+    } else if (typeof item.memo === 'string') {
+        // (신규) 만약 DB에 아직 JSON이 아닌 텍스트가 있다면
+        memoObj = { note: item.memo, todos: [] };
+    } else {
+        memoObj = { note: '', todos: [] };
+    }
+
+    // (신규) 모달에 과목 정보 표시
+    document.getElementById('memoSubjectName').textContent = item.subject || '메모/Todo';
+    document.getElementById('memoSubjectProfessor').textContent = item.professor || '-';
+    document.getElementById('memoSubjectRoom').textContent = item.room || '-';
+
+    // (수정) 모달에 메모와 Todo 리스트 채우기
+    document.getElementById('memoText').value = memoObj.note || '';
+    renderTodoList(memoObj.todos || []);
+    
     document.getElementById('memoModal').classList.add('active');
 }
+
+// (신규) Request 4: Todo 리스트를 렌더링하는 함수
+function renderTodoList(todos) {
+    const todoListUl = document.getElementById('memoTodoList');
+    todoListUl.innerHTML = '';
+    
+    if (!todos || todos.length === 0) {
+        todoListUl.innerHTML = '<li class="todo-empty">할 일이 없습니다.</li>';
+        return;
+    }
+    
+    todos.forEach((todo, index) => {
+        const li = document.createElement('li');
+        li.className = todo.done ? 'todo-item done' : 'todo-item';
+        
+        li.innerHTML = `
+            <input type="checkbox" id="todo-${index}" ${todo.done ? 'checked' : ''}>
+            <label for="todo-${index}" class="todo-label">${todo.task}</label>
+            <span class="todo-delete-btn" data-index="${index}">&times;</span>
+        `;
+        
+        // (신규) 체크박스 변경 시 이벤트
+        li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+            todo.done = e.target.checked;
+            li.classList.toggle('done', e.target.checked);
+        });
+        
+        // (신규) 삭제 버튼 클릭 시 이벤트
+        li.querySelector('.todo-delete-btn').addEventListener('click', (e) => {
+            const indexToRemove = parseInt(e.target.dataset.index, 10);
+            todos.splice(indexToRemove, 1); // 배열에서 삭제
+            renderTodoList(todos); // 목록 새로고침
+        });
+        
+        todoListUl.appendChild(li);
+    });
+}
+
+// (신규) Request 4: Todo 추가 버튼 클릭
+function addTodoItem() {
+    const input = document.getElementById('memoNewTodoInput');
+    const taskText = input.value.trim();
+    
+    if (taskText === '') return;
+    
+    const newTodo = { task: taskText, done: false };
+    
+    // 현재 UI에 반영
+    const todoListUl = document.getElementById('memoTodoList');
+    
+    // '할 일이 없습니다' 메시지 제거
+    const emptyMsg = todoListUl.querySelector('.todo-empty');
+    if (emptyMsg) {
+        todoListUl.innerHTML = '';
+    }
+    
+    // (임시) 현재 아이템의 memo 객체에 접근하여 todos 배열 가져오기
+    let todos;
+    if (currentTimetableItem && currentTimetableItem.memo && currentTimetableItem.memo.todos) {
+         todos = currentTimetableItem.memo.todos;
+    } else if (currentTimetableItem && currentTimetableItem.memo) {
+         currentTimetableItem.memo.todos = [];
+         todos = currentTimetableItem.memo.todos;
+    } else if (currentTimetableItem) {
+        currentTimetableItem.memo = { note: '', todos: [] };
+        todos = currentTimetableItem.memo.todos;
+    } else {
+        // 비상시 (이론상 openMemoModal에서 item이 생성되어야 함)
+        todos = []; 
+    }
+    
+    todos.push(newTodo);
+    renderTodoList(todos); // 목록 새로고침
+    
+    input.value = '';
+    input.focus();
+}
+
 
 function closeModal() {
     document.getElementById('memoModal').classList.remove('active');
 }
 
-// (수정) 메모 저장 (API 호출)
+// (수정) Request 4: 메모/Todo 저장 (API 호출)
 async function saveMemo() {
     const memoText = document.getElementById('memoText').value;
     
-    // 전역 데이터에서 현재 아이템 찾기
-    const item = window.timetableData.find(t => t.day === currentMemo.day && t.period === currentMemo.period);
+    // (신규) UI에서 Todo 리스트 읽어오기
+    const todoListUl = document.getElementById('memoTodoList');
+    const todos = [];
+    todoListUl.querySelectorAll('.todo-item').forEach(li => {
+        const label = li.querySelector('.todo-label');
+        const checkbox = li.querySelector('input[type="checkbox"]');
+        if (label && checkbox) {
+            todos.push({
+                task: label.textContent,
+                done: checkbox.checked
+            });
+        }
+    });
+    
+    // (신규) 저장할 메모 객체 생성
+    const memoData = {
+        note: memoText,
+        todos: todos
+    };
+
+    // 전역 변수에서 현재 아이템(day, period) 찾기
+    const item = currentTimetableItem; 
     
     if (item) {
-        item.memo = memoText; // 1. UI 즉시 업데이트 (Optimistic Update)
+        const originalMemo = item.memo; // (신규) 롤백 대비
+        item.memo = memoData; // 1. UI 즉시 업데이트 (Optimistic Update)
         
         try {
             // 2. 서버(DB)에 저장 요청
-            const response = await fetch('/api/timetable', {
+            const response = await fetch('/api/timetable/memo', { // (수정) API 엔드포인트
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -692,7 +888,7 @@ async function saveMemo() {
                 body: JSON.stringify({
                     day: item.day,
                     period: item.period,
-                    memo: memoText
+                    memo: memoData // (수정) 객체를 그대로 전송
                 }),
             });
             
@@ -700,16 +896,16 @@ async function saveMemo() {
             if (result.status !== 'success') {
                 throw new Error(result.message || 'Failed to save memo');
             }
-            console.log('Memo saved successfully to server');
+            console.log('Memo/Todo saved successfully to server');
             
         } catch (error) {
             console.error('Failed to save memo to server:', error);
             alert('메모 저장에 실패했습니다.');
             // (실패 시 롤백)
-            item.memo = currentMemo.text; 
+            item.memo = originalMemo; 
         }
         
-        // 3. UI 다시 렌더링 (메모 아이콘 등 반영)
+        // 3. UI 다시 렌더링 (메모/Todo 뱃지 등 반영)
         displayTimetable(window.timetableData); 
     }
     

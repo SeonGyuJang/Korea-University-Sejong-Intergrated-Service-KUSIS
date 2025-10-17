@@ -60,4 +60,190 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     // --- (신규) 알림 로직 종료 ---
+
+    // --- (신규) Request 1: Quick Links (자주 찾는 사이트) Logic ---
+    
+    // 로그인 상태일 때만 퀵링크 로직 실행
+    if (document.getElementById('quickLinkList')) {
+        loadQuickLinks();
+        setupQuickLinkModal();
+    }
 });
+
+/**
+ * (신규) Request 1: API에서 퀵 링크를 로드하여 렌더링
+ */
+async function loadQuickLinks() {
+    const listContainer = document.getElementById('quickLinkList');
+    if (!listContainer) return;
+
+    try {
+        const response = await fetch('/api/quick-links');
+        if (!response.ok) {
+            // 로그아웃 상태(401) 등일 경우 여기서 멈춤
+            listContainer.innerHTML = '';
+            return; 
+        }
+        
+        const links = await response.json();
+        listContainer.innerHTML = ''; // 기존 목록 비우기
+        
+        links.forEach(link => {
+            const linkEl = document.createElement('a');
+            linkEl.href = link.url;
+            linkEl.target = '_blank';
+            linkEl.className = 'quick-link';
+            
+            // (신규) 아이콘 랜덤 색상 배정 (아이콘이 없을 경우 대비)
+            const defaultIcon = 'fas fa-globe';
+            const iconClass = link.icon_url || defaultIcon;
+            
+            linkEl.innerHTML = `
+                <i class="${iconClass}" style="${generateIconStyle(iconClass)}"></i>
+                <span class="link-text">${link.title}</span>
+                <span class="quick-link-delete" data-id="${link.id}">&times;</span>
+            `;
+
+            // (신규) 삭제 버튼 이벤트 리스너
+            linkEl.querySelector('.quick-link-delete').addEventListener('click', async (e) => {
+                e.preventDefault(); // 링크 이동 방지
+                e.stopPropagation(); // 버블링 방지
+                
+                if (confirm(`'${link.title}' 링크를 삭제하시겠습니까?`)) {
+                    await deleteQuickLink(link.id);
+                }
+            });
+
+            listContainer.appendChild(linkEl);
+        });
+
+    } catch (error) {
+        console.error('Failed to load quick links:', error);
+        listContainer.innerHTML = '<p style="font-size: 12px; color: var(--text-secondary); padding: 0 10px; text-align: center;">링크 로드 실패</p>';
+    }
+}
+
+/**
+ * (신규) Request 1: 퀵 링크 모달 설정
+ */
+function setupQuickLinkModal() {
+    const modal = document.getElementById('quickLinkModal');
+    const addBtn = document.getElementById('addLinkBtn');
+    const saveBtn = document.getElementById('saveQuickLinkBtn');
+    const form = document.getElementById('quickLinkForm');
+
+    if (!modal || !addBtn || !saveBtn || !form) return;
+
+    // 모달 열기
+    addBtn.addEventListener('click', () => {
+        form.reset(); // 폼 초기화
+        modal.classList.add('active');
+    });
+
+    // 모달 닫기 (base.html의 .modal-close가 이미 처리)
+
+    // 저장 버튼 클릭
+    saveBtn.addEventListener('click', async () => {
+        const title = document.getElementById('linkTitle').value.trim();
+        const url = document.getElementById('linkUrl').value.trim();
+        const icon_url = document.getElementById('linkIcon').value.trim();
+
+        if (!title || !url) {
+            alert('사이트 이름과 URL을 모두 입력해주세요.');
+            return;
+        }
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = '저장 중...';
+
+        try {
+            const response = await fetch('/api/quick-links', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, url, icon_url })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                modal.classList.remove('active');
+                loadQuickLinks(); // 목록 새로고침
+            } else {
+                alert(`저장 실패: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('Failed to save quick link:', error);
+            alert('링크 저장 중 오류가 발생했습니다.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '저장';
+        }
+    });
+}
+
+/**
+ * (신규) Request 1: 퀵 링크 삭제 API 호출
+ */
+async function deleteQuickLink(linkId) {
+    try {
+        const response = await fetch(`/api/quick-links/${linkId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            loadQuickLinks(); // 목록 새로고침
+        } else {
+            alert(`삭제 실패: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('Failed to delete quick link:', error);
+        alert('링크 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+
+/**
+ * (신규) Request 1: 아이콘 스타일 생성 (아이콘 클래스에 따라 다른 색상)
+ */
+function generateIconStyle(iconClass) {
+    const colors = {
+        'google': '#4285F4',
+        'youtube': '#FF0000',
+        'instagram': 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)',
+        'facebook': '#1877F2',
+        'naver': '#03C75A',
+        'kakao': '#FEE500',
+        'github': '#181717',
+        'book': '#A50034', // LMS
+        'envelope': '#0073E6', // Mail
+        'default': '#7f8c8d' // (기본)
+    };
+
+    let style = '';
+    let colorKey = 'default';
+
+    for (const key in colors) {
+        if (iconClass.includes(key)) {
+            colorKey = key;
+            break;
+        }
+    }
+    
+    const color = colors[colorKey];
+    if (color.startsWith('linear-gradient')) {
+        style = `background: ${color};`;
+    } else {
+        style = `background-color: ${color};`;
+    }
+    
+    // 카카오는 글씨만 검정색
+    if (colorKey === 'kakao') {
+        style += ' color: #3A1D1D;';
+    } else {
+        style += ' color: white;';
+    }
+
+    return style;
+}

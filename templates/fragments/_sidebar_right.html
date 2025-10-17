@@ -7,32 +7,15 @@
     
     <div class="quick-links">
         <h4>자주 찾는 사이트</h4>
-        <div class="link-list">
-            <a href="https://www.naver.com" target="_blank" class="quick-link">
-                <i class="fa-solid fa-n" style="background: #03C75A;"></i>
-                <span class="link-text">네이버</span>
-            </a>
-            <a href="https://www.google.com" target="_blank" class="quick-link">
-                <i class="fab fa-google" style="background: #4285F4;"></i>
-                <span class="link-text">구글</span>
-            </a>
-            <a href="https://www.youtube.com" target="_blank" class="quick-link">
-                <i class="fab fa-youtube" style="background: #FF0000;"></i>
-                <span class="link-text">유튜브</span>
-            </a>
-            <a href="https://www.instagram.com" target="_blank" class="quick-link">
-                <i class="fab fa-instagram" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);"></i>
-                <span class="link-text">인스타그램</span>
-            </a>
-            <a href="https://www.notion.so" target="_blank" class="quick-link">
-                <i class="fa-solid fa-file-lines" style="background: #000;"></i>
-                <span class="link-text">노션</span>
-            </a>
-            <a href="javascript:void(0);" class="quick-link quick-link-add" id="addLinkBtn">
-                <i class="fas fa-plus"></i>
-                <span class="link-text">추가하기</span>
-            </a>
-        </div>
+        <div class="link-list" id="quickLinkList">
+            </div>
+
+        {% if session.student_id %}
+        <a href="javascript:void(0);" class="quick-link quick-link-add" id="addLinkBtn">
+            <i class="fas fa-plus"></i>
+            <span class="link-text">추가하기</span>
+        </a>
+        {% endif %}
     </div>
     <button id="rightSidebarToggle">
         <i class="fas fa-chevron-left"></i>
