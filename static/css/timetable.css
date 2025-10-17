@@ -165,7 +165,11 @@
     display: none;
 }
 .widget-tab-content.active {
-    display: block;
+    /* [MODIFIED] block -> flex로 변경 */
+    display: flex;
+    /* [NEW] 세로 중앙 정렬을 위한 속성 추가 */
+    flex-direction: column;
+    justify-content: center;
 }
 
 /* 학점 탭 */

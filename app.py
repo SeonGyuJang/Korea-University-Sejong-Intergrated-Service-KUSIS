@@ -8,6 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 import urllib.parse
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler  # [NEW]
+import atexit  # [NEW]
 
 load_dotenv()
 
@@ -129,7 +131,7 @@ class QuickLink(db.Model):
     url = db.Column(db.String(500), nullable=False)
     icon_url = db.Column(db.String(500))
 
-# --- (수정) 학기 자동 생성 로직 (2020-2025년) ---
+# --- (유지) 학기 생성 로직 (2020-2025년) ---
 def _create_semesters_for_user(user_id):
     """지정된 사용자를 위해 2020년부터 2025년까지의 모든 학기를 생성합니다."""
     start_year = 2020
@@ -145,9 +147,61 @@ def _create_semesters_for_user(user_id):
                 db.session.add(new_semester)
     db.session.commit()
 
-# (수정) _check_and_add_future_semesters 함수 제거
+# --- [NEW] 학기 자동 관리 스케줄 작업 ---
+def manage_semesters_job():
+    """
+    매년 12월 1일에 실행되는 학기 관리 작업.
+    1. 다음 연도 학기(1,여름,2,겨울)를 모든 사용자에게 추가합니다.
+    2. 이전 연도 학기 중 과목(Subject)이 없는 학기를 삭제합니다.
+    """
+    with app.app_context():
+        print(f"[{datetime.now()}] Starting semester management job...")
+        try:
+            now = datetime.now()
+            next_year = now.year + 1
+            prev_year = now.year - 1
+            seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
+            
+            all_users = User.query.all()
+            if not all_users:
+                print("No users found. Exiting job.")
+                return
 
-# --- DB 초기화 (수정) ---
+            for user in all_users:
+                # 1. 다음 연도 학기 추가
+                for season in seasons:
+                    semester_name = f"{next_year}년 {season}"
+                    exists = Semester.query.filter_by(user_id=user.id, name=semester_name).first()
+                    if not exists:
+                        new_semester = Semester(
+                            user_id=user.id,
+                            name=semester_name,
+                            year=next_year,
+                            season=season
+                        )
+                        db.session.add(new_semester)
+                        print(f"Added {semester_name} for user {user.id}")
+                
+                # 2. 데이터가 없는 이전 연도 학기 삭제
+                prev_year_semesters = Semester.query.filter_by(user_id=user.id, year=prev_year).all()
+                for semester in prev_year_semesters:
+                    # 이 학기에 연결된 과목이 있는지 확인
+                    has_subjects = Subject.query.filter_by(semester_id=semester.id).first()
+                    if not has_subjects:
+                        # 과목이 없으면 삭제
+                        db.session.delete(semester)
+                        print(f"Deleted empty semester {semester.name} for user {user.id}")
+                    else:
+                        # 과목이 있으면 유지
+                        print(f"Keeping {semester.name} (has data) for user {user.id}")
+
+            db.session.commit()
+            print("Semester management job completed successfully.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error in semester management job: {e}")
+
+# --- DB 초기화 (유지) ---
 def create_initial_data():
     with app.app_context():
         db.create_all()
@@ -159,14 +213,14 @@ def create_initial_data():
             admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("1234"), is_admin=True)
             db.session.add(admin_user)
             db.session.commit()
-            _create_semesters_for_user(admin_id) # (수정) 2020-2025 학기 생성
+            _create_semesters_for_user(admin_id) # (유지) 2020-2025 학기 생성
 
         # 샘플 유저 생성 및 학기 추가, 샘플 데이터 추가
         if not db.session.get(User, sample_user_id):
             sample_user = User(name="장선규", id=sample_user_id, dob="2004-03-24", college="과학기술대학", department="컴퓨터융합소프트웨어학과", password_hash=generate_password_hash("password123"), is_admin=False)
             db.session.add(sample_user)
             db.session.commit()
-            _create_semesters_for_user(sample_user_id) # (수정) 2020-2025 학기 생성
+            _create_semesters_for_user(sample_user_id) # (유지) 2020-2025 학기 생성
             
             # --- 샘플 데이터 추가 (2025년 2학기에) ---
             sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
@@ -311,7 +365,6 @@ def index():
         user_info = db.session.get(User, session['student_id'])
         if user_info:
             is_admin = user_info.is_admin
-            # (수정) 학기 자동 추가 로직 제거
         else:
             session.clear()
     return render_template('index.html', user=user_info, is_admin=is_admin)
@@ -342,7 +395,6 @@ def timetable_management():
         'timetable_management.html',
         user=user,
         is_admin=user.is_admin,
-        # (수정) 학기 목록은 JS로 로드하므로 제거, 대신 GPA/학점 정보는 전달
         current_credits=total_earned_credits,
         goal_credits=user.total_credits_goal,
         overall_gpa=round(overall_gpa, 2)
@@ -360,7 +412,6 @@ def login():
             session['student_id'] = user.id
             session.permanent = True
             flash(f"{user.name}님, KUSIS에 오신 것을 환영합니다.", "success")
-            # (수정) 학기 자동 추가 로직 제거
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
@@ -402,7 +453,7 @@ def register():
             db.session.add(new_user)
             db.session.commit()
             
-            _create_semesters_for_user(new_user.id) # (수정) 회원가입 후 2020-2025 학기 생성
+            _create_semesters_for_user(new_user.id) # (유지) 회원가입 후 2020-2025 학기 생성
             
             flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
             return redirect(url_for('login'))
@@ -449,7 +500,7 @@ def get_schedule():
     return jsonify(schedule_list)
 
 # --- 시간표/학기/학점 API ---
-@app.route('/api/semesters', methods=['GET']) # (수정) GET만 허용
+@app.route('/api/semesters', methods=['GET'])
 @login_required
 def handle_semesters():
     user_id = session['student_id']
@@ -467,7 +518,7 @@ def get_timetable_data():
     if semester_id_str:
         semester = query.filter_by(id=int(semester_id_str)).first()
     else:
-        # (수정) 기본값으로 2025년 2학기를 시도, 없으면 가장 최신 학기
+        # (유지) 기본값으로 2025년 2학기를 시도, 없으면 가장 최신 학기
         semester = query.filter_by(name="2025년 2학기").first()
         if not semester:
             semester = query.order_by(Semester.year.desc(), Semester.name.desc()).first()
@@ -702,4 +753,15 @@ def update_credit_goal():
 
 if __name__ == '__main__':
     # (유지) CLI로 DB를 생성하므로 app.run()만 실행
+    
+    # [NEW] 스케줄러 초기화 및 시작
+    scheduler = BackgroundScheduler()
+    # 매년 12월 1일 오전 3시에 'manage_semesters_job' 실행
+    scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3)
+    scheduler.start()
+    print("Scheduler started... Press Ctrl+C to exit")
+    
+    # 앱 종료 시 스케줄러 종료
+    atexit.register(lambda: scheduler.shutdown())
+    
     app.run(debug=True, port=2424)

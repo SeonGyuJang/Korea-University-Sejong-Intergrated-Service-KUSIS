@@ -189,18 +189,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * [수정됨] 시간표 그리드를 동적으로 렌더링하는 함수
+     * 과목 시간에 맞춰 08시나 19시 등도 표시할 수 있도록 수정
+     */
     function renderTimetableGrid(subjects) {
         timetableBody.innerHTML = '';
-        const hours = ['09', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
-        hours.forEach(hour => {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>${hour}:00</td>` + '<td data-day="1"></td>'.repeat(5);
-            timetableBody.appendChild(row);
-        });
 
+        // 1. 과목 데이터로 시간 범위 계산
+        let minHour = 9;  // 기본 시작 시간
+        let maxHour = 18; // 기본 종료 시간
+        
+        if (subjects && subjects.length > 0) {
+            let earliest = 24;
+            let latest = 0;
+            subjects.forEach(s => {
+                s.timeslots.forEach(ts => {
+                    const startH = parseInt(ts.start.split(':')[0]);
+                    const endH = parseInt(ts.end.split(':')[0]);
+                    const endM = parseInt(ts.end.split(':')[1]);
+                    
+                    earliest = Math.min(earliest, startH);
+                    // 끝나는 시간이 14:00 정각이면, 13시까지만 그려도 됨. 14:01이면 14시까지 그려야 함.
+                    latest = Math.max(latest, (endM > 0 ? endH : endH - 1));
+                });
+            });
+            
+            if (earliest < 24) minHour = Math.min(minHour, earliest);
+            if (latest > 0) maxHour = Math.max(maxHour, latest);
+        }
+
+        // 2. 시간표 그리드(행) 생성
+        for (let h = minHour; h <= maxHour; h++) {
+            const hourStr = String(h).padStart(2, '0');
+            const row = document.createElement('tr');
+            row.setAttribute('data-hour', hourStr); // JS가 시간대를 찾기 위한 속성
+            row.innerHTML = `
+                <td>${hourStr}:00</td>
+                <td data-day="1"></td>
+                <td data-day="2"></td>
+                <td data-day="3"></td>
+                <td data-day="4"></td>
+                <td data-day="5"></td>
+            `;
+            timetableBody.appendChild(row);
+        }
+        
+        // 3. 과목 슬롯 배치 (DOM 렌더링 후)
         requestAnimationFrame(() => {
-            const cellHeight = timetableBody.querySelector('td').offsetHeight;
-            if (!cellHeight || cellHeight === 0) return;
+            const firstRowCell = timetableBody.querySelector('td[data-day="1"]');
+            if (!firstRowCell) {
+                 console.warn("Timetable grid not ready.");
+                 return;
+            }
+
+            const cellHeight = firstRowCell.offsetHeight;
+            if (!cellHeight || cellHeight === 0) {
+                console.warn("Cell height is 0, cannot position slots.");
+                // 0.1초 후 재시도
+                setTimeout(() => renderTimetableGrid(subjects), 100);
+                return;
+            }
 
             subjects.forEach(subject => {
                 subject.timeslots.forEach(ts => {
@@ -209,12 +258,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     const endHour = parseInt(ts.end.split(':')[0]);
                     const endMinute = parseInt(ts.end.split(':')[1]);
 
-                    const targetCell = timetableBody.querySelector(`tr:nth-child(${startHour - 8}) td:nth-child(${ts.day + 1})`);
-                    if (!targetCell) return;
-                    
+                    // 이 과목이 표시될 시간대의 셀(e.g., 10:00)을 찾음
+                    const targetHourStr = String(startHour).padStart(2, '0');
+                    const targetCell = timetableBody.querySelector(`tr[data-hour="${targetHourStr}"] td[data-day="${ts.day}"]`);
+
+                    if (!targetCell) {
+                         console.warn(`Cell not found for day ${ts.day}, hour ${targetHourStr} (Out of range?)`);
+                         return;
+                    }
+
+                    // 셀 높이(1시간=50px) 기준으로 offset과 height 계산
+                    const minutesPerHour = 60;
                     const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-                    const topOffset = (startMinute / 60) * cellHeight;
-                    const slotHeight = (durationMinutes / 60) * cellHeight;
+                    
+                    const topOffset = (startMinute / minutesPerHour) * cellHeight;
+                    const slotHeight = (durationMinutes / minutesPerHour) * cellHeight;
 
                     const slotDiv = document.createElement('div');
                     slotDiv.className = 'subject-slot';
