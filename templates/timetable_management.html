@@ -8,96 +8,21 @@
 
 {% block content %}
 <div class="content-area timetable-management-page">
-
-    <textarea id="all-semesters-data" style="display:none;">{{ all_semesters_list | tojson }}</textarea>
-    <textarea id="initial-subjects-data" style="display:none;">{{ initial_subjects_list | tojson }}</textarea>
-    <div id="initial-data-container" data-initial-semester-id="{{ initial_semester_id | default('null') }}"></div>
-
-
-    <div class="left-widgets">
-        <div class="widget credit-widget">
-            <div class="widget-header">
-                <h3><i class="fas fa-graduation-cap"></i> 나의 학점 요약</h3>
-            </div>
-            <div class="credit-summary">
-                <div class="credit-progress-circle">
-                    <svg viewBox="0 0 100 100">
-                        <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
-                        <circle class="timer-progress" id="creditProgress" cx="50" cy="50" r="45"></circle>
-                    </svg>
-                    <div class="credit-text">
-                        <span id="creditPercentage">0%</span>
-                    </div>
-                </div>
-                <div class="credit-details">
-                    <div class="stat-item">
-                        <span class="stat-label">총 이수 학점</span>
-                        <span class="stat-value" id="currentCredits">{{ current_credits }}</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">
-                            목표 학점
-                            <button id="editGoalBtn" class="btn-edit-goal"><i class="fas fa-pencil-alt"></i></button>
-                        </span>
-                        <span class="stat-value" id="goalCredits">{{ goal_credits }}</span>
-                        <div class="edit-goal-form" id="editGoalForm" style="display: none; margin-top: 8px;">
-                             <input type="number" id="newGoalCredits" value="{{ goal_credits }}" min="1" style="width: 80px; padding: 5px;">
-                             <button id="saveGoalBtn" class="btn btn-save btn-small" style="padding: 5px 10px; font-size: 12px;">저장</button>
-                             <button id="cancelGoalBtn" class="btn btn-cancel btn-small" style="padding: 5px 10px; font-size: 12px;">취소</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="credit-remaining">
-                    앞으로 <span id="remainingCredits">{{ goal_credits - current_credits }}</span>학점 남았습니다.
-                </div>
-                <div class="stat-item" style="width: 100%; margin-top: 10px; background: var(--korea-red); color: white;">
-                    <span class="stat-label" style="color: rgba(255,255,255,0.8);">전체 평균 학점 (GPA)</span>
-                    <span class="stat-value" id="overallGpa" style="color: white;">{{ overall_gpa }}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="widget gpa-chart-widget">
-            <div class="widget-header" style="justify-content: space-between;">
-                <h3><i class="fas fa-chart-line"></i> 학기별 성적</h3>
-                <button id="refreshGpaChartBtn" class="btn-more" style="font-size: 12px; color: var(--text-secondary);">
-                    <i class="fas fa-sync-alt"></i> 새로고침
-                </button>
-            </div>
-            <div class="gpa-chart-container">
-                <canvas id="gpaChart"></canvas>
-            </div>
-        </div>
-        
-        <div class="widget todo-summary-widget">
-            <div class="widget-header">
-                <h3><i class="fas fa-tasks"></i> 이번 학기 과목별 Todo</h3>
-            </div>
-            <div class="todo-summary-list" id="todoSummaryList">
-                <p style="text-align: center; color: var(--text-secondary); padding: 20px;">
-                    학기 정보를 불러오는 중입니다...
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="center-widgets">
+    
+    <div class="timetable-main-content">
         <div class="widget timetable-editor-widget">
             <div class="widget-header">
                 <div class="timetable-controls">
-                    <select id="semesterSelect" class="input-group" style="margin-bottom: 0; padding: 8px; font-weight: 600;">
+                    <select id="semesterSelect" class="input-group">
                         <option value="">학기 로딩 중...</option>
                     </select>
-                    <button id="addSemesterBtn" class="btn-more" style="margin-left: 8px;">
-                        <i class="fas fa-plus"></i> 학기 추가
-                    </button>
                 </div>
                 <button id="addSubjectBtn" class="btn btn-save">
-                    <i class="fas fa-plus"></i> 과목 추가
+                    <i class="fas fa-plus"></i> 새 과목 추가
                 </button>
             </div>
             <div class="timetable-container">
-                <table class="timetable editable view-only">
+                <table class="timetable editable">
                     <thead>
                         <tr>
                             <th>시간</th>
@@ -109,134 +34,177 @@
                         </tr>
                     </thead>
                     <tbody id="timetableEditorBody">
-                        <tr><td>09:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>10:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>11:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>12:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>13:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>14:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>15:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>16:00</td><td></td><td></td><td></td><td></td><td></td></tr>
-                        <tr><td>17:00</td><td></td><td></td><td></td><td></td><td></td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-</div>
+    <div class="timetable-side-content">
+        <div class="widget">
+            <div class="widget-tabs-container">
+                <div class="widget-tabs">
+                    <button class="tab active" data-tab="credits"><i class="fas fa-graduation-cap"></i> 학점</button>
+                    <button class="tab" data-tab="gpa"><i class="fas fa-chart-line"></i> 성적</button>
+                    <button class="tab" data-tab="todos"><i class="fas fa-tasks"></i> Todo</button>
+                </div>
+            </div>
 
-<div class="modal" id="subjectEditModal">
-    <div class="modal-content large-modal" style="max-width: 600px;">
-        <div class="modal-header">
-            <h3 id="subjectModalTitle">과목 추가</h3>
-            <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="subjectEditForm">
-                <input type="hidden" id="subjectId" name="id">
-                <input type="hidden" id="subjectSemesterId" name="semester_id">
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="input-group">
-                        <label for="subjectName"><i class="fas fa-book"></i> 과목명</label>
-                        <input type="text" id="subjectName" name="subject" required placeholder="예: 웹프로그래밍">
+            <div class="widget-tab-content active" id="tab-content-credits">
+                <div class="credit-summary">
+                    <div class="credit-progress-circle">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="progress-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="progress-bar" id="creditProgress" cx="50" cy="50" r="45"></circle>
+                        </svg>
+                        <div class="credit-text">
+                            <span id="creditPercentage">0%</span>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="subjectProfessor"><i class="fas fa-user-tie"></i> 교수명</label>
-                        <input type="text" id="subjectProfessor" name="professor" placeholder="예: 이교수">
+                    <div class="credit-details">
+                        <div class="stat-item">
+                            <span class="stat-label">총 이수 학점</span>
+                            <span class="stat-value" id="currentCredits">{{ current_credits }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">
+                                목표 학점
+                                <button id="editGoalBtn" class="btn-edit-goal"><i class="fas fa-pencil-alt"></i></button>
+                            </span>
+                            <span class="stat-value" id="goalCredits">{{ goal_credits }}</span>
+                            <div class="edit-goal-form" id="editGoalForm" style="display: none;">
+                                 <input type="number" id="newGoalCredits" value="{{ goal_credits }}" min="1">
+                                 <button id="saveGoalBtn" class="btn btn-save btn-small">저장</button>
+                                 <button id="cancelGoalBtn" class="btn btn-cancel btn-small">취소</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="subjectCredits"><i class="fas fa-coins"></i> 학점</label>
-                        <input type="number" id="subjectCredits" name="credits" value="3" min="0" max="9">
-                    </div>
-                    <div class="input-group">
-                        <label for="subjectGrade"><i class="fas fa-check-double"></i> 등급</label>
-                        <select id="subjectGrade" name="grade">
-                            <option value="Not Set">미설정</option>
-                            <option value="A+">A+</option>
-                            <option value="A0">A0</option>
-                            <option value="B+">B+</option>
-                            <option value="B0">B0</option>
-                            <option value="C+">C+</option>
-                            <option value="C0">C0</option>
-                            <option value="D+">D+</option>
-                            <option value="D0">D0</option>
-                            <option value="F">F</option>
-                            <option value="P">Pass</option>
-                        </select>
+                    <div class="credit-remaining">
+                        앞으로 <span id="remainingCredits">{{ goal_credits - current_credits }}</span>학점 남았습니다.
                     </div>
                 </div>
+            </div>
 
-                <h4 class="memo-subtitle" style="margin-top: 15px;"><i class="fas fa-clock"></i> 시간 및 장소</h4>
-                <div id="timeSlotContainer">
-                    </div>
-                <button type="button" id="addTimeSlotBtn" class="btn" style="background: var(--bg-primary); color: var(--text-primary); font-size: 13px; padding: 8px 12px;">
-                    <i class="fas fa-plus"></i> 시간 추가
-                </button>
-                
-                <h4 class="memo-subtitle" style="margin-top: 20px;">
-                    <i class="fas fa-sticky-note"></i> 메모
-                </h4>
-                <textarea id="memoText" rows="3" placeholder="메모를 입력하세요..."></textarea>
-                
-                <h4 class="memo-subtitle" style="margin-top: 15px;">
-                    <i class="fas fa-check-square"></i> Todo List
-                </h4>
-                <ul id="memoTodoList" class="memo-todo-list" style="max-height: 100px;"></ul>
-                <div class="memo-todo-add">
-                    <input type="text" id="memoNewTodoInput" placeholder="새로운 할 일...">
-                    <button type="button" id="memoAddTodoBtn" class="btn-timer btn-start" style="flex: 0 0 auto; padding: 8px 12px; border-radius: 8px;">
-                        <i class="fas fa-plus"></i>
-                    </button>
+            <div class="widget-tab-content" id="tab-content-gpa">
+                <div class="gpa-chart-header">
+                    <h4>전체 평균 학점: <span id="overallGpa">{{ overall_gpa }}</span></h4>
+                    <button id="refreshGpaChartBtn" class="btn-more"><i class="fas fa-sync-alt"></i></button>
                 </div>
-            </form>
-        </div>
-        <div class="modal-footer" style="justify-content: space-between;">
-            <button class="btn btn-danger" id="deleteSubjectBtn" style="background: var(--color-danger);">
-                <i class="fas fa-trash"></i> 삭제
-            </button>
-            <div>
-                <button class="btn btn-cancel modal-close">취소</button>
-                <button class="btn btn-save" id="saveSubjectBtn">저장</button>
+                <div class="gpa-chart-container">
+                    <canvas id="gpaChart"></canvas>
+                </div>
+            </div>
+
+            <div class="widget-tab-content" id="tab-content-todos">
+                <div class="todo-summary-list" id="todoSummaryList">
+                    <p class="todo-summary-empty">학기를 선택해주세요.</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal" id="addSemesterModal">
-    <div class="modal-content" style="max-width: 450px;">
+<div class="modal" id="addSubjectModal">
+    <div class="modal-content large-modal">
         <div class="modal-header">
-            <h3>새 학기 추가</h3>
+            <h3 id="addSubjectModalTitle">새 과목 추가</h3>
             <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="addSemesterForm">
-                <div class="input-group">
-                    <label for="semesterName"><i class="fas fa-calendar-alt"></i> 학기 이름</label>
-                    <input type="text" id="semesterName" name="name" required placeholder="예: 2025년 2학기">
+            <form id="addSubjectForm">
+                <input type="hidden" id="addSubjectSemesterId" name="semester_id">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="addSubjectName">과목명</label>
+                        <input type="text" id="addSubjectName" required placeholder="예: 웹프로그래밍">
+                    </div>
+                    <div class="input-group">
+                        <label for="addSubjectProfessor">교수명</label>
+                        <input type="text" id="addSubjectProfessor" placeholder="예: 이교수">
+                    </div>
+                    <div class="input-group">
+                        <label for="addSubjectCredits">학점</label>
+                        <input type="number" id="addSubjectCredits" value="3" min="0" max="9">
+                    </div>
                 </div>
-                <div class="input-group">
-                    <label for="semesterYear"><i class="fas fa-calendar-day"></i> 연도</label>
-                    <input type="number" id="semesterYear" name="year" required placeholder="예: 2025" value="2025">
-                </div>
-                <div class="input-group">
-                    <label for="semesterSeason"><i class="fas fa-sun"></i> 시즌</label>
-                    <select id="semesterSeason" name="season" required>
-                        <option value="1학기">1학기</option>
-                        <option value="여름학기">여름학기</option>
-                        <option value="2학기">2학기</option>
-                        <option value="겨울학기">겨울학기</option>
-                    </select>
-                </div>
+                <h4 class="form-subtitle">시간 및 장소</h4>
+                <div id="addTimeSlotContainer"></div>
+                <button type="button" id="addMoreTimeSlotBtn" class="btn btn-secondary">
+                    <i class="fas fa-plus"></i> 시간 추가
+                </button>
             </form>
         </div>
         <div class="modal-footer">
             <button class="btn btn-cancel modal-close">취소</button>
-            <button class="btn btn-save" id="saveSemesterBtn">추가</button>
+            <button class="btn btn-save" id="saveNewSubjectBtn">저장</button>
         </div>
     </div>
 </div>
+
+<div class="modal" id="editSubjectModal">
+    <div class="modal-content large-modal">
+        <div class="modal-header">
+            <h3 id="editSubjectModalTitle">과목 수정</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editSubjectForm">
+                <input type="hidden" id="editSubjectId">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="editSubjectName">과목명</label>
+                        <input type="text" id="editSubjectName" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="editSubjectProfessor">교수명</label>
+                        <input type="text" id="editSubjectProfessor">
+                    </div>
+                    <div class="input-group">
+                        <label for="editSubjectCredits">학점</label>
+                        <input type="number" id="editSubjectCredits" min="0" max="9">
+                    </div>
+                    <div class="input-group">
+                        <label for="editSubjectGrade">등급</label>
+                        <select id="editSubjectGrade">
+                            <option value="Not Set">미설정</option>
+                            <option value="A+">A+</option><option value="A0">A0</option>
+                            <option value="B+">B+</option><option value="B0">B0</option>
+                            <option value="C+">C+</option><option value="C0">C0</option>
+                            <option value="D+">D+</option><option value="D0">D0</option>
+                            <option value="F">F</option><option value="P">Pass</option>
+                        </select>
+                    </div>
+                </div>
+                <h4 class="form-subtitle">시간 및 장소</h4>
+                <div id="editTimeSlotContainer"></div>
+                <button type="button" id="editAddTimeSlotBtn" class="btn btn-secondary"><i class="fas fa-plus"></i> 시간 추가</button>
+                <hr class="form-divider">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="editMemoText">메모</label>
+                        <textarea id="editMemoText" rows="3" placeholder="메모를 입력하세요..."></textarea>
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="editMemoTodoList">Todo List</label>
+                        <ul id="editMemoTodoList" class="memo-todo-list"></ul>
+                        <div class="memo-todo-add">
+                            <input type="text" id="editMemoNewTodoInput" placeholder="새로운 할 일...">
+                            <button type="button" id="editMemoAddTodoBtn" class="btn btn-primary"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+            <button class="btn btn-danger" id="deleteSubjectBtn"><i class="fas fa-trash"></i> 삭제</button>
+            <div>
+                <button class="btn btn-cancel modal-close">취소</button>
+                <button class="btn btn-save" id="updateSubjectBtn">수정 완료</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block page_scripts %}

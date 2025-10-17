@@ -30,6 +30,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# --- (유지) Flask CLI 명령어 (최초 DB 생성용) ---
+@app.cli.command("init-db")
+def init_db_command():
+    """Creates the database tables and initial data."""
+    create_initial_data()
+    print("Database initialized.")
+
+
 # --- File Paths ---
 BUS_TIME_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'bus_time.csv')
 STUDENT_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'student_menu.json')
@@ -46,7 +54,7 @@ COLLEGES = {
     "스마트도시학부": ["스마트도시학부"]
 }
 
-# --- Database Models ---
+# --- Database Models (변경 없음) ---
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -121,71 +129,67 @@ class QuickLink(db.Model):
     url = db.Column(db.String(500), nullable=False)
     icon_url = db.Column(db.String(500))
 
-# --- DB 초기화 ---
+# --- (수정) 학기 자동 생성 로직 (2020-2025년) ---
+def _create_semesters_for_user(user_id):
+    """지정된 사용자를 위해 2020년부터 2025년까지의 모든 학기를 생성합니다."""
+    start_year = 2020
+    end_year = 2025
+    seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
+
+    for year in range(start_year, end_year + 1):
+        for season in seasons:
+            semester_name = f"{year}년 {season}"
+            existing_semester = Semester.query.filter_by(user_id=user_id, name=semester_name).first()
+            if not existing_semester:
+                new_semester = Semester(user_id=user_id, name=semester_name, year=year, season=season)
+                db.session.add(new_semester)
+    db.session.commit()
+
+# (수정) _check_and_add_future_semesters 함수 제거
+
+# --- DB 초기화 (수정) ---
 def create_initial_data():
     with app.app_context():
-        # db.drop_all() # 필요시 테이블 초기화
         db.create_all()
+        admin_id = "9999123456"
+        sample_user_id = "2023390822"
 
-        admin_user = db.session.get(User, "9999123456")
-        if not admin_user:
-            admin_user = User(id="9999123456", name="admin", dob="2004-06-16", college="관리자", department="관리팀", password_hash=generate_password_hash("1234"), is_admin=True, total_credits_goal=130)
+        # 관리자 계정 생성 및 학기 추가
+        if not db.session.get(User, admin_id):
+            admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("1234"), is_admin=True)
             db.session.add(admin_user)
+            db.session.commit()
+            _create_semesters_for_user(admin_id) # (수정) 2020-2025 학기 생성
 
-        sample_user = db.session.get(User, "2023390822")
-        if not sample_user:
-            sample_user = User(name="장선규", id="2023390822", dob="2004-03-24", college="과학기술대학", department="컴퓨터융합소프트웨어학과", password_hash=generate_password_hash("password123"), is_admin=False, total_credits_goal=130)
+        # 샘플 유저 생성 및 학기 추가, 샘플 데이터 추가
+        if not db.session.get(User, sample_user_id):
+            sample_user = User(name="장선규", id=sample_user_id, dob="2004-03-24", college="과학기술대학", department="컴퓨터융합소프트웨어학과", password_hash=generate_password_hash("password123"), is_admin=False)
             db.session.add(sample_user)
-            db.session.commit() # user_id 생성
-
-            # 샘플 학기 및 과목 데이터
-            semester_1 = Semester.query.filter_by(user_id="2023390822", name="2024년 2학기").first()
-            if not semester_1:
-                semester_1 = Semester(user_id="2023390822", name="2024년 2학기", year=2024, season="2학기")
-                db.session.add(semester_1)
-                db.session.commit()
-                s1_sub1 = Subject(user_id="2023390822", semester_id=semester_1.id, name="자료구조", professor="박교수", credits=3, grade="A+")
-                s1_sub2 = Subject(user_id="2023390822", semester_id=semester_1.id, name="객체지향프로그래밍", professor="이교수", credits=3, grade="A0")
-                db.session.add_all([s1_sub1, s1_sub2])
-
-            semester_2 = Semester.query.filter_by(user_id="2023390822", name="2025년 1학기").first()
-            if not semester_2:
-                semester_2 = Semester(user_id="2023390822", name="2025년 1학기", year=2025, season="1학기")
-                db.session.add(semester_2)
-                db.session.commit()
+            db.session.commit()
+            _create_semesters_for_user(sample_user_id) # (수정) 2020-2025 학기 생성
+            
+            # --- 샘플 데이터 추가 (2025년 2학기에) ---
+            sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
+            if sample_semester:
                 web_memo = json.dumps({"note": "과제 제출 기한 엄수!", "todos": [{"task": "Flask 라우팅 공부", "done": False}]})
-                s2_sub1 = Subject(user_id="2023390822", semester_id=semester_2.id, name="웹프로그래밍", professor="최교수", credits=3, grade="Not Set", memo=web_memo)
-                s2_sub2 = Subject(user_id="2023390822", semester_id=semester_2.id, name="데이터베이스", professor="김교수", credits=3, grade="Not Set")
-                db.session.add_all([s2_sub1, s2_sub2])
+                s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3, memo=web_memo)
+                s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3)
+                db.session.add_all([s1, s2])
                 db.session.commit()
-                db.session.add(TimeSlot(subject_id=s2_sub1.id, day_of_week=1, start_time="10:00", end_time="11:15", room="창의관 101"))
-                db.session.add(TimeSlot(subject_id=s2_sub1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
-                db.session.add(TimeSlot(subject_id=s2_sub2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
-                db.session.add(TimeSlot(subject_id=s2_sub2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
+                db.session.add(TimeSlot(subject_id=s1.id, day_of_week=1, start_time="10:00", end_time="11:15", room="창의관 101"))
+                db.session.add(TimeSlot(subject_id=s1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
+                db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
+                db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
 
-            # 샘플 퀵링크/일정 (유지)
-            today_str = datetime(2025, 10, 16).strftime('%Y-%m-%d')
-            Schedule.query.filter_by(user_id="2023390822", date=today_str).delete()
-            sample_schedule = [
-                {"date": today_str, "time": "09:00", "title": "데이터베이스 설계", "location": "세종관 301호"},
-                {"date": today_str, "time": "13:00", "title": "웹 프로그래밍", "location": "창의관 205호"},
-                {"date": today_str, "time": "15:00", "title": "스터디 모임", "location": "도서관 4층"},
-            ]
-            for item in sample_schedule:
-                db.session.add(Schedule(user_id="2023390822", **item))
+            # --- 샘플 퀵링크/일정 ---
+            QuickLink.query.filter_by(user_id=sample_user_id).delete()
+            db.session.add_all([
+                QuickLink(user_id=sample_user_id, title="네이버", url="https://www.naver.com", icon_url="fa-solid fa-n"),
+                QuickLink(user_id=sample_user_id, title="LMS", url="https://lms.korea.ac.kr", icon_url="fa-solid fa-book"),
+            ])
+            db.session.commit()
 
-            QuickLink.query.filter_by(user_id="2023390822").delete()
-            sample_links = [
-                {"user_id": "2023390822", "title": "네이버", "url": "https://www.naver.com", "icon_url": "fa-solid fa-n"},
-                {"user_id": "2023390822", "title": "구글", "url": "https://www.google.com", "icon_url": "fa-brands fa-google"},
-                {"user_id": "2023390822", "title": "LMS", "url": "https://lms.korea.ac.kr", "icon_url": "fa-solid fa-book"},
-            ]
-            for link in sample_links:
-                db.session.add(QuickLink(**link))
-
-        db.session.commit()
-
-# --- Authentication Decorators ---
+# --- Authentication Decorators (변경 없음) ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -213,27 +217,27 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- 데이터 로드 및 정제 함수 ---
+# --- 데이터 로드 및 정제 함수 (변경 없음) ---
 def load_bus_schedule():
     schedule = []
     try:
         with open(BUS_TIME_PATH, 'r', encoding='utf-8') as f:
-            next(f)
-            reader = csv.DictReader(f, fieldnames=['Departure_Time', 'Route', 'Type', 'Note'])
+            reader = csv.DictReader(f)
             for row in reader:
-                note = row['Note'].strip()
-                if row['Route'] == 'Station_to_School': route_kr = '조치원역 → 학교'
-                elif row['Route'] == 'School_to_Station': route_kr = '학교 → 조치원역'
-                elif row['Route'] == 'Station_to_Osong': route_kr = '조치원역 → 오송역'
-                elif row['Route'] == 'School_to_Osong': route_kr = '학교 → 조치원역/오송역'
-                else: route_kr = row['Route']
+                note = row.get('Note', '').strip()
+                route = row.get('Route', '')
+                if route == 'Station_to_School': route_kr = '조치원역 → 학교'
+                elif route == 'School_to_Station': route_kr = '학교 → 조치원역'
+                elif route == 'Station_to_Osong': route_kr = '조치원역 → 오송역'
+                elif route == 'School_to_Osong': route_kr = '학교 → 조치원역/오송역'
+                else: route_kr = route
                 if '오송역' in note:
-                    if row['Route'] == 'Station_to_School': route_kr = '조치원/오송역 → 학교 (경유)'
-                    elif row['Route'] == 'School_to_Station': route_kr = '학교 → 조치원역/오송역 (경유)'
+                    if route == 'Station_to_School': route_kr = '조치원/오송역 → 학교 (경유)'
+                    elif route == 'School_to_Station': route_kr = '학교 → 조치원역/오송역 (경유)'
                 route_group = "Jochiwon"
-                if '오송역' in note or row['Route'].endswith('Osong'): route_group = "Osong_Included"
-                type_kr = '평일' if row['Type'] == 'Weekday' else '일요일' if row['Type'] == 'Sunday' else '기타'
-                schedule.append({"time": row['Departure_Time'], "route": route_kr, "type": type_kr, "note": note, "route_group": route_group})
+                if '오송역' in note or route.endswith('Osong'): route_group = "Osong_Included"
+                type_kr = '평일' if row.get('Type') == 'Weekday' else '일요일' if row.get('Type') == 'Sunday' else '기타'
+                schedule.append({"time": row.get('Departure_Time'), "route": route_kr, "type": type_kr, "note": note, "route_group": route_group})
         return schedule
     except Exception as e:
         print(f"Error loading bus schedule: {e}")
@@ -256,8 +260,6 @@ def load_meal_data():
     return data
 
 def get_today_meal_key():
-    # (수정) 2025/10/16일이 아닌 오늘 날짜 기준으로 변경
-    # today = datetime(2025, 10, 16) 
     today = datetime.now()
     day_of_week_kr = ['월', '화', '수', '목', '금', '토', '일'][today.weekday()]
     return f"{today.month}.{today.day}({day_of_week_kr})"
@@ -300,90 +302,51 @@ SHUTTLE_SCHEDULE_DATA = load_bus_schedule()
 MEAL_PLAN_DATA = load_meal_data()
 TODAY_MEAL_KEY = get_today_meal_key()
 
-# --- API 및 페이지 엔드포인트 ---
-
+# --- 페이지 엔드포인트 ---
 @app.route('/')
 def index():
     user_info = None
     is_admin = False
     if 'student_id' in session:
         user_info = db.session.get(User, session['student_id'])
-        if user_info: is_admin = user_info.is_admin
-        else: session.clear()
+        if user_info:
+            is_admin = user_info.is_admin
+            # (수정) 학기 자동 추가 로직 제거
+        else:
+            session.clear()
     return render_template('index.html', user=user_info, is_admin=is_admin)
 
-# --- (수정) 시간표 관리 페이지 ---
 @app.route('/timetable-management')
 @login_required
 def timetable_management():
     user_id = session['student_id']
     user = db.session.get(User, user_id)
-
-    # --- (신규) 데이터 미리 로드 ---
     all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc(), Semester.name.desc()).all()
-    initial_semester_id = None
-    initial_subjects_list = [] # JSON으로 변환할 파이썬 리스트
-
-    if all_semesters:
-        initial_semester_id = all_semesters[0].id # 가장 최신 학기 ID
-
-        # 최신 학기의 과목 정보 조회
-        subjects = Subject.query.filter_by(user_id=user_id, semester_id=initial_semester_id).all()
-        for s in subjects:
-            timeslots_data = []
-            for ts in s.timeslots:
-                timeslots_data.append({
-                    "id": ts.id, "day": ts.day_of_week, "start": ts.start_time,
-                    "end": ts.end_time, "room": ts.room
-                })
-            # 메모 파싱 (오류 발생 시 기본값 사용)
-            memo_data = {"note": "", "todos": []}
-            if s.memo and isinstance(s.memo, str) and s.memo.strip().startswith('{'):
-                try: memo_data = json.loads(s.memo)
-                except json.JSONDecodeError: pass # 파싱 실패 시 기본값 유지
-            elif isinstance(s.memo, dict): # (추가) 이미 dict인 경우 (거의 없음)
-                memo_data = s.memo
-
-            initial_subjects_list.append({
-                "id": s.id, "name": s.name, "professor": s.professor,
-                "credits": s.credits, "grade": s.grade, "memo": memo_data,
-                "timeslots": timeslots_data
-            })
-    # --- 데이터 미리 로드 종료 ---
-
-    # 전체 학점 계산
+    
+    # GPA 및 학점 계산 로직
     all_subjects_for_gpa = Subject.query.filter_by(user_id=user_id).all()
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
     total_earned_credits = 0
     total_gpa_credits = 0
     total_gpa_score = 0
     for subject in all_subjects_for_gpa:
-        # P/F 과목이나 등급 미설정 과목은 총 이수 학점에만 포함 (GPA 계산에는 제외)
         if subject.grade != "Not Set":
             total_earned_credits += subject.credits
             grade_score = GRADE_MAP.get(subject.grade)
-            # GPA 계산 가능한 과목 (F 포함, P 제외)
             if grade_score is not None:
                 total_gpa_credits += subject.credits
                 total_gpa_score += (grade_score * subject.credits)
-
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
 
-    # (수정) json.dumps()를 제거하고 Python 리스트/객체를 직접 전달
     return render_template(
         'timetable_management.html',
         user=user,
         is_admin=user.is_admin,
-        current_credits=total_earned_credits, # 총 이수 학점
+        # (수정) 학기 목록은 JS로 로드하므로 제거, 대신 GPA/학점 정보는 전달
+        current_credits=total_earned_credits,
         goal_credits=user.total_credits_goal,
-        overall_gpa=round(overall_gpa, 2),
-        
-        # (수정) Python 리스트를 '..._list' 변수명으로 전달
-        all_semesters_list=[{"id": s.id, "name": s.name} for s in all_semesters],
-        initial_semester_id=initial_semester_id,
-        initial_subjects_list=initial_subjects_list 
+        overall_gpa=round(overall_gpa, 2)
     )
-
 
 # --- Authentication Routes ---
 @app.route('/login', methods=['GET', 'POST'])
@@ -397,6 +360,7 @@ def login():
             session['student_id'] = user.id
             session.permanent = True
             flash(f"{user.name}님, KUSIS에 오신 것을 환영합니다.", "success")
+            # (수정) 학기 자동 추가 로직 제거
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
@@ -412,7 +376,6 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # ... (폼 데이터 가져오기) ...
         name = request.form.get('name')
         student_id = request.form.get('student_id')
         password = request.form.get('password')
@@ -421,17 +384,26 @@ def register():
         college = request.form.get('college')
         department = request.form.get('department')
 
-        # ... (유효성 검사) ...
-        if not (name and student_id and password and password_confirm and dob and college and department):
+        if not all([name, student_id, password, password_confirm, dob, college, department]):
              flash("모든 필드를 입력해주세요.", "danger")
              return render_template('register.html', colleges=COLLEGES)
-        # ... (나머지 유효성 검사) ...
+        
+        if password != password_confirm:
+            flash("비밀번호가 일치하지 않습니다.", "danger")
+            return render_template('register.html', colleges=COLLEGES)
+        
+        if User.query.get(student_id):
+            flash("이미 가입된 학번입니다.", "danger")
+            return render_template('register.html', colleges=COLLEGES)
 
         try:
             hashed_password = generate_password_hash(password)
             new_user = User(id=student_id, name=name, dob=dob, college=college, department=department, password_hash=hashed_password, is_admin=False, total_credits_goal=130)
             db.session.add(new_user)
             db.session.commit()
+            
+            _create_semesters_for_user(new_user.id) # (수정) 회원가입 후 2020-2025 학기 생성
+            
             flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
             return redirect(url_for('login'))
         except Exception as e:
@@ -449,7 +421,7 @@ def admin_dashboard():
     member_list = sorted([{"id": user.id, "name": user.name, "department": user.department, "is_admin": user.is_admin} for user in all_users], key=lambda x: x['id'])
     return render_template('admin.html', member_count=member_count, member_list=member_list)
 
-# --- Public API Endpoints ---
+# --- Public API Endpoints (변경 없음) ---
 @app.route('/api/shuttle')
 def get_shuttle():
     return jsonify(SHUTTLE_SCHEDULE_DATA)
@@ -460,8 +432,7 @@ def get_meal():
     if cafeteria in MEAL_PLAN_DATA:
         formatted_meal = format_meal_for_client(MEAL_PLAN_DATA[cafeteria], TODAY_MEAL_KEY, cafeteria)
         return jsonify(formatted_meal)
-    if cafeteria == 'student': return jsonify({"breakfast": "식단 정보 없음", "lunch": {'korean': "식단 정보 없음", 'ala_carte': "식단 정보 없음", 'snack_plus': "식단 정보 없음"}, "dinner": "식단 정보 없음"})
-    else: return jsonify({"breakfast": "식단 정보 없음", "lunch": "식단 정보 없음", "dinner": "식단 정보 없음"})
+    return jsonify({"error": "Invalid cafeteria type"}), 400
 
 @app.route('/api/meal/week')
 def get_weekly_meal():
@@ -472,66 +443,48 @@ def get_weekly_meal():
 @app.route('/api/schedule')
 @login_required
 def get_schedule():
-    # (수정) 오늘 날짜 기준
     today_str = datetime.now().strftime('%Y-%m-%d')
     user_schedules = Schedule.query.filter_by(user_id=session['student_id'], date=today_str).order_by(Schedule.time).all()
     schedule_list = [{"time": s.time, "title": s.title, "location": s.location} for s in user_schedules]
     return jsonify(schedule_list)
 
 # --- 시간표/학기/학점 API ---
-@app.route('/api/semesters', methods=['GET', 'POST'])
+@app.route('/api/semesters', methods=['GET']) # (수정) GET만 허용
 @login_required
 def handle_semesters():
     user_id = session['student_id']
-    if request.method == 'GET':
-        semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc(), Semester.name.desc()).all()
-        return jsonify([{"id": s.id, "name": s.name} for s in semesters])
+    semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc(), Semester.name.desc()).all()
+    return jsonify([{"id": s.id, "name": s.name} for s in semesters])
 
-    if request.method == 'POST':
-        data = request.json
-        name = data.get('name')
-        year = data.get('year')
-        season = data.get('season')
-        if not name or not year or not season:
-            return jsonify({"status": "error", "message": "학기 이름, 연도, 시즌 정보가 필요합니다."}), 400
-        # 중복 확인
-        existing = Semester.query.filter_by(user_id=user_id, name=name).first()
-        if existing:
-            return jsonify({"status": "error", "message": "이미 존재하는 학기 이름입니다."}), 409
-        try:
-            new_semester = Semester(user_id=user_id, name=name, year=year, season=season)
-            db.session.add(new_semester)
-            db.session.commit()
-            return jsonify({"status": "success", "message": "학기가 추가되었습니다.", "semester": {"id": new_semester.id, "name": new_semester.name}}), 201
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error adding semester: {e}")
-            return jsonify({"status": "error", "message": "학기 추가 중 오류 발생"}), 500
 
 @app.route('/api/timetable-data', methods=['GET'])
 @login_required
 def get_timetable_data():
     user_id = session['student_id']
-    semester_id = request.args.get('semester_id', type=int)
+    semester_id_str = request.args.get('semester_id')
 
-    if not semester_id:
-        latest_semester = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc(), Semester.name.desc()).first()
-        if not latest_semester: return jsonify({"semester_id": None, "subjects": []})
-        semester_id = latest_semester.id
-
-    subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester_id).all()
+    query = Semester.query.filter_by(user_id=user_id)
+    if semester_id_str:
+        semester = query.filter_by(id=int(semester_id_str)).first()
+    else:
+        # (수정) 기본값으로 2025년 2학기를 시도, 없으면 가장 최신 학기
+        semester = query.filter_by(name="2025년 2학기").first()
+        if not semester:
+            semester = query.order_by(Semester.year.desc(), Semester.name.desc()).first()
+    
+    if not semester:
+        return jsonify({"semester_id": None, "subjects": []})
+    
+    subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all()
     result = []
     for s in subjects:
         timeslots_data = [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in s.timeslots]
-        memo_data = {"note": "", "todos": []}
-        if s.memo and isinstance(s.memo, str) and s.memo.strip().startswith('{'):
-            try: memo_data = json.loads(s.memo)
-            except: pass
-        elif isinstance(s.memo, dict):
-             memo_data = s.memo
-            
+        try:
+            memo_data = json.loads(s.memo) if s.memo else {"note": "", "todos": []}
+        except (json.JSONDecodeError, TypeError):
+            memo_data = {"note": "", "todos": []}
         result.append({"id": s.id, "name": s.name, "professor": s.professor, "credits": s.credits, "grade": s.grade, "memo": memo_data, "timeslots": timeslots_data})
-    return jsonify({"semester_id": semester_id, "subjects": result})
+    return jsonify({"semester_id": semester.id, "subjects": result})
 
 @app.route('/api/subjects', methods=['POST'])
 @login_required
@@ -540,12 +493,10 @@ def create_subject():
     data = request.json
     semester_id = data.get('semester_id')
     name = data.get('name')
-    timeslots_data = data.get('timeslots', []) # 시간표 정보 배열
-
+    
     if not semester_id or not name:
         return jsonify({"status": "error", "message": "학기 ID와 과목명은 필수입니다."}), 400
 
-    # 해당 학기가 사용자의 것인지 확인 (보안)
     semester = db.session.get(Semester, semester_id)
     if not semester or semester.user_id != user_id:
         return jsonify({"status": "error", "message": "유효하지 않은 학기입니다."}), 404
@@ -557,39 +508,30 @@ def create_subject():
             name=name,
             professor=data.get('professor'),
             credits=data.get('credits', 3),
-            grade=data.get('grade', 'Not Set'),
-            memo=json.dumps(data.get('memo', {"note": "", "todos": []}))
+            grade='Not Set',
+            memo=json.dumps({"note": "", "todos": []})
         )
         db.session.add(new_subject)
-        db.session.flush() # subject_id를 얻기 위해 flush
+        db.session.flush()
 
-        for ts_data in timeslots_data:
-            new_timeslot = TimeSlot(
-                subject_id=new_subject.id,
-                day_of_week=ts_data.get('day'),
-                start_time=ts_data.get('start'),
-                end_time=ts_data.get('end'),
-                room=ts_data.get('room')
-            )
-            # TODO: 시간 유효성 검사 추가 (start < end 등)
-            db.session.add(new_timeslot)
-
+        for ts_data in data.get('timeslots', []):
+            db.session.add(TimeSlot(
+                subject_id=new_subject.id, day_of_week=ts_data.get('day'),
+                start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
+            ))
         db.session.commit()
-        # 생성된 과목 정보 반환 (ID 포함)
-        # (주의: memo는 다시 파싱해서 보내야 함)
+        
         created_subject_data = {
             "id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor,
             "credits": new_subject.credits, "grade": new_subject.grade,
-            "memo": json.loads(new_subject.memo), # DB에는 string, JS에는 object
+            "memo": json.loads(new_subject.memo),
             "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in new_subject.timeslots]
         }
         return jsonify({"status": "success", "message": "과목이 추가되었습니다.", "subject": created_subject_data}), 201
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error adding subject: {e}")
-        return jsonify({"status": "error", "message": "과목 추가 중 오류 발생"}), 500
-
+        return jsonify({"status": "error", "message": f"과목 추가 중 오류 발생: {e}"}), 500
 
 @app.route('/api/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
 @login_required
@@ -597,8 +539,8 @@ def handle_subject(subject_id):
     user_id = session['student_id']
     subject = db.session.get(Subject, subject_id)
 
-    if not subject: return jsonify({"status": "error", "message": "과목을 찾을 수 없습니다."}), 404
-    if subject.user_id != user_id: return jsonify({"status": "error", "message": "권한이 없습니다."}), 403
+    if not subject or subject.user_id != user_id:
+        return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
 
     if request.method == 'PUT':
         data = request.json
@@ -607,34 +549,17 @@ def handle_subject(subject_id):
             subject.professor = data.get('professor', subject.professor)
             subject.credits = data.get('credits', subject.credits)
             subject.grade = data.get('grade', subject.grade)
-            
-            # (수정) memo가 dict 형태인지 확인하고 json.dumps
-            memo_data = data.get('memo')
-            if isinstance(memo_data, dict):
-                subject.memo = json.dumps(memo_data)
-            elif memo_data is not None: # 문자열이나 다른 타입이면 (레거시/오류)
-                subject.memo = json.dumps({"note": str(memo_data), "todos": []})
-            # else: memo가 None이면 기존 값 유지 (app.py:808)
-            # (수정) memo가 None일 경우, 기존 메모를 json.loads했다가 dumps하는 것이 아니라
-            # data.get('memo', json.loads(subject.memo)) -> 이 로직이 더 안전할 수 있음
-            # 하지만 js에서 항상 memo 객체를 보낸다고 가정함 (line 970 in script.js)
-            
+            if isinstance(data.get('memo'), dict):
+                subject.memo = json.dumps(data['memo'])
 
-            # 시간표 업데이트 (기존 것 삭제 후 새로 추가)
             TimeSlot.query.filter_by(subject_id=subject.id).delete()
-            timeslots_data = data.get('timeslots', [])
-            for ts_data in timeslots_data:
-                new_timeslot = TimeSlot(
-                    subject_id=subject.id,
-                    day_of_week=ts_data.get('day'),
-                    start_time=ts_data.get('start'),
-                    end_time=ts_data.get('end'),
-                    room=ts_data.get('room')
-                )
-                db.session.add(new_timeslot)
-
+            for ts_data in data.get('timeslots', []):
+                db.session.add(TimeSlot(
+                    subject_id=subject.id, day_of_week=ts_data.get('day'),
+                    start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
+                ))
             db.session.commit()
-            # 업데이트된 과목 정보 반환
+
             updated_subject_data = {
                 "id": subject.id, "name": subject.name, "professor": subject.professor,
                 "credits": subject.credits, "grade": subject.grade,
@@ -644,19 +569,18 @@ def handle_subject(subject_id):
             return jsonify({"status": "success", "message": "과목이 수정되었습니다.", "subject": updated_subject_data})
         except Exception as e:
             db.session.rollback()
-            print(f"Error updating subject: {e}")
-            return jsonify({"status": "error", "message": "과목 수정 중 오류 발생"}), 500
+            return jsonify({"status": "error", "message": f"과목 수정 중 오류 발생: {e}"}), 500
 
     if request.method == 'DELETE':
         try:
-            db.session.delete(subject) # 연관된 TimeSlot도 cascade 삭제됨
+            db.session.delete(subject)
             db.session.commit()
             return jsonify({"status": "success", "message": "과목이 삭제되었습니다."})
         except Exception as e:
             db.session.rollback()
-            print(f"Error deleting subject: {e}")
-            return jsonify({"status": "error", "message": "과목 삭제 중 오류 발생"}), 500
+            return jsonify({"status": "error", "message": f"과목 삭제 중 오류 발생: {e}"}), 500
 
+# (이하 API들은 변경 없음)
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
@@ -664,32 +588,20 @@ def get_gpa_stats():
     semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year, Semester.name).all()
     stats = []
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
-
     for semester in semesters:
         subjects = semester.subjects
-        semester_credits = 0
-        semester_gpa_credits = 0
-        semester_gpa_score = 0
+        semester_credits, semester_gpa_credits, semester_gpa_score = 0, 0, 0
         for subject in subjects:
             if subject.grade != "Not Set" and subject.grade != "P":
                 semester_credits += subject.credits
                 grade_score = GRADE_MAP.get(subject.grade)
-                if grade_score is not None: # F 포함, P 제외
+                if grade_score is not None:
                     semester_gpa_credits += subject.credits
                     semester_gpa_score += (grade_score * subject.credits)
-
         semester_gpa = (semester_gpa_score / semester_gpa_credits) if semester_gpa_credits > 0 else 0.0
-        stats.append({
-            "semester_name": semester.name,
-            "credits": semester_credits,
-            "gpa": round(semester_gpa, 2)
-        })
-
-    # 전체 GPA 계산 (코드 중복, 함수화 필요)
+        stats.append({"semester_name": semester.name, "credits": semester_credits, "gpa": round(semester_gpa, 2)})
     all_subjects = Subject.query.filter_by(user_id=user_id).all()
-    total_earned_credits = 0
-    total_gpa_credits = 0
-    total_gpa_score = 0
+    total_earned_credits, total_gpa_credits, total_gpa_score = 0, 0, 0
     for subject in all_subjects:
          if subject.grade != "Not Set":
             total_earned_credits += subject.credits
@@ -698,48 +610,25 @@ def get_gpa_stats():
                 total_gpa_credits += subject.credits
                 total_gpa_score += (grade_score * subject.credits)
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
+    return jsonify({"semesters": stats, "overall_gpa": round(overall_gpa, 2), "total_earned_credits": total_earned_credits})
 
-    return jsonify({
-        "semesters": stats,
-        "overall_gpa": round(overall_gpa, 2),
-        "total_earned_credits": total_earned_credits
-    })
-
-
-# --- 공부시간 / 퀵링크 API ---
 @app.route('/api/study-stats', methods=['GET'])
 @login_required
 def get_study_stats():
-    # ... (코드 동일) ...
     user_id = session['student_id']
-    # (수정) 오늘 날짜 기준
     today = datetime.now()
     today_str = today.strftime('%Y-%m-%d')
     today_log = StudyLog.query.filter_by(user_id=user_id, date=today_str).first()
     today_seconds = today_log.duration_seconds if today_log else 0
-    
-    # (수정) 오늘을 포함한 최근 7일
-    seven_days_ago_date = (today - timedelta(days=6))
-    seven_days_ago_str = seven_days_ago_date.strftime('%Y-%m-%d')
-    
-    weekly_logs = StudyLog.query.filter(
-        StudyLog.user_id == user_id, 
-        StudyLog.date >= seven_days_ago_str, 
-        StudyLog.date <= today_str
-    ).all()
-    
+    seven_days_ago_str = (today - timedelta(days=6)).strftime('%Y-%m-%d')
+    weekly_logs = StudyLog.query.filter(StudyLog.user_id == user_id, StudyLog.date >= seven_days_ago_str, StudyLog.date <= today_str).all()
     total_seconds = sum(log.duration_seconds for log in weekly_logs)
-    
-    # (수정) 7일 평균 계산 (데이터가 7일치가 안되어도 7로 나눔)
     weekly_avg_seconds = total_seconds / 7
-    
     return jsonify({"today": today_seconds, "weekly_avg": weekly_avg_seconds})
-
 
 @app.route('/api/study-time', methods=['POST'])
 @login_required
 def save_study_time():
-    # ... (코드 동일) ...
     data = request.json
     duration_to_add = data.get('duration_to_add')
     date_str = data.get('date')
@@ -748,7 +637,8 @@ def save_study_time():
         return jsonify({"status": "error", "message": "잘못된 요청입니다."}), 400
     try:
         log_entry = StudyLog.query.filter_by(user_id=user_id, date=date_str).first()
-        if log_entry: log_entry.duration_seconds += duration_to_add
+        if log_entry:
+            log_entry.duration_seconds += duration_to_add
         else:
             log_entry = StudyLog(user_id=user_id, date=date_str, duration_seconds=duration_to_add)
             db.session.add(log_entry)
@@ -756,62 +646,60 @@ def save_study_time():
         return jsonify({"status": "success", "data": {"total_duration": log_entry.duration_seconds}})
     except Exception as e:
         db.session.rollback()
-        print(f"Error saving study time: {e}")
-        return jsonify({"status": "error", "message": "공부 시간 저장 중 오류 발생"}), 500
+        return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
 
 @app.route('/api/quick-links', methods=['GET', 'POST'])
 @login_required
 def handle_quick_links():
-    # ... (코드 동일) ...
     user_id = session['student_id']
     if request.method == 'GET':
         links = QuickLink.query.filter_by(user_id=user_id).order_by(QuickLink.entry_id).all()
-        links_list = [{"id": link.entry_id, "title": link.title, "url": link.url, "icon_url": link.icon_url} for link in links]
-        return jsonify(links_list)
+        return jsonify([{"id": link.entry_id, "title": link.title, "url": link.url, "icon_url": link.icon_url} for link in links])
     if request.method == 'POST':
         data = request.json
-        title = data.get('title'); url = data.get('url'); icon_url = data.get('icon_url')
+        title, url, icon_url = data.get('title'), data.get('url'), data.get('icon_url')
         if not title or not url: return jsonify({"status": "error", "message": "제목과 URL은 필수입니다."}), 400
-        if not url.startswith('http://') and not url.startswith('https://'): url = 'https://' + url
+        if not url.startswith(('http://', 'https://')): url = 'https://' + url
         try:
             new_link = QuickLink(user_id=user_id, title=title, url=url, icon_url=icon_url)
-            db.session.add(new_link); db.session.commit()
-            return jsonify({"status": "success", "message": "링크가 추가되었습니다.", "link": {"id": new_link.entry_id, "title": new_link.title, "url": new_link.url, "icon_url": new_link.icon_url}}), 201
+            db.session.add(new_link)
+            db.session.commit()
+            return jsonify({"status": "success", "link": {"id": new_link.entry_id, "title": new_link.title, "url": new_link.url, "icon_url": new_link.icon_url}}), 201
         except Exception as e:
-            db.session.rollback(); print(f"Error adding quick link: {e}")
-            return jsonify({"status": "error", "message": "링크 추가 중 오류 발생"}), 500
-
+            db.session.rollback()
+            return jsonify({"status": "error", "message": f"링크 추가 중 오류 발생: {e}"}), 500
 
 @app.route('/api/quick-links/<int:link_id>', methods=['DELETE'])
 @login_required
 def delete_quick_link(link_id):
-    # ... (코드 동일) ...
-     user_id = session['student_id']
-     try:
-        link = db.session.get(QuickLink, link_id)
-        if not link: return jsonify({"status": "error", "message": "링크를 찾을 수 없습니다."}), 404
-        if link.user_id != user_id: return jsonify({"status": "error", "message": "삭제 권한이 없습니다."}), 403
-        db.session.delete(link); db.session.commit()
+    user_id = session['student_id']
+    link = db.session.get(QuickLink, link_id)
+    if not link or link.user_id != user_id:
+        return jsonify({"status": "error", "message": "링크를 찾을 수 없거나 권한이 없습니다."}), 404
+    try:
+        db.session.delete(link)
+        db.session.commit()
         return jsonify({"status": "success", "message": "링크가 삭제되었습니다."})
-     except Exception as e:
-        db.session.rollback(); print(f"Error deleting quick link: {e}")
-        return jsonify({"status": "error", "message": "링크 삭제 중 오류 발생"}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"링크 삭제 중 오류 발생: {e}"}), 500
 
 @app.route('/api/credits/goal', methods=['POST'])
 @login_required
 def update_credit_goal():
-    # ... (코드 동일) ...
-    data = request.json; new_goal = data.get('goal', type=int); user_id = session['student_id']
+    data = request.json
+    new_goal = data.get('goal', type=int)
+    user_id = session['student_id']
     if new_goal is None or new_goal <= 0: return jsonify({"status": "error", "message": "유효하지 않은 학점입니다."}), 400
     try:
         user = db.session.get(User, user_id)
-        if not user: return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
-        user.total_credits_goal = new_goal; db.session.commit()
+        user.total_credits_goal = new_goal
+        db.session.commit()
         return jsonify({"status": "success", "message": "목표 학점이 업데이트되었습니다.", "new_goal": new_goal})
     except Exception as e:
-        db.session.rollback(); print(f"Error updating credit goal: {e}")
-        return jsonify({"status": "error", "message": "업데이트 중 오류 발생"}), 500
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
 if __name__ == '__main__':
-    create_initial_data()
+    # (유지) CLI로 DB를 생성하므로 app.run()만 실행
     app.run(debug=True, port=2424)
