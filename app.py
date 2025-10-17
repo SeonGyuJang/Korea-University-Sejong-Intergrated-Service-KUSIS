@@ -147,19 +147,18 @@ def _create_semesters_for_user(user_id):
                 db.session.add(new_semester)
     db.session.commit()
 
-# --- [NEW] 학기 자동 관리 스케줄 작업 ---
+# --- [MODIFIED] 학기 자동 관리 스케줄 작업 ---
 def manage_semesters_job():
     """
     매년 12월 1일에 실행되는 학기 관리 작업.
     1. 다음 연도 학기(1,여름,2,겨울)를 모든 사용자에게 추가합니다.
-    2. 이전 연도 학기 중 과목(Subject)이 없는 학기를 삭제합니다.
+    2. (수정) 사용자의 학기 중 '가장 오래된 연도'의 학기(Subject가 없는)를 삭제합니다.
     """
     with app.app_context():
         print(f"[{datetime.now()}] Starting semester management job...")
         try:
             now = datetime.now()
             next_year = now.year + 1
-            prev_year = now.year - 1
             seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
             
             all_users = User.query.all()
@@ -168,7 +167,7 @@ def manage_semesters_job():
                 return
 
             for user in all_users:
-                # 1. 다음 연도 학기 추가
+                # 1. 다음 연도 학기 추가 (유지)
                 for season in seasons:
                     semester_name = f"{next_year}년 {season}"
                     exists = Semester.query.filter_by(user_id=user.id, name=semester_name).first()
@@ -182,18 +181,28 @@ def manage_semesters_job():
                         db.session.add(new_semester)
                         print(f"Added {semester_name} for user {user.id}")
                 
-                # 2. 데이터가 없는 이전 연도 학기 삭제
-                prev_year_semesters = Semester.query.filter_by(user_id=user.id, year=prev_year).all()
-                for semester in prev_year_semesters:
+                # 2. (수정) 가장 오래된 연도를 찾아 빈 학기 삭제 (Req #2, #3)
+                # 가장 오래된 학기를 찾아 그 연도를 확인
+                oldest_semester = Semester.query.filter_by(user_id=user.id).order_by(Semester.year.asc()).first()
+                if not oldest_semester:
+                    continue # 이 사용자는 학기가 없으므로 건너뜀
+                
+                oldest_year = oldest_semester.year
+                print(f"Checking oldest year {oldest_year} for user {user.id}")
+
+                # 가장 오래된 연도의 모든 학기를 가져옴
+                oldest_year_semesters = Semester.query.filter_by(user_id=user.id, year=oldest_year).all()
+                
+                for semester in oldest_year_semesters:
                     # 이 학기에 연결된 과목이 있는지 확인
                     has_subjects = Subject.query.filter_by(semester_id=semester.id).first()
                     if not has_subjects:
-                        # 과목이 없으면 삭제
+                        # (Req #3) 과목이 없으면 삭제
                         db.session.delete(semester)
-                        print(f"Deleted empty semester {semester.name} for user {user.id}")
+                        print(f"Deleted oldest empty semester {semester.name} for user {user.id}")
                     else:
-                        # 과목이 있으면 유지
-                        print(f"Keeping {semester.name} (has data) for user {user.id}")
+                        # (Req #3) 과목이 있으면 유지
+                        print(f"Keeping oldest semester {semester.name} (has data) for user {user.id}")
 
             db.session.commit()
             print("Semester management job completed successfully.")
