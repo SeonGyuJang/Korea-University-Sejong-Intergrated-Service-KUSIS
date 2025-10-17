@@ -26,14 +26,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 15px; /* 간격 살짝 줄임 */
     padding-top: 10px;
 }
 
 .credit-progress-circle {
     position: relative;
-    width: 160px;
-    height: 160px;
+    width: 140px; /* 크기 살짝 줄임 */
+    height: 140px;
 }
 
 .credit-progress-circle svg {
@@ -53,7 +53,9 @@
     stroke: var(--korea-red);
     stroke-width: 10;
     stroke-linecap: round;
-    stroke-dasharray: 283;
+    stroke-dasharray: 283; /* 45*2*PI = 282.7 */
+    /* (수정) 140px 크기에 맞게 stroke-dasharray 재계산 (r=60, c=377) */
+    /* r=45 (원래) -> c = 283 */
     stroke-dashoffset: 283;
     transition: stroke-dashoffset 1s ease-out;
 }
@@ -67,7 +69,7 @@
 }
 
 #creditPercentage {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--korea-red);
 }
@@ -148,7 +150,15 @@
 
 
 /* ======================================== */
-/* 2. Todo 요약 위젯 */
+/* 2. (신규) GPA 차트 위젯 */
+/* ======================================== */
+.gpa-chart-container {
+    width: 100%;
+    height: 200px; /* 차트 높이 */
+}
+
+/* ======================================== */
+/* 3. Todo 요약 위젯 */
 /* ======================================== */
 .todo-summary-list {
     display: flex;
@@ -218,96 +228,131 @@
 
 
 /* ======================================== */
-/* 3. 시간표 편집기 */
+/* 4. 시간표 편집기 (수정) */
 /* ======================================== */
-.timetable-editor-widget .timetable-container {
-    overflow-x: auto;
+.timetable-editor-widget .widget-header {
+    flex-wrap: wrap; /* 컨트롤이 많아져 줄바꿈 허용 */
+    gap: 10px;
+}
+.timetable-controls {
+    flex-grow: 1;
 }
 
-.timetable.editable {
+.timetable-editor-widget .timetable-container {
+    overflow-x: auto;
+    /* (신규) 시간표 그리드 높이 고정 (09:00 ~ 17:00) */
+    height: 700px; 
+    position: relative;
+}
+
+.timetable.editable.view-only {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
+    table-layout: fixed; /* 고정 레이아웃 */
+    height: 100%;
 }
 
-.timetable.editable th, 
-.timetable.editable td {
+.timetable.editable.view-only th, 
+.timetable.editable.view-only td {
     border: 1px solid var(--border-color);
-    padding: 8px;
     text-align: center;
+    padding: 2px; /* 패딩 최소화 */
+    height: auto; /* (수정) 높이 자동 */
 }
 
-.timetable.editable th {
+.timetable.editable.view-only th {
     background: var(--bg-primary);
     font-weight: 600;
     color: var(--korea-red);
     padding: 10px 8px;
+    height: 40px; /* 헤더 높이 고정 */
 }
 
-.timetable.editable td {
-    height: 80px;
-    position: relative;
+.timetable.editable.view-only td:first-child {
+    font-weight: 600;
+    font-size: 11px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.timetable.editable.view-only td {
     vertical-align: top;
-    padding: 4px;
+    position: relative;
 }
 
-.timetable-cell {
-    background: linear-gradient(135deg, rgba(165, 0, 52, 0.05), rgba(199, 0, 63, 0.05));
-    border: 1px dashed rgba(165, 0, 52, 0.2);
+/* (신규) Request 1: JS로 추가될 과목 슬롯 스타일 */
+.subject-slot {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    background: rgba(165, 0, 52, 0.1);
+    border: 1px solid var(--korea-red);
     border-radius: 6px;
     padding: 6px;
     cursor: pointer;
     transition: all 0.3s;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    position: relative;
+    overflow: hidden;
+    font-size: 11px;
+    z-index: 10;
 }
-
-.timetable-cell:hover {
-    background: linear-gradient(135deg, rgba(165, 0, 52, 0.1), rgba(199, 0, 63, 0.1));
-    border-style: solid;
+.subject-slot:hover {
+    background: rgba(165, 0, 52, 0.2);
+    z-index: 11;
 }
-
-.timetable-cell.empty {
-    background: var(--bg-primary);
-    justify-content: center;
-    align-items: center;
-    color: var(--text-secondary);
-    opacity: 0.6;
-    border: 1px dashed var(--border-color);
-}
-.timetable-cell.empty:hover {
-    opacity: 1;
-    color: var(--korea-red);
-    background: #fef5f7;
-    border-color: var(--korea-red);
-}
-
-.timetable-subject {
+.subject-slot .slot-subject {
     font-weight: 600;
     font-size: 13px;
-    margin-bottom: 4px;
-    color: var(--korea-red);
+    color: var(--korea-red-dark);
 }
-
-.timetable-professor, 
-.timetable-room,
-.timetable-credits {
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-.timetable-credits {
-    font-weight: 600;
-    color: #34495e;
-    margin-top: 2px;
+.subject-slot .slot-room {
+    color: var(--text-primary);
 }
 
 
 /* ======================================== */
-/* 4. 반응형 */
+/* 5. (신규) 과목 수정 모달 내부 */
+/* ======================================== */
+.modal-content.large-modal {
+    max-width: 600px;
+}
+
+/* (Request 1) 타임슬롯 입력 폼 */
+#timeSlotContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+.timeslot-entry {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+.timeslot-entry select,
+.timeslot-entry input {
+    padding: 8px;
+    font-size: 13px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.timeslot-delete-btn {
+    background: none;
+    border: none;
+    color: var(--color-danger);
+    cursor: pointer;
+    font-size: 16px;
+}
+
+
+/* ======================================== */
+/* 6. 반응형 */
 /* ======================================== */
 @media (max-width: 900px) {
     .timetable-management-page {
