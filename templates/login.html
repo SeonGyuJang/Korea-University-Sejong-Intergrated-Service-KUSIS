@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 로그인{% endblock %}
+
+{% block content %}
+<div class="content-area" style="display: flex; justify-content: center; align-items: center; height: calc(100vh - 69px);">
+    <div class="widget form-container" style="max-width: 400px; width: 100%; padding: 30px;">
+        <div class="widget-header" style="justify-content: center; margin-bottom: 25px;">
+            <h3><i class="fas fa-sign-in-alt"></i> KUSIS 로그인</h3>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes" style="list-style: none; padding: 0; margin-bottom: 15px;">
+                    {% for category, message in messages %}
+                        <li class="alert alert-{{ category }}">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}" class="login-form">
+            <div class="input-group">
+                <label for="student_id"><i class="fas fa-id-badge"></i> 학번</label>
+                <input type="text" id="student_id" name="student_id" required placeholder="학번을 입력하세요">
+            </div>
+            
+            <div class="input-group">
+                <label for="password"><i class="fas fa-lock"></i> 비밀번호</label>
+                <input type="password" id="password" name="password" required placeholder="비밀번호를 입력하세요">
+            </div>
+            
+            <button type="submit" class="btn btn-save" style="width: 100%; margin-top: 20px; background: var(--korea-red);">
+                <i class="fas fa-sign-in-alt"></i> 로그인
+            </button>
+            
+            <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-secondary);">
+                계정이 없으신가요? <a href="{{ url_for('register') }}" style="color: var(--korea-red); font-weight: 600;">회원가입</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 회원가입{% endblock %}
+
+{% block content %}
+<div class="content-area" style="display: flex; justify-content: center; align-items: center; height: calc(100vh - 69px);">
+    
+    <textarea id="college-data-json" style="display:none;">{{ colleges | tojson | safe }}</textarea> 
+    
+    <div class="widget form-container" style="max-width: 450px; width: 100%; padding: 30px;">
+        <div class="widget-header" style="justify-content: center; margin-bottom: 25px;">
+            <h3><i class="fas fa-user-plus"></i> KUSIS 회원가입</h3>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes" style="list-style: none; padding: 0; margin-bottom: 15px;">
+                    {% for category, message in messages %}
+                        <li class="alert alert-{{ category }}">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('register') }}" class="registration-form">
+            <div class="input-group">
+                <label for="name"><i class="fas fa-signature"></i> 이름</label>
+                <input type="text" id="name" name="name" required placeholder="이름을 입력하세요">
+            </div>
+            
+            <div class="input-group">
+                <label for="student_id"><i class="fas fa-id-badge"></i> 학번</label>
+                <input type="text" id="student_id" name="student_id" pattern="\d{10}" maxlength="10" required placeholder="10자리 학번을 입력하세요 (예: 2023390822)">
+            </div>
+            
+            <div class="input-group">
+                <label for="password"><i class="fas fa-lock"></i> 비밀번호</label>
+                <input type="password" id="password" name="password" required placeholder="비밀번호를 입력하세요">
+            </div>
+            
+            <div class="input-group">
+                <label for="password_confirm"><i class="fas fa-lock-open"></i> 비밀번호 확인</label>
+                <input type="password" id="password_confirm" name="password_confirm" required placeholder="비밀번호를 다시 입력하세요">
+            </div>
+
+            <div class="input-group">
+                <label for="dob"><i class="fas fa-calendar-alt"></i> 생년월일</label>
+                <input type="date" id="dob" name="dob" required>
+            </div>
+            
+            <div class="input-group">
+                <label for="college"><i class="fas fa-university"></i> 단과대학</label>
+                <select id="college" name="college" required onchange="updateDepartments()">
+                    <option value="" disabled selected>단과대학 선택</option>
+                    {% for college in colleges.keys() %}
+                        <option value="{{ college }}">{{ college }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label for="department"><i class="fas fa-graduation-cap"></i> 학과</label>
+                <select id="department" name="department" required>
+                    <option value="" disabled selected>학과 선택</option>
+                    </select>
+            </div>
+            
+            <button type="submit" class="btn btn-save" style="width: 100%; margin-top: 20px; background: var(--korea-red);">
+                <i class="fas fa-user-check"></i> 회원가입 완료
+            </button>
+            
+            <p style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-secondary);">
+                이미 계정이 있으신가요? <a href="{{ url_for('login') }}" style="color: var(--korea-red); font-weight: 600;">로그인</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // [새로운 접근법] 숨겨진 textarea에서 JSON 문자열을 가져와 JSON.parse()로 변환합니다.
+    const collegeJsonString = document.getElementById('college-data-json').value;
+    let COLLEGE_DEPARTMENTS = {};
+
+    try {
+        COLLEGE_DEPARTMENTS = JSON.parse(collegeJsonString);
+    } catch (e) {
+        console.error("단과대학/학과 데이터 파싱 오류:", e);
+        // 파싱 오류 발생 시 콘솔에 기록하고 빈 객체 유지
+    }
+
+    function updateDepartments() {
+        const collegeSelect = document.getElementById('college');
+        const deptSelect = document.getElementById('department');
+        const selectedCollege = collegeSelect.value;
+        
+        deptSelect.innerHTML = '<option value="" disabled selected>학과 선택</option>';
+        
+        if (selectedCollege && COLLEGE_DEPARTMENTS[selectedCollege]) {
+            COLLEGE_DEPARTMENTS[selectedCollege].forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                deptSelect.appendChild(option);
+            });
+        }
+    }
+    
+    // 페이지 로드 시 이미 선택된 단과대학이 있다면 학과 목록 초기화
+    if(document.getElementById('college').value) {
+        updateDepartments();
+    }
+</script>
+{% endblock %}

@@ -1,17 +1,82 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash
 from datetime import datetime, timedelta
 import json
 import csv
 import os
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash # 비밀번호 해싱을 위해 werkzeug 사용
 
 app = Flask(__name__)
+
+# --- Configuration for Session & Security ---
+# 세션 관리를 위한 비밀 키 설정 (실제 환경에서는 외부에 저장해야 함)
+app.secret_key = 'your_super_secret_key_for_session_management' 
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1) 
+app.config['SESSION_TYPE'] = 'filesystem' 
 
 # 파일 경로 설정 (app.py 기준)
 BUS_TIME_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'bus_time.csv')
 STUDENT_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'student_menu.json')
 STAFF_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'staff_menu.json')
 
-# --- 데이터 로드 및 정제 함수 ---
+
+# --- New Data Structures for Users/Admin ---
+
+# 단과대학 및 학과 리스트 (회원가입 시 선택 옵션)
+COLLEGES = {
+    "과학기술대학": ["응용수리과학부 데이터계산과학전공", "인공지능사이버보안학과", "컴퓨터융합소프트웨어학과", "전자및정보공학과", "전자기계융합공학과", "환경시스템공학과", "지능형반도체공학과", "반도체물리학부", "생명정보공학과", "신소재화학과", "식품생명공학과", "미래모빌리티학과", "디지털헬스케어공학과", "자유공학부"],
+    "글로벌비즈니스대학": ["글로벌학부 한국학전공", "글로벌학부 중국학전공", "글로벌학부 영미학전공", "글로벌학부 독일학전공", "융합경영학부 글로벌경영전공", "융합경영학부 디지털경영전공", "표준지식학과"],
+    "공공정책대학": ["정부행정학부", "공공사회통일외교학부 공공사회학전공", "공공사회통일외교학부 통일외교안보전공", "경제통계학부 경제정책학전공", "빅데이터사이언스학부"],
+    "문화스포츠대학": ["국제스포츠학부 스포츠과학전공", "국제스포츠학부 스포츠비즈니스전공", "문화유산융합학부", "문화창의학부 미디어문예창작전공", "문화창의학부 문화콘텐츠전공"],
+    "약학대학": ["약학과", "첨단융합신약학과"],
+    "스마트도시학부": ["스마트도시학부"]
+}
+
+# 사용자 데이터 저장소 (DB 대신 메모리 딕셔너리 사용)
+# key: student_id, value: {name, dob, college, department, password_hash, is_admin}
+USERS = {
+    "9999123456": { # 관리자 계정 (기본)
+        "name": "admin", 
+        "dob": "2004-06-16", 
+        "college": "관리자", 
+        "department": "관리팀", 
+        "password_hash": generate_password_hash("1234"), 
+        "is_admin": True
+    },
+    "2023390822": { # 샘플 사용자 계정
+        "name": "장선규", 
+        "dob": "2004-03-24", 
+        "college": "과학기술대학", 
+        "department": "컴퓨터융합소프트웨어학과", 
+        "password_hash": generate_password_hash("password123"), 
+        "is_admin": False
+    }
+}
+
+# --- Authentication/Authorization Decorators ---
+
+def login_required(f):
+    """로그인 필수 데코레이터"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'student_id' not in session:
+            flash("로그인이 필요합니다.", "warning")
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """관리자 권한 필수 데코레이터"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'student_id' not in session or not USERS.get(session['student_id'], {}).get('is_admin', False):
+            flash("접근 권한이 없습니다. 관리자만 접근 가능합니다.", "danger")
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# --- 데이터 로드 및 정제 함수 (기존 코드 유지) ---
 
 def load_bus_schedule():
     """/schedules/bus_time.csv 파일을 읽고 셔틀버스 시간표 데이터를 정제하여 로드"""
@@ -186,11 +251,120 @@ MEAL_PLAN_DATA = load_meal_data()
 TODAY_MEAL_KEY = get_today_meal_key()
 
 
-# --- API 엔드포인트 ---
+# --- API 및 페이지 엔드포인트 ---
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # 세션에서 사용자 정보 로드
+    user_info = None
+    is_admin = False
+    if 'student_id' in session and session['student_id'] in USERS:
+        user_info = USERS[session['student_id']]
+        is_admin = user_info.get('is_admin', False)
+        
+    # user와 is_admin을 템플릿에 전달하여 로그인 상태와 권한에 따라 화면을 다르게 표시
+    return render_template('index.html', user=user_info, is_admin=is_admin)
+
+
+# --- New Authentication Routes ---
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        student_id = request.form.get('student_id')
+        password = request.form.get('password')
+        
+        user = USERS.get(student_id)
+        
+        if user and check_password_hash(user['password_hash'], password):
+            session.clear()
+            session['student_id'] = student_id
+            flash(f"{user['name']}님, KUSIS에 오신 것을 환영합니다.", "success")
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash("학번 또는 비밀번호가 일치하지 않습니다.", "danger")
+            
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("로그아웃 되었습니다.", "info")
+    return redirect(url_for('index'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        student_id = request.form.get('student_id')
+        password = request.form.get('password')
+        password_confirm = request.form.get('password_confirm')
+        dob = request.form.get('dob')
+        college = request.form.get('college')
+        department = request.form.get('department')
+        
+        # 1. 유효성 검사
+        if not (name and student_id and password and password_confirm and dob and college and department):
+            flash("모든 필드를 입력해주세요.", "danger")
+            # POST 요청 실패 시에도 colleges 데이터를 다시 전달해야 select 옵션이 유지됨
+            return render_template('register.html', colleges=COLLEGES)
+            
+        if password != password_confirm:
+            flash("비밀번호 확인이 일치하지 않습니다.", "danger")
+            return render_template('register.html', colleges=COLLEGES)
+            
+        if len(student_id) != 10 or not student_id.isdigit():
+             flash("학번은 10자리 숫자여야 합니다.", "danger")
+             return render_template('register.html', colleges=COLLEGES)
+        
+        if student_id in USERS:
+            flash("이미 등록된 학번입니다.", "danger")
+            return render_template('register.html', colleges=COLLEGES)
+            
+        if college not in COLLEGES or department not in COLLEGES.get(college, []):
+            flash("유효하지 않은 단과대학/학과 선택입니다.", "danger")
+            return render_template('register.html', colleges=COLLEGES)
+            
+        # 2. 사용자 등록
+        hashed_password = generate_password_hash(password)
+        
+        USERS[student_id] = {
+            "name": name,
+            "dob": dob,
+            "college": college,
+            "department": department,
+            "password_hash": hashed_password,
+            "is_admin": False
+        }
+        
+        flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
+        return redirect(url_for('login'))
+        
+    return render_template('register.html', colleges=COLLEGES)
+
+# --- New Admin Route ---
+
+@app.route('/admin')
+@admin_required # 관리자 권한 필수
+def admin_dashboard():
+    member_count = len(USERS)
+    member_list = sorted(
+        [
+            {
+                "id": uid,
+                "name": user["name"],
+                "department": user["department"],
+                "is_admin": user["is_admin"]
+            } 
+            for uid, user in USERS.items()
+        ], 
+        key=lambda x: x['id']
+    )
+    return render_template('admin.html', member_count=member_count, member_list=member_list)
+
+
+# --- 기존 API 엔드포인트 (로그인 필수 추가) ---
 
 @app.route('/api/shuttle')
 def get_shuttle():
@@ -250,10 +424,12 @@ TIMETABLE = [
 ]
 
 @app.route('/api/schedule')
+@login_required # 로그인 필수 추가
 def get_schedule():
     return jsonify(SCHEDULE_DATA)
 
 @app.route('/api/timetable', methods=['GET', 'POST'])
+@login_required # 로그인 필수 추가
 def handle_timetable():
     if request.method == 'GET':
         return jsonify(TIMETABLE)
@@ -263,6 +439,7 @@ def handle_timetable():
         return jsonify({"status": "success"})
 
 @app.route('/api/study-time', methods=['POST'])
+@login_required # 로그인 필수 추가
 def save_study_time():
     data = request.json
     # 실제로는 DB에 저장

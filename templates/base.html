@@ -14,6 +14,18 @@
 
         <div class="main-wrapper">
             {% include 'fragments/_header.html' %}
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-message-container" style="padding: 10px 20px; position: sticky; top: 69px; z-index: 51;">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}" role="alert" style="margin-bottom: 10px;">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
             <main class="main-content">
                 {% block content %}{% endblock %}

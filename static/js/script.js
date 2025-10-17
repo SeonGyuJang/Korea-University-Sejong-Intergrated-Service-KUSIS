@@ -117,7 +117,7 @@ function setupEventListeners() {
     const btnSave = document.querySelector('#memoModal .btn-save');
     if(btnSave) btnSave.addEventListener('click', saveMemo);
     
-    // --- 전체 보기 버튼 이벤트 리스너 수정 (모달 열기) ---
+    // --- 전체 보기 버튼 이벤트 리스너 (모달 열기) ---
     document.querySelectorAll('.full-view-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const target = e.currentTarget.dataset.target;
@@ -130,36 +130,44 @@ function setupEventListeners() {
     });
     // --- 수정 완료 ---
     
-    // 네비게이션 메뉴 클릭 (새 탭 로드 기능)
+    // **[수정] 네비게이션 메뉴 클릭 (내부 링크 이동 로직 추가)**
     const loadingOverlay = document.getElementById('loadingOverlay');
 
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
+            // 1. 클릭된 요소의 href 속성과 data-url 속성을 가져옵니다.
+            const linkUrl = e.currentTarget.getAttribute('href');
+            const dataUrl = e.currentTarget.dataset.url;
+            // const page = e.currentTarget.dataset.page; // 'admin', 'login' 등
+
+            // 2. 항상 기본 동작 방지 (CSS 효과를 먼저 적용하기 위해)
             e.preventDefault();
 
+            // 3. Active 클래스 업데이트
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             e.currentTarget.classList.add('active');
 
-            const page = e.currentTarget.dataset.page;
-            const url = e.currentTarget.dataset.url;
-
-            if (page !== 'home' && url) {
+            if (dataUrl) {
+                // 4-1. 외부 링크 (data-url이 있는 경우): 새 탭 열기
                 if (loadingOverlay) {
                     loadingOverlay.classList.add('active');
                 }
 
                 setTimeout(() => {
-                    window.open(url, '_blank');
+                    window.open(dataUrl, '_blank');
                     if (loadingOverlay) {
                         loadingOverlay.classList.remove('active');
                     }
-                    // 클릭 후 활성 상태를 홈으로 되돌리고 싶다면 아래 주석 해제
-                    // document.querySelector('.nav-item[data-page="home"]').classList.add('active');
-                    // e.currentTarget.classList.remove('active');
+                    // 외부 링크는 현재 페이지를 이동시키지 않으며, 현재 활성 상태를 유지
                 }, 1500); // 1.5초 후 새 탭 열기
+            } else if (linkUrl && linkUrl !== '#') {
+                // 4-2. 내부 링크 (data-url이 없고 href가 '#'이 아닌 경우): 현재 탭에서 페이지 이동
+                // 'admin', 'login', 'register', 'logout' 등의 내부 Flask 라우트가 여기에 해당합니다.
+                window.location.href = linkUrl;
             }
         });
     });
+    // **[수정 완료]**
 }
 
 
