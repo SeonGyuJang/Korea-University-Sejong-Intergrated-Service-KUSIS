@@ -61,32 +61,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     // --- (신규) 알림 로직 종료 ---
 
-    // --- (신규) Request 1: Quick Links (자주 찾는 사이트) Logic ---
+    // --- (수정) Request 1: Quick Links (자주 찾는 사이트) Logic ---
     
-    // 로그인 상태일 때만 퀵링크 로직 실행
-    if (document.getElementById('quickLinkList')) {
-        loadQuickLinks();
+    // (수정) "추가하기" 버튼이 있는지 (즉, 로그인 상태인지) 확인
+    if (document.getElementById('addLinkBtn')) {
+        loadUserQuickLinks(); // (수정) API 호출 함수 실행
         setupQuickLinkModal();
     }
 });
 
 /**
- * (신규) Request 1: API에서 퀵 링크를 로드하여 렌더링
+ * (수정) Request 1: API에서 *사용자* 퀵 링크를 로드하여 렌더링
+ * (함수 이름 변경: loadQuickLinks -> loadUserQuickLinks)
  */
-async function loadQuickLinks() {
-    const listContainer = document.getElementById('quickLinkList');
+async function loadUserQuickLinks() {
+    // (수정) 기본 링크(quickLinkList)가 아닌, 사용자 링크 컨테이너를 대상으로 함
+    const listContainer = document.getElementById('userQuickLinkList'); 
     if (!listContainer) return;
 
     try {
         const response = await fetch('/api/quick-links');
+        
+        // (수정) 로그아웃 상태(401) 등일 경우 함수 종료 (이제 DOMContentLoaded에서 체크하므로 이 코드는 안전장치)
         if (!response.ok) {
-            // 로그아웃 상태(401) 등일 경우 여기서 멈춤
             listContainer.innerHTML = '';
             return; 
         }
         
         const links = await response.json();
-        listContainer.innerHTML = ''; // 기존 목록 비우기
+        listContainer.innerHTML = ''; // (유지) 사용자 링크 목록만 비우기
         
         links.forEach(link => {
             const linkEl = document.createElement('a');
@@ -118,8 +121,8 @@ async function loadQuickLinks() {
         });
 
     } catch (error) {
-        console.error('Failed to load quick links:', error);
-        listContainer.innerHTML = '<p style="font-size: 12px; color: var(--text-secondary); padding: 0 10px; text-align: center;">링크 로드 실패</p>';
+        console.error('Failed to load user quick links:', error);
+        // (수정) "링크 로드 실패" 메시지를 UI에 표시하지 않음
     }
 }
 
@@ -167,7 +170,7 @@ function setupQuickLinkModal() {
 
             if (response.ok) {
                 modal.classList.remove('active');
-                loadQuickLinks(); // 목록 새로고침
+                loadUserQuickLinks(); // (수정) 목록 새로고침
             } else {
                 alert(`저장 실패: ${result.message}`);
             }
@@ -193,7 +196,7 @@ async function deleteQuickLink(linkId) {
         const result = await response.json();
         
         if (response.ok) {
-            loadQuickLinks(); // 목록 새로고침
+            loadUserQuickLinks(); // (수정) 목록 새로고침
         } else {
             alert(`삭제 실패: ${result.message}`);
         }

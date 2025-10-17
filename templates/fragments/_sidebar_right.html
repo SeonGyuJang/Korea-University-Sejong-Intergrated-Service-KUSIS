@@ -8,7 +8,27 @@
     <div class="quick-links">
         <h4>자주 찾는 사이트</h4>
         <div class="link-list" id="quickLinkList">
-            </div>
+            
+            <a href="https://www.naver.com" target="_blank" class="quick-link">
+                <i class="fa-solid fa-n" style="background-color: #03C75A; color: white;"></i>
+                <span class="link-text">네이버</span>
+            </a>
+            <a href="https://www.google.com" target="_blank" class="quick-link">
+                <i class="fa-brands fa-google" style="background-color: #4285F4; color: white;"></i>
+                <span class="link-text">구글</span>
+            </a>
+            <a href="https://www.youtube.com" target="_blank" class="quick-link">
+                <i class="fa-brands fa-youtube" style="background-color: #FF0000; color: white;"></i>
+                <span class="link-text">유튜브</span>
+            </a>
+            <a href="https://www.notion.so" target="_blank" class="quick-link">
+                <i class="fa-solid fa-note-sticky" style="background-color: #000000; color: white;"></i>
+                <span class="link-text">노션</span>
+            </a>
+
+            <div id="userQuickLinkList" style="width: 100%; display: contents;"></div>
+
+        </div>
 
         {% if session.student_id %}
         <a href="javascript:void(0);" class="quick-link quick-link-add" id="addLinkBtn">

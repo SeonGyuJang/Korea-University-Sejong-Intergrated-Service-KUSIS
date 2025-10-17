@@ -1,0 +1,316 @@
+/* ======================================== */
+/* 시간표 관리 페이지 전용 (timetable.css) */
+/* ======================================== */
+
+/* 페이지 레이아웃 */
+.timetable-management-page {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    padding: 20px;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.left-widgets, .center-widgets {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ======================================== */
+/* 1. 학점 위젯 */
+/* ======================================== */
+.credit-widget .credit-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-top: 10px;
+}
+
+.credit-progress-circle {
+    position: relative;
+    width: 160px;
+    height: 160px;
+}
+
+.credit-progress-circle svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.credit-progress-circle .timer-bg {
+    fill: none;
+    stroke: var(--bg-primary);
+    stroke-width: 10;
+}
+
+.credit-progress-circle .timer-progress {
+    fill: none;
+    stroke: var(--korea-red);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 283;
+    stroke-dashoffset: 283;
+    transition: stroke-dashoffset 1s ease-out;
+}
+
+.credit-progress-circle .credit-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+#creditPercentage {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--korea-red);
+}
+
+.credit-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+}
+
+.credit-details .stat-item {
+    background: var(--bg-primary);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.credit-details .stat-label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.credit-details .stat-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--korea-red);
+}
+
+.credit-remaining {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+    background: #fef5f7;
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 100%;
+    text-align: center;
+}
+
+.credit-remaining span {
+    font-weight: 700;
+    color: var(--korea-red);
+}
+
+/* 목표 학점 수정 UI */
+.btn-edit-goal {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.btn-edit-goal:hover {
+    color: var(--korea-red);
+    background: var(--bg-secondary);
+}
+
+.edit-goal-form input[type="number"] {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+}
+.btn-small {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+}
+
+
+/* ======================================== */
+/* 2. Todo 요약 위젯 */
+/* ======================================== */
+.todo-summary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.todo-summary-item {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 12px 16px;
+    border-left: 4px solid var(--korea-red);
+}
+
+.todo-summary-item.completed {
+    border-left-color: var(--border-color);
+}
+.todo-summary-item.completed .todo-subject {
+    color: var(--text-secondary);
+}
+
+.todo-subject {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.todo-subject i {
+    font-size: 12px;
+    margin-right: 4px;
+    color: var(--korea-red);
+}
+
+.todo-list {
+    list-style: none;
+    padding-left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.todo-list-item {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.todo-list-item.done {
+    text-decoration: line-through;
+}
+.todo-list-item i {
+    font-size: 12px;
+    margin-right: 6px;
+    color: var(--color-success);
+}
+.todo-list-item.pending i {
+    color: var(--text-secondary);
+}
+
+.todo-summary-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+    font-size: 14px;
+}
+
+
+/* ======================================== */
+/* 3. 시간표 편집기 */
+/* ======================================== */
+.timetable-editor-widget .timetable-container {
+    overflow-x: auto;
+}
+
+.timetable.editable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.timetable.editable th, 
+.timetable.editable td {
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    text-align: center;
+}
+
+.timetable.editable th {
+    background: var(--bg-primary);
+    font-weight: 600;
+    color: var(--korea-red);
+    padding: 10px 8px;
+}
+
+.timetable.editable td {
+    height: 80px;
+    position: relative;
+    vertical-align: top;
+    padding: 4px;
+}
+
+.timetable-cell {
+    background: linear-gradient(135deg, rgba(165, 0, 52, 0.05), rgba(199, 0, 63, 0.05));
+    border: 1px dashed rgba(165, 0, 52, 0.2);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.timetable-cell:hover {
+    background: linear-gradient(135deg, rgba(165, 0, 52, 0.1), rgba(199, 0, 63, 0.1));
+    border-style: solid;
+}
+
+.timetable-cell.empty {
+    background: var(--bg-primary);
+    justify-content: center;
+    align-items: center;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    border: 1px dashed var(--border-color);
+}
+.timetable-cell.empty:hover {
+    opacity: 1;
+    color: var(--korea-red);
+    background: #fef5f7;
+    border-color: var(--korea-red);
+}
+
+.timetable-subject {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--korea-red);
+}
+
+.timetable-professor, 
+.timetable-room,
+.timetable-credits {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.timetable-credits {
+    font-weight: 600;
+    color: #34495e;
+    margin-top: 2px;
+}
+
+
+/* ======================================== */
+/* 4. 반응형 */
+/* ======================================== */
+@media (max-width: 900px) {
+    .timetable-management-page {
+        grid-template-columns: 1fr;
+    }
+}

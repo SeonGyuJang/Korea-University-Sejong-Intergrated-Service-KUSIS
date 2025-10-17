@@ -30,8 +30,16 @@
                         <span class="stat-value" id="currentCredits">{{ current_credits }}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">목표 학점</span>
+                        <span class="stat-label">
+                            목표 학점
+                            <button id="editGoalBtn" class="btn-edit-goal"><i class="fas fa-pencil-alt"></i></button>
+                        </span>
                         <span class="stat-value" id="goalCredits">{{ goal_credits }}</span>
+                        <div class="edit-goal-form" id="editGoalForm" style="display: none; margin-top: 8px;">
+                             <input type="number" id="newGoalCredits" value="{{ goal_credits }}" min="1" style="width: 80px; padding: 5px;">
+                             <button id="saveGoalBtn" class="btn btn-save btn-small" style="padding: 5px 10px; font-size: 12px;">저장</button>
+                             <button id="cancelGoalBtn" class="btn btn-cancel btn-small" style="padding: 5px 10px; font-size: 12px;">취소</button>
+                        </div>
                     </div>
                 </div>
                 <div class="credit-remaining">

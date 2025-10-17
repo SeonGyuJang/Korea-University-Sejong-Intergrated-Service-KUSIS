@@ -124,7 +124,8 @@ def create_initial_data():
     with app.app_context():
         db.create_all()
         
-        admin_user = User.query.get("9999123456")
+        # (수정) LegacyAPIWarning 해결: User.query.get() -> db.session.get(User, ...)
+        admin_user = db.session.get(User, "9999123456")
         if not admin_user:
             admin_user = User(
                 id="9999123456", name="admin", dob="2004-06-16", college="관리자", 
@@ -133,7 +134,8 @@ def create_initial_data():
             )
             db.session.add(admin_user)
         
-        sample_user = User.query.get("2023390822")
+        # (수정) LegacyAPIWarning 해결
+        sample_user = db.session.get(User, "2023390822")
         if not sample_user:
             sample_user = User(
                 name="장선규", id="2023390822", dob="2004-03-24", college="과학기술대학", 
@@ -196,7 +198,8 @@ def login_required(f):
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login', next=request.url))
         
-        user = User.query.get(session['student_id'])
+        # (수정) LegacyAPIWarning 해결
+        user = db.session.get(User, session['student_id'])
         if not user:
             session.clear()
             flash("사용자 정보가 유효하지 않습니다. 다시 로그인해주세요.", "danger")
@@ -212,7 +215,8 @@ def admin_required(f):
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
         
-        user = User.query.get(session['student_id'])
+        # (수정) LegacyAPIWarning 해결
+        user = db.session.get(User, session['student_id'])
         if not user or not user.is_admin:
             flash("접근 권한이 없습니다. 관리자만 접근 가능합니다.", "danger")
             return redirect(url_for('index'))
@@ -352,7 +356,8 @@ def index():
     user_info = None
     is_admin = False
     if 'student_id' in session:
-        user_info = User.query.get(session['student_id'])
+        # (수정) LegacyAPIWarning 해결
+        user_info = db.session.get(User, session['student_id'])
         if user_info:
             is_admin = user_info.is_admin
         else:
@@ -365,7 +370,8 @@ def index():
 @login_required
 def timetable_management():
     user_id = session['student_id']
-    user = User.query.get(user_id)
+    # (수정) LegacyAPIWarning 해결
+    user = db.session.get(User, user_id)
     
     # Request 3: 학점 계산
     user_timetables = Timetable.query.filter_by(user_id=user_id).all()
@@ -400,7 +406,8 @@ def login():
     if request.method == 'POST':
         student_id = request.form.get('student_id')
         password = request.form.get('password')
-        user = User.query.get(student_id)
+        # (수정) LegacyAPIWarning 해결
+        user = db.session.get(User, student_id)
         
         if user and check_password_hash(user.password_hash, password):
             session.clear()
@@ -430,8 +437,8 @@ def register():
         college = request.form.get('college')
         department = request.form.get('department')
         
-        # (신규) Request 3: 목표 학점
-        total_credits_goal = request.form.get('total_credits_goal', 130, type=int)
+        # (수정) Request 3: 목표 학점 입력 제거
+        # total_credits_goal = request.form.get('total_credits_goal', 130, type=int)
         
         if not (name and student_id and password and password_confirm and dob and college and department):
             flash("모든 필드를 입력해주세요.", "danger")
@@ -445,7 +452,8 @@ def register():
         if college not in COLLEGES or department not in COLLEGES.get(college, []):
             flash("유효하지 않은 단과대학/학과 선택입니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
-        if User.query.get(student_id):
+        # (수정) LegacyAPIWarning 해결
+        if db.session.get(User, student_id):
             flash("이미 등록된 학번입니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
             
@@ -454,7 +462,7 @@ def register():
             new_user = User(
                 id=student_id, name=name, dob=dob, college=college,
                 department=department, password_hash=hashed_password, is_admin=False,
-                total_credits_goal=total_credits_goal # (신규)
+                total_credits_goal=130 # (수정) 기본값 130으로 설정
             )
             db.session.add(new_user)
             db.session.commit()
@@ -548,6 +556,7 @@ def get_timetable():
             memo_data = {"note": t.memo, "todos": []}
 
         timetable_list.append({
+            "entry_id": t.entry_id, # (신규) JS에서 수정을 위해 ID 추가
             "day": t.day, "period": t.period, "subject": t.subject, 
             "professor": t.professor, "room": t.room, 
             "credits": t.credits, # (신규) Request 2
@@ -593,7 +602,7 @@ def handle_timetable_subject():
                 # 메모는 이 API에서 건드리지 않음
             
             db.session.commit()
-            return jsonify({"status": "success", "message": "시간표가 저장되었습니다."})
+            return jsonify({"status": "success", "message": "시간표가 저장되었습니다.", "entry_id": entry.entry_id})
         except Exception as e:
             db.session.rollback()
             print(f"Error saving timetable subject: {e}")
@@ -609,12 +618,8 @@ def handle_timetable_subject():
             entry.professor = None
             entry.room = None
             entry.credits = 0
-            # entry.memo = json.dumps({"note": "", "todos": []}) # 메모는 남겨둘 수 있음
+            entry.memo = json.dumps({"note": "", "todos": []}) # (수정) 메모도 초기화
             db.session.commit()
-            
-            # (대안) DB에서 아예 삭제
-            # db.session.delete(entry)
-            # db.session.commit()
             
             return jsonify({"status": "success", "message": "시간표 항목이 삭제되었습니다."})
         except Exception as e:
@@ -757,7 +762,8 @@ def delete_quick_link(link_id):
     user_id = session['student_id']
     
     try:
-        link = QuickLink.query.get(link_id)
+        # (수정) LegacyAPIWarning 해결
+        link = db.session.get(QuickLink, link_id)
         if not link:
             return jsonify({"status": "error", "message": "링크를 찾을 수 없습니다."}), 404
         
@@ -771,6 +777,31 @@ def delete_quick_link(link_id):
         db.session.rollback()
         print(f"Error deleting quick link: {e}")
         return jsonify({"status": "error", "message": "링크 삭제 중 오류 발생"}), 500
+
+# (신규) 목표 학점 수정 API
+@app.route('/api/credits/goal', methods=['POST'])
+@login_required
+def update_credit_goal():
+    data = request.json
+    new_goal = data.get('goal', type=int)
+    user_id = session['student_id']
+    
+    if new_goal is None or new_goal <= 0:
+        return jsonify({"status": "error", "message": "유효하지 않은 학점입니다."}), 400
+    
+    try:
+        # (수정) LegacyAPIWarning 해결
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
+        
+        user.total_credits_goal = new_goal
+        db.session.commit()
+        return jsonify({"status": "success", "message": "목표 학점이 업데이트되었습니다.", "new_goal": new_goal})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating credit goal: {e}")
+        return jsonify({"status": "error", "message": "업데이트 중 오류 발생"}), 500
 
 
 if __name__ == '__main__':
