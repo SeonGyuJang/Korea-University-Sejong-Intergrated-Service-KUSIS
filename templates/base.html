@@ -15,7 +15,7 @@
 
         <div class="main-wrapper">
             {% include 'fragments/_header.html' %}
-            
+
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="flash-message-container" style="padding: 10px 20px;">
@@ -69,7 +69,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-cancel modal-close">취소</button>
+                 <button class="btn btn-cancel modal-close">취소</button>
                 <button class="btn btn-save" id="saveQuickLinkBtn">저장</button>
             </div>
         </div>

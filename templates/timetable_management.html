@@ -8,7 +8,7 @@
 
 {% block content %}
 <div class="content-area timetable-management-page">
-    
+
     <div class="timetable-side-content">
         <div class="widget">
             <div class="widget-tabs-container">
@@ -44,7 +44,7 @@
                             <div class="edit-goal-form" id="editGoalForm" style="display: none;">
                                  <input type="number" id="newGoalCredits" value="{{ goal_credits }}" min="1">
                                  <button id="saveGoalBtn" class="btn btn-save btn-small">저장</button>
-                                 <button id="cancelGoalBtn" class="btn btn-cancel btn-small">취소</button>
+                                  <button id="cancelGoalBtn" class="btn btn-cancel btn-small">취소</button>
                             </div>
                         </div>
                     </div>
@@ -154,7 +154,6 @@
     </div>
 </div>
 
-<!-- 모든 주차 모아보기 모달 -->
 <div class="modal large-modal" id="allWeeksModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -163,16 +162,14 @@
         </div>
         <div class="modal-body">
             <div class="accordion" id="allWeeksAccordion">
-                <!-- JS will populate this -->
-            </div>
+                </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-cancel modal-close">닫기</button>
+             <button class="btn btn-cancel modal-close">닫기</button>
         </div>
     </div>
 </div>
 
-<!-- 새 과목 추가 모달 -->
 <div class="modal" id="addSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -204,13 +201,12 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-cancel modal-close">취소</button>
+             <button class="btn btn-cancel modal-close">취소</button>
             <button class="btn btn-save" id="saveNewSubjectBtn">저장</button>
         </div>
     </div>
 </div>
 
-<!-- 과목 수정 모달 -->
 <div class="modal" id="editSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -254,7 +250,7 @@
         <div class="modal-footer space-between">
             <button class="btn btn-danger" id="deleteSubjectBtn"><i class="fas fa-trash"></i> 삭제</button>
             <div style="display: flex; gap: 12px;">
-                <button class="btn btn-cancel modal-close">취소</button>
+                 <button class="btn btn-cancel modal-close">취소</button>
                 <button class="btn btn-save" id="updateSubjectBtn">수정 완료</button>
             </div>
         </div>
