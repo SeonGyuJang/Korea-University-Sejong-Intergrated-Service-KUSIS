@@ -6,25 +6,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSubjects = [];
     let gpaChartInstance = null;
     let selectedSubjectForDetails = null;
-    
-    let currentWeek = 1; 
+
+    let currentWeek = 1;
     const TOTAL_WEEKS = 16;
     let currentWeeklyData = { note: "", todos: [] };
 
     // [FIX #4] 과목별 색상 팔레트 (더 선명한 색상)
+    // [수정] 과목별 색상 팔레트 확장 (Req #8)
     const subjectColors = [
-        'rgba(244, 67, 54, 0.2)',    // Red
-        'rgba(233, 30, 99, 0.2)',    // Pink
-        'rgba(156, 39, 176, 0.2)',   // Purple
-        'rgba(103, 58, 183, 0.2)',   // Deep Purple
-        'rgba(63, 81, 181, 0.2)',    // Indigo
-        'rgba(33, 150, 243, 0.2)',   // Blue
-        'rgba(3, 169, 244, 0.2)',    // Light Blue
-        'rgba(0, 188, 212, 0.2)',    // Cyan
-        'rgba(0, 150, 136, 0.2)',    // Teal
-        'rgba(76, 175, 80, 0.2)',    // Green
-        'rgba(255, 152, 0, 0.2)',    // Orange
-        'rgba(121, 85, 72, 0.2)'     // Brown
+        'rgba(239, 83, 80, 0.1)',   // Red
+        'rgba(236, 64, 122, 0.1)',  // Pink
+        'rgba(171, 71, 188, 0.1)',  // Purple
+        'rgba(126, 87, 194, 0.1)',  // Deep Purple
+        'rgba(92, 107, 192, 0.1)',  // Indigo
+        'rgba(66, 165, 245, 0.1)',  // Blue
+        'rgba(41, 182, 246, 0.1)',  // Light Blue
+        'rgba(38, 198, 218, 0.1)',  // Cyan
+        'rgba(38, 166, 154, 0.1)',  // Teal
+        'rgba(102, 187, 106, 0.1)', // Green
+        'rgba(255, 167, 38, 0.1)', // Orange
+        'rgba(141, 110, 99, 0.1)'   // Brown
     ];
     let subjectColorMap = {};
 
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 오른쪽 과목 상세 정보 사이드바 DOM
     const subjectDetailsListUl = document.getElementById('subjectDetailsList');
     const weeklyDetailsTitle = document.getElementById('weeklyDetailsTitle');
-    const viewAllWeeksBtn = document.getElementById('viewAllWeeksBtn');
+    const viewAllWeeksBtn = document.getElementById('viewAllWeeksBtn'); // [신규]
     const prevWeekBtn = document.getElementById('prevWeekBtn');
     const currentWeekDisplay = document.getElementById('currentWeekDisplay');
     const nextWeekBtn = document.getElementById('nextWeekBtn');
@@ -99,7 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateSubjectBtn = document.getElementById('updateSubjectBtn');
     const deleteSubjectBtn = document.getElementById('deleteSubjectBtn');
 
+    // [신규] 모든 주차 모아보기 모달 (Req #4)
     const allWeeksModal = document.getElementById('allWeeksModal');
+
 
     // --- 1. 초기화 ---
     async function initializePage() {
@@ -151,7 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         saveWeeklyMemoTodoBtn.addEventListener('click', saveWeeklyMemoTodo);
-        
+
+        // [신규] 모든 주차 모아보기 이벤트 (Req #4)
         viewAllWeeksBtn.addEventListener('click', openAllWeeksModal);
         allWeeksModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allWeeksModal.classList.remove('active')));
     }
@@ -193,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(`시간표 로드 실패 (${response.status})`);
             const data = await response.json();
             currentSubjects = data.subjects || [];
-            
+
             currentSubjects.forEach(s => {
                 if (typeof s.memo === 'string') {
                     try { s.memo = JSON.parse(s.memo); } catch(e) { s.memo = {note: '', todos: []}; }
@@ -222,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(`GPA 통계 로드 실패 (${response.status})`);
             const statsData = await response.json();
 
+            // [수정] 이수 학점 계산 로직 변경에 따라 current_credits를 API에서 받아온 값으로 업데이트 (Req #1)
             updateCreditProgress(statsData.total_earned_credits, parseInt(goalCreditsEl.textContent, 10));
             overallGpaEl.textContent = statsData.overall_gpa;
 
@@ -249,7 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
             addSubjectBtn.disabled = true;
         }
     }
-    
+
+    // [수정] 시간표 렌더링 함수 (Req #5)
     function renderTimetableGrid(subjects) {
         timetableBody.innerHTML = '';
         subjectColorMap = {};
@@ -299,10 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             subjects.forEach(subject => {
-                const subjectColor = subjectColorMap[subject.id] || 'rgba(165, 0, 52, 0.15)';
-                // [FIX #4] 테두리 색상을 더 진하게
-                const borderColor = subjectColor.replace('0.2', '1.0');
-                
+                const subjectColor = subjectColorMap[subject.id] || 'rgba(165, 0, 52, 0.1)';
+                 // [FIX #4] 테두리 색상을 더 진하게
+                 const borderColor = subjectColor.replace('0.1', '1.0'); // 알파값을 1.0으로 변경
+
                 subject.timeslots.forEach(ts => {
                     const [startH, startM] = ts.start.split(':').map(Number);
                     const [endH, endM] = ts.end.split(':').map(Number);
@@ -318,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     slotDiv.style.top = `${topOffset}px`;
                     slotDiv.style.height = `${slotHeight}px`;
                     slotDiv.style.backgroundColor = subjectColor;
-                    slotDiv.style.borderLeft = `4px solid ${borderColor}`;
+                    slotDiv.style.borderLeft = `4px solid ${borderColor}`; // 두께 4px, 진한 색상 테두리
 
                     let innerHTML = `<div class="slot-subject">${subject.name}</div>`;
                     if (slotHeight > 30) innerHTML += `<div class="slot-room">${ts.room || ''}</div>`;
@@ -355,7 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
             todoSummaryList.appendChild(itemDiv);
         });
     }
-    
+
+    // [수정] GPA 차트 Y축 최대값 4.5로 고정 (Req #2)
     function renderGpaChart(semesters) {
         if (!gpaChartCanvas) return;
         if (gpaChartInstance) gpaChartInstance.destroy();
@@ -376,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, max: 4.5 } },
+                scales: { y: { beginAtZero: true, max: 4.5 } }, // Y축 최대값 4.5
                 plugins: { tooltip: { mode: 'index', intersect: false } }
             }
         });
@@ -474,11 +481,12 @@ document.addEventListener('DOMContentLoaded', () => {
              updateWeekView();
          }
      }
-     
+
+     // [수정] 주차별 날짜 표시 (Req #4)
      async function updateWeekView() {
          prevWeekBtn.disabled = (currentWeek === 1);
          nextWeekBtn.disabled = (currentWeek === TOTAL_WEEKS);
-         
+
          if (selectedSubjectForDetails) {
              await loadWeeklyMemoTodo();
          } else {
@@ -540,6 +548,38 @@ document.addEventListener('DOMContentLoaded', () => {
                      currentWeeklyData.todos[index].done = e.target.checked;
                      li.classList.toggle('done', e.target.checked);
                      saveWeeklyMemoTodoBtn.disabled = false;
+                     // [FIX Error] Use innerHTML to include the icon
+                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                 }
+             });
+             li.querySelector('.todo-delete-btn').addEventListener('click', (e) => {
+                 if (currentWeeklyData.todos) {
+                     const indexToRemove = parseInt(e.target.dataset.index, 10);
+                     currentWeeklyData.todos.splice(indexToRemove, 1);
+                     renderWeeklyTodoList(currentWeeklyData.todos);
+                     saveWeeklyMemoTodoBtn.disabled = false;
+                     // [FIX Error] Use innerHTML to include the icon
+                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                 }
+             });
+             weeklyTodoListUl.appendChild(li);
+         });
+     }
+
+     function addWeeklyTodoItem() {
+         const taskText = weeklyNewTodoInput.value.trim();
+         if (taskText === '' || !selectedSubjectForDetails) return;
+
+         const newTodo = { task: taskText, done: false };
+         const emptyMsg = weeklyTodoListUl.querySelector('.todo-empty');
+         if (emptyMsg) weeklyTodoListUl.innerHTML = '';
+         if (!currentWeeklyData.todos) currentWeeklyData.todos = [];
+         currentWeeklyData.todos.push(newTodo);
+         renderWeeklyTodoList(currentWeeklyData.todos);
+         weeklyNewTodoInput.value = '';
+         weeklyNewTodoInput.focus();
+         saveWeeklyMemoTodoBtn.disabled = false;
+         // [FIX Error] Use innerHTML to include the icon
          saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
      }
 
@@ -560,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
              });
              const result = await response.json();
              if (result.status !== 'success') throw new Error(result.message || '저장 실패');
-             
+
              saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-check"></i> 저장 완료!';
              setTimeout(() => {
                  saveWeeklyMemoTodoBtn.disabled = false;
@@ -573,8 +613,8 @@ document.addEventListener('DOMContentLoaded', () => {
              saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-times"></i> 저장 실패';
          }
      }
-     
-     // [FIX #7] 모든 주차 모아보기 모달 (월별 그룹핑)
+
+    // [FIX #7] 모든 주차 모아보기 모달 (월별 그룹핑) -> [수정] API 응답 형식 변경에 따른 수정
      async function openAllWeeksModal() {
         if (!selectedSubjectForDetails) {
             alert("먼저 과목을 선택해주세요.");
@@ -583,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modalTitle = allWeeksModal.querySelector('.modal-header h3');
         const accordionContainer = allWeeksModal.querySelector('#allWeeksAccordion');
-        
+
         modalTitle.textContent = `${selectedSubjectForDetails.name} - 전체 주차 정보`;
         accordionContainer.innerHTML = '<div class="loading-spinner-small"></div>';
         allWeeksModal.classList.add('active');
@@ -592,62 +632,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/subjects/${selectedSubjectForDetails.id}/all-weeks`);
             const result = await response.json();
             if (result.status !== 'success') throw new Error(result.message);
-            renderAllWeeksAccordion(result.data, accordionContainer);
+
+            // API 응답 데이터 구조가 변경됨: result.data가 월별 그룹핑된 객체에서 주차별 객체 배열로 변경됨
+            renderAllWeeksAccordion(result.data, accordionContainer); // data 배열 직접 전달
         } catch (error) {
             accordionContainer.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
         }
      }
 
-     function renderAllWeeksAccordion(monthsData, container) {
+     // [수정] 월별 그룹핑 로직 제거, 배열을 직접 렌더링
+     function renderAllWeeksAccordion(allWeeksData, container) {
         container.innerHTML = '';
-        
-        // 모든 월의 모든 주차가 비어있는지 확인
-        const hasAnyContent = Object.values(monthsData).some(weeks => 
-            weeks.some(week => week.note || week.todos.length > 0)
-        );
-        
+
+        // 모든 주차가 비어있는지 확인
+        const hasAnyContent = allWeeksData.some(week => week.note || week.todos.length > 0);
+
         if (!hasAnyContent) {
             container.innerHTML = `<p class="todo-summary-empty">모든 주차에 기록된 정보가 없습니다.</p>`;
             return;
         }
 
-        // 월별로 렌더링
-        Object.keys(monthsData).forEach(monthKey => {
-            const weeks = monthsData[monthKey];
-            
-            // 이 월에 내용이 있는 주차가 있는지 확인
-            const hasMonthContent = weeks.some(week => week.note || week.todos.length > 0);
-            if (!hasMonthContent) return; // 내용이 없으면 건너뜀
+        // 주차별로 바로 렌더링
+        allWeeksData.forEach(week => {
+            if (!week.note && week.todos.length === 0) return; // 내용이 없으면 건너뜀
 
-            // 월 헤더 추가
-            const monthHeader = document.createElement('div');
-            monthHeader.className = 'month-header';
-            monthHeader.innerHTML = `<h3><i class="fas fa-calendar-alt"></i> ${monthKey}</h3>`;
-            container.appendChild(monthHeader);
-
-            // 해당 월의 주차들 렌더링
-            weeks.forEach(week => {
-                if (!week.note && week.todos.length === 0) return; // 내용이 없으면 건너뜀
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'accordion-item';
-                itemDiv.innerHTML = `
-                    <div class="accordion-header">
-                        <span class="week-title">${week.week_number}주차 (${week.date_range})</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="accordion-content">
-                        ${week.note ? `<h4><i class="fas fa-sticky-note"></i> 메모</h4><p>${week.note}</p>` : ''}
-                        ${week.todos.length > 0 ? `
-                            <h4><i class="fas fa-check-square"></i> Todo</h4>
-                            <ul class="memo-todo-list">
-                                ${week.todos.map(todo => `<li class="todo-item ${todo.done ? 'done' : ''}">- ${todo.task}</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                    </div>
-                `;
-                container.appendChild(itemDiv);
-            });
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'accordion-item';
+            itemDiv.innerHTML = `
+                <div class="accordion-header">
+                    <span class="week-title">${week.week_number}주차 (${week.date_range})</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="accordion-content">
+                    ${week.note ? `<h4><i class="fas fa-sticky-note"></i> 메모</h4><p>${week.note}</p>` : ''}
+                    ${week.todos.length > 0 ? `
+                        <h4><i class="fas fa-check-square"></i> Todo</h4>
+                        <ul class="memo-todo-list">
+                            ${week.todos.map(todo => `<li class="todo-item ${todo.done ? 'done' : ''}">- ${todo.task}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+            container.appendChild(itemDiv);
         });
 
         // 아코디언 이벤트 리스너
@@ -664,10 +690,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
      }
 
+
      function resetSubjectDetailsPanel(message = "학기를 선택해주세요.") {
           if(subjectDetailsListUl) subjectDetailsListUl.innerHTML = `<li class="subject-details-empty">${message}</li>`;
      }
-     
+
      function resetWeeklyDetailsPanel() {
          weeklyDetailsTitle.innerHTML = '<i class="fas fa-calendar-week"></i> 주차별 정보';
          weeklyMemoSubjectName.textContent = "과목 선택";
@@ -684,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
          selectedSubjectForDetails = null;
          if(subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
      }
-     
+
      function enableWeeklyDetailsPanel() {
          weeklyMemoText.disabled = false;
          weeklyNewTodoInput.disabled = false;
@@ -692,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
          saveWeeklyMemoTodoBtn.disabled = false;
          saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
      }
-     
+
      function disableWeeklyDetailsPanel() {
          weeklyMemoText.disabled = true;
          weeklyNewTodoInput.disabled = true;
@@ -797,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.status !== 'success') throw new Error(result.message);
             addSubjectModal.classList.remove('active');
             await loadTimetableForSemester(currentSemesterId);
-            await loadGpaStats(); 
+            await loadGpaStats();
         } catch (error) {
             alert(`저장 실패: ${error.message}`);
         } finally {
@@ -831,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (result.status !== 'success') throw new Error(result.message);
             editSubjectModal.classList.remove('active');
-            
+
             const updatedSubjectData = result.subject;
             const index = currentSubjects.findIndex(s => s.id === updatedSubjectData.id);
             if (index !== -1) {
@@ -843,14 +870,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTimetableGrid(currentSubjects);
             renderTodoSummary(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
-            
+
             if (selectedSubjectForDetails && selectedSubjectForDetails.id === updatedSubjectData.id) {
                  selectSubjectForDetails(updatedSubjectData.id);
                  loadGpaStats();
             } else {
                 loadGpaStats();
             }
-            
+
         } catch (error) {
             alert(`수정 실패: ${error.message}`);
         } finally {
@@ -868,16 +895,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (result.status !== 'success') throw new Error(result.message);
             editSubjectModal.classList.remove('active');
-            
+
             currentSubjects = currentSubjects.filter(s => s.id !== parseInt(subjectId, 10));
             renderTimetableGrid(currentSubjects);
             renderTodoSummary(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
-            
+
             if (selectedSubjectForDetails && selectedSubjectForDetails.id === parseInt(subjectId, 10)) {
                 resetWeeklyDetailsPanel();
             }
-            
+
             await loadGpaStats();
         } catch (error) {
             alert(`삭제 실패: ${error.message}`);
@@ -887,33 +914,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initializePage();
-});; 
-                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
-                 }
-             });
-             li.querySelector('.todo-delete-btn').addEventListener('click', (e) => {
-                 if (currentWeeklyData.todos) {
-                     const indexToRemove = parseInt(e.target.dataset.index, 10);
-                     currentWeeklyData.todos.splice(indexToRemove, 1);
-                     renderWeeklyTodoList(currentWeeklyData.todos);
-                     saveWeeklyMemoTodoBtn.disabled = false;
-                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
-                 }
-             });
-             weeklyTodoListUl.appendChild(li);
-         });
-     }
-
-     function addWeeklyTodoItem() {
-         const taskText = weeklyNewTodoInput.value.trim();
-         if (taskText === '' || !selectedSubjectForDetails) return;
-
-         const newTodo = { task: taskText, done: false };
-         const emptyMsg = weeklyTodoListUl.querySelector('.todo-empty');
-         if (emptyMsg) weeklyTodoListUl.innerHTML = '';
-         if (!currentWeeklyData.todos) currentWeeklyData.todos = [];
-         currentWeeklyData.todos.push(newTodo);
-         renderWeeklyTodoList(currentWeeklyData.todos);
-         weeklyNewTodoInput.value = '';
-         weeklyNewTodoInput.focus();
-         saveWeeklyMemoTodoBtn.disabled = false};
+});
