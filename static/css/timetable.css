@@ -1,6 +1,4 @@
-/* ======================================== */
 /* 시간표 관리 페이지 전용 (timetable.css) */
-/* ======================================== */
 
 .timetable-management-page {
     display: grid;
@@ -28,17 +26,22 @@
     flex-direction: column;
 }
 
+/* [FIX #3] 시간표 헤더 레이아웃 개선 */
 .timetable-editor-widget .widget-header {
-    flex-wrap: wrap;
-    gap: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
     flex-shrink: 0;
 }
+
 .timetable-controls {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-grow: 1;
 }
+
 #semesterSelect {
     min-width: 200px;
     padding: 8px 12px;
@@ -47,10 +50,11 @@
     font-weight: 600;
 }
 
-/* [수정] 새 과목 추가 버튼 UI/UX 개선 (Req #7) */
+/* [FIX #3] 새 과목 추가 버튼 */
 #addSubjectBtnContainer {
     position: relative;
 }
+
 .btn-add-subject {
     background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
     color: white;
@@ -66,31 +70,34 @@
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: 0 4px 12px rgba(165, 0, 52, 0.2);
 }
+
 .btn-add-subject:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(165, 0, 52, 0.3);
 }
+
 .btn-add-subject i {
     transition: transform 0.3s;
 }
+
 .btn-add-subject:hover i {
     transform: rotate(90deg);
 }
 
-/* [수정] 시간표 자동 크기 조정 (Req #5) */
 .timetable-container {
     flex-grow: 1;
-    overflow: auto; /* 세로 스크롤만 허용 */
+    overflow: auto;
     position: relative;
     border: 1px solid var(--border-color);
     border-radius: 0 0 16px 16px;
     border-top: none;
 }
+
 .timetable.editable {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
-    table-layout: fixed; /* 고정 레이아웃으로 열 너비 유지 */
+    table-layout: fixed;
 }
 
 .timetable.editable th, .timetable.editable td {
@@ -98,6 +105,7 @@
     text-align: center;
     padding: 2px;
 }
+
 .timetable.editable th {
     background: var(--bg-primary);
     font-weight: 600;
@@ -107,8 +115,15 @@
     top: 0;
     z-index: 20;
 }
-.timetable.editable th:first-child { width: 8%; } /* 시간 열 너비 */
-.timetable.editable td { vertical-align: top; position: relative; height: 50px; }
+
+.timetable.editable th:first-child { width: 8%; }
+
+.timetable.editable td { 
+    vertical-align: top; 
+    position: relative; 
+    height: 50px; 
+}
+
 .timetable.editable td:first-child {
     font-weight: 600;
     font-size: 11px;
@@ -119,6 +134,7 @@
     left: 0;
     z-index: 10;
 }
+
 .subject-slot {
     position: absolute;
     left: 2px;
@@ -135,11 +151,13 @@
     flex-direction: column;
     justify-content: center;
 }
+
 .subject-slot:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 6;
     transform: scale(1.02);
 }
+
 .subject-slot .slot-subject {
     font-weight: 600;
     font-size: 12px;
@@ -149,161 +167,792 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.subject-slot .slot-room { color: var(--text-primary); }
 
-.widget-tabs-container { padding: 8px; background: var(--bg-primary); border-radius: 12px; margin-bottom: 16px; flex-shrink: 0; }
-.widget-tabs { display: flex; gap: 8px; }
+.subject-slot .slot-room { 
+    color: var(--text-primary); 
+    font-size: 10px;
+}
+
+/* [FIX #3] 탭 컨테이너 레이아웃 개선 */
+.widget-tabs-container { 
+    padding: 8px; 
+    background: var(--bg-primary); 
+    border-radius: 12px; 
+    margin-bottom: 16px; 
+    flex-shrink: 0; 
+}
+
+.widget-tabs { 
+    display: flex; 
+    gap: 8px; 
+    justify-content: center; /* [FIX #3] 탭 중앙 정렬 */
+}
+
 .widget-tabs .tab {
-    flex: 1; padding: 10px 12px; font-size: 14px; font-weight: 500; border: none;
-    background: none; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    gap: 6px; cursor: pointer; transition: all 0.2s;
+    flex: 1; 
+    padding: 10px 12px; 
+    font-size: 14px; 
+    font-weight: 500; 
+    border: none;
+    background: none; 
+    border-radius: 8px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 6px; 
+    cursor: pointer; 
+    transition: all 0.2s;
 }
-.widget-tabs .tab.active { background: var(--bg-secondary); color: var(--korea-red); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.widget-tabs .tab:hover:not(.active) { background: rgba(0,0,0,0.05); }
-.widget-tab-content { display: none; flex-grow: 1; overflow-y: auto; }
-.widget-tab-content.active { display: flex; flex-direction: column; }
 
-.credit-summary { display: flex; flex-direction: column; align-items: center; gap: 15px; padding-top: 10px; }
-.credit-progress-circle { position: relative; width: 140px; height: 140px; }
-.credit-progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.credit-progress-circle .progress-bg { fill: none; stroke: var(--bg-primary); stroke-width: 10; }
-.credit-progress-circle .progress-bar { fill: none; stroke: var(--korea-red); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 1s ease-out; }
-.credit-progress-circle .credit-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-#creditPercentage { font-size: 24px; font-weight: 700; color: var(--korea-red); }
-.credit-details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
-.credit-details .stat-item { background: var(--bg-primary); padding: 12px; border-radius: 8px; text-align: center; }
-.credit-details .stat-label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500; }
-.credit-details .stat-value { display: block; font-size: 20px; font-weight: 600; color: var(--korea-red); }
-.btn-edit-goal { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 12px; }
-.btn-edit-goal:hover { color: var(--korea-red); }
-.edit-goal-form { display: flex; gap: 5px; align-items: center; justify-content: center; margin-top: 5px; }
-.edit-goal-form input { width: 60px; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px; }
-.btn-small { padding: 4px 8px; font-size: 12px; border-radius: 4px; }
-.credit-remaining { font-size: 14px; color: var(--text-primary); font-weight: 500; background: #fef5f7; padding: 8px 12px; border-radius: 6px; width: 100%; text-align: center; margin-top: 10px; }
-.credit-remaining span { font-weight: 700; color: var(--korea-red); }
+.widget-tabs .tab.active { 
+    background: var(--bg-secondary); 
+    color: var(--korea-red); 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+}
 
-.gpa-chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.gpa-chart-header h4 { font-size: 14px; font-weight: 600; }
-.gpa-chart-container { height: 250px; }
+.widget-tabs .tab:hover:not(.active) { 
+    background: rgba(0,0,0,0.05); 
+}
 
-.todo-summary-list { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px; }
-.todo-summary-item { background: var(--bg-primary); border-radius: 8px; padding: 12px 16px; border-left: 4px solid var(--korea-red); }
-.todo-summary-item.completed { border-left-color: var(--border-color); }
-.todo-summary-item.completed .todo-subject { color: var(--text-secondary); }
-.todo-subject { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.todo-list { list-style: none; padding-left: 10px; display: flex; flex-direction: column; gap: 4px; }
-.todo-list-item { font-size: 13px; color: var(--text-secondary); }
-.todo-list-item.done { text-decoration: line-through; }
-.todo-list-item i { font-size: 12px; margin-right: 6px; color: var(--color-success); }
-.todo-list-item.pending i { color: var(--text-secondary); }
-.todo-summary-empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 14px; }
+.widget-tab-content { 
+    display: none; 
+    flex-grow: 1; 
+    overflow-y: auto; 
+}
 
-.timetable-details-side-content .widget { display: flex; flex-direction: column; }
-.subject-details-widget { flex-shrink: 0; }
-.weekly-details-widget { flex-grow: 1; min-height: 0; }
-.subject-details-list-container { max-height: 250px; overflow-y: auto; margin: -10px 0; padding: 10px 0; }
-#subjectDetailsList { list-style: none; padding: 0; margin: 0; }
+.widget-tab-content.active { 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.credit-summary { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 15px; 
+    padding-top: 10px; 
+}
+
+.credit-progress-circle { 
+    position: relative; 
+    width: 140px; 
+    height: 140px; 
+}
+
+.credit-progress-circle svg { 
+    width: 100%; 
+    height: 100%; 
+    transform: rotate(-90deg); 
+}
+
+.credit-progress-circle .progress-bg { 
+    fill: none; 
+    stroke: var(--bg-primary); 
+    stroke-width: 10; 
+}
+
+.credit-progress-circle .progress-bar { 
+    fill: none; 
+    stroke: var(--korea-red); 
+    stroke-width: 10; 
+    stroke-linecap: round; 
+    stroke-dasharray: 283; 
+    stroke-dashoffset: 283; 
+    transition: stroke-dashoffset 1s ease-out; 
+}
+
+.credit-progress-circle .credit-text { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    text-align: center; 
+}
+
+#creditPercentage { 
+    font-size: 24px; 
+    font-weight: 700; 
+    color: var(--korea-red); 
+}
+
+.credit-details { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 12px; 
+    width: 100%; 
+}
+
+.credit-details .stat-item { 
+    background: var(--bg-primary); 
+    padding: 12px; 
+    border-radius: 8px; 
+    text-align: center; 
+}
+
+.credit-details .stat-label { 
+    display: block; 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+    margin-bottom: 5px; 
+    font-weight: 500; 
+}
+
+.credit-details .stat-value { 
+    display: block; 
+    font-size: 20px; 
+    font-weight: 600; 
+    color: var(--korea-red); 
+}
+
+.btn-edit-goal { 
+    background: none; 
+    border: none; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    padding: 2px 4px; 
+    border-radius: 4px; 
+    font-size: 12px; 
+}
+
+.btn-edit-goal:hover { 
+    color: var(--korea-red); 
+}
+
+.edit-goal-form { 
+    display: flex; 
+    gap: 5px; 
+    align-items: center; 
+    justify-content: center; 
+    margin-top: 5px; 
+}
+
+.edit-goal-form input { 
+    width: 60px; 
+    padding: 4px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 4px; 
+}
+
+.btn-small { 
+    padding: 4px 8px; 
+    font-size: 12px; 
+    border-radius: 4px; 
+}
+
+.credit-remaining { 
+    font-size: 14px; 
+    color: var(--text-primary); 
+    font-weight: 500; 
+    background: #fef5f7; 
+    padding: 8px 12px; 
+    border-radius: 6px; 
+    width: 100%; 
+    text-align: center; 
+    margin-top: 10px; 
+}
+
+.credit-remaining span { 
+    font-weight: 700; 
+    color: var(--korea-red); 
+}
+
+.gpa-chart-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 10px; 
+}
+
+.gpa-chart-header h4 { 
+    font-size: 14px; 
+    font-weight: 600; 
+}
+
+.gpa-chart-container { 
+    height: 250px; 
+}
+
+.todo-summary-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    max-height: 300px; 
+    overflow-y: auto; 
+    padding-right: 5px; 
+}
+
+.todo-summary-item { 
+    background: var(--bg-primary); 
+    border-radius: 8px; 
+    padding: 12px 16px; 
+    border-left: 4px solid var(--korea-red); 
+}
+
+.todo-summary-item.completed { 
+    border-left-color: var(--border-color); 
+}
+
+.todo-summary-item.completed .todo-subject { 
+    color: var(--text-secondary); 
+}
+
+.todo-subject { 
+    font-size: 14px; 
+    font-weight: 600; 
+    margin-bottom: 8px; 
+}
+
+.todo-list { 
+    list-style: none; 
+    padding-left: 10px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+}
+
+.todo-list-item { 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+}
+
+.todo-list-item.done { 
+    text-decoration: line-through; 
+}
+
+.todo-list-item i { 
+    font-size: 12px; 
+    margin-right: 6px; 
+    color: var(--color-success); 
+}
+
+.todo-list-item.pending i { 
+    color: var(--text-secondary); 
+}
+
+.todo-summary-empty { 
+    text-align: center; 
+    color: var(--text-secondary); 
+    padding: 20px; 
+    font-size: 14px; 
+}
+
+.timetable-details-side-content .widget { 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.subject-details-widget { 
+    flex-shrink: 0; 
+}
+
+.weekly-details-widget { 
+    flex-grow: 1; 
+    min-height: 0; 
+}
+
+.subject-details-list-container { 
+    max-height: 250px; 
+    overflow-y: auto; 
+    margin: -10px 0; 
+    padding: 10px 0; 
+}
+
+#subjectDetailsList { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0; 
+}
+
 .subject-details-item {
-    display: flex; justify-content: space-between; align-items: center; padding: 10px 15px;
-    border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color 0.2s;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color); 
+    cursor: pointer; 
+    transition: background-color 0.2s;
 }
-.subject-details-item:last-child { border-bottom: none; }
-.subject-details-item:hover { background-color: var(--bg-primary); }
-.subject-details-item.selected { background-color: #fef5f7; border-left: 3px solid var(--korea-red); padding-left: 12px; }
-.subject-info { display: flex; flex-direction: column; gap: 2px; }
-.subject-name { font-weight: 600; font-size: 14px; }
-.subject-prof { font-size: 12px; color: var(--text-secondary); }
-.subject-grade select.grade-select {
-    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);
-    font-size: 12px; background: var(--bg-secondary);
-}
-.subject-details-empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 14px; }
 
-.week-selector { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 8px; background: var(--bg-primary); border-radius: 8px; }
-.week-selector button { background: none; border: none; font-size: 16px; color: var(--text-secondary); cursor: pointer; padding: 5px 8px; border-radius: 4px; }
-.week-selector button:hover:not(:disabled) { background: var(--bg-secondary); color: var(--korea-red); }
-.week-selector button:disabled { opacity: 0.5; cursor: not-allowed; }
-#currentWeekDisplay { font-weight: 600; }
-.weekly-content { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
-.weekly-content textarea { width: 100%; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: inherit; font-size: 13px; resize: vertical; outline: none; transition: all 0.3s; min-height: 80px; }
-.weekly-content textarea:focus { border-color: var(--korea-red); background: var(--bg-secondary); }
-.weekly-content textarea:disabled { background: #f8f9fa; cursor: not-allowed; }
-.weekly-content .memo-todo-list { max-height: 150px; }
-/* [수정] 주차 정보 저장 버튼 컨테이너 (Req #6) */
-.save-button-container { text-align: right; margin-top: 15px; }
-/* [수정] 주차 정보 저장 버튼 UI/UX 개선 (Req #6) */
-.btn-save-weekly {
-    background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color);
-    padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s;
-    display: inline-flex; align-items: center; gap: 6px;
+.subject-details-item:last-child { 
+    border-bottom: none; 
 }
+
+.subject-details-item:hover { 
+    background-color: var(--bg-primary); 
+}
+
+.subject-details-item.selected { 
+    background-color: #fef5f7; 
+    border-left: 3px solid var(--korea-red); 
+    padding-left: 12px; 
+}
+
+.subject-info { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 2px; 
+}
+
+.subject-name { 
+    font-weight: 600; 
+    font-size: 14px; 
+}
+
+.subject-prof { 
+    font-size: 12px; 
+    color: var(--text-secondary); 
+}
+
+.subject-grade select.grade-select {
+    padding: 4px 8px; 
+    border-radius: 6px; 
+    border: 1px solid var(--border-color);
+    font-size: 12px; 
+    background: var(--bg-secondary);
+}
+
+.subject-details-empty { 
+    text-align: center; 
+    color: var(--text-secondary); 
+    padding: 20px; 
+    font-size: 14px; 
+}
+
+.week-selector { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 15px; 
+    padding: 8px; 
+    background: var(--bg-primary); 
+    border-radius: 8px; 
+}
+
+.week-selector button { 
+    background: none; 
+    border: none; 
+    font-size: 16px; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    padding: 5px 8px; 
+    border-radius: 4px; 
+}
+
+.week-selector button:hover:not(:disabled) { 
+    background: var(--bg-secondary); 
+    color: var(--korea-red); 
+}
+
+.week-selector button:disabled { 
+    opacity: 0.5; 
+    cursor: not-allowed; 
+}
+
+#currentWeekDisplay { 
+    font-weight: 600; 
+}
+
+.weekly-content { 
+    flex-grow: 1; 
+    overflow-y: auto; 
+    padding-right: 5px; 
+}
+
+.weekly-content textarea { 
+    width: 100%; 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    padding: 10px; 
+    font-family: inherit; 
+    font-size: 13px; 
+    resize: vertical; 
+    outline: none; 
+    transition: all 0.3s; 
+    min-height: 80px; 
+}
+
+.weekly-content textarea:focus { 
+    border-color: var(--korea-red); 
+    background: var(--bg-secondary); 
+}
+
+.weekly-content textarea:disabled { 
+    background: #f8f9fa; 
+    cursor: not-allowed; 
+}
+
+.weekly-content .memo-todo-list { 
+    max-height: 150px; 
+}
+
+.save-button-container { 
+    text-align: right; 
+    margin-top: 15px; 
+}
+
+.btn-save-weekly {
+    background: var(--bg-primary); 
+    color: var(--text-secondary); 
+    border: 1px solid var(--border-color);
+    padding: 8px 14px; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: all 0.3s;
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px;
+}
+
 .btn-save-weekly:not(:disabled):hover {
-    background: var(--korea-red); color: white; border-color: var(--korea-red);
+    background: var(--korea-red); 
+    color: white; 
+    border-color: var(--korea-red);
     box-shadow: 0 2px 8px rgba(165, 0, 52, 0.2);
 }
-.btn-save-weekly:disabled { background: #f8f9fa; cursor: not-allowed; }
 
-.modal-content.large-modal { max-width: 600px; }
-.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-.form-subtitle { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
-.form-divider { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
-.btn-secondary { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); }
-.btn-secondary:hover { background: #e9ecef; }
-.btn-danger { background: var(--color-danger); color: white; }
-.btn-danger:hover { background: #c0392b; }
-.btn-primary { background: var(--korea-red); color: white; }
-.btn-primary:hover { background: var(--korea-red-dark); }
+.btn-save-weekly:disabled { 
+    background: #f8f9fa; 
+    cursor: not-allowed; 
+}
 
-#addTimeSlotContainer, #editTimeSlotContainer { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-.timeslot-entry { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
-.timeslot-entry select, .timeslot-entry input { padding: 8px; font-size: 13px; border: 1px solid var(--border-color); border-radius: 6px; }
-.timeslot-delete-btn { background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 16px; }
+.modal-content.large-modal { 
+    max-width: 600px; 
+}
 
-.memo-subtitle { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-.memo-subtitle i { color: var(--korea-red); }
-.memo-todo-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); overflow-y: auto; }
-.todo-item { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
-.todo-item:last-child { border-bottom: none; }
-.todo-item.done .todo-label { text-decoration: line-through; color: var(--text-secondary); }
-.todo-item input[type="checkbox"] { width: 15px; height: 15px; margin-right: 8px; flex-shrink: 0; accent-color: var(--korea-red); cursor: pointer; }
-.todo-label { flex-grow: 1; font-size: 13px; color: var(--text-primary); cursor: pointer; }
-.todo-delete-btn { font-size: 16px; color: var(--text-secondary); cursor: pointer; padding: 0 5px; border-radius: 4px; font-weight: bold; }
-.todo-delete-btn:hover { color: var(--color-danger); background: #f8d7da; }
-.todo-empty { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 15px; }
-.memo-todo-add { display: flex; gap: 8px; margin-top: 8px; }
-.memo-todo-add input[type="text"] { flex-grow: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; }
-.memo-todo-add input[type="text"]:focus { border-color: var(--korea-red); }
-.memo-todo-add input[type="text"]:disabled { background: #f8f9fa; cursor: not-allowed;}
-.memo-todo-add button:disabled { opacity: 0.6; cursor: not-allowed; }
+.form-grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 15px; 
+}
 
-/* [신규] 모든 주차 모아보기 모달 스타일 (Req #4) */
-.accordion { display: flex; flex-direction: column; gap: 10px; }
-.accordion-item { background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border-color); }
+.form-subtitle { 
+    font-size: 14px; 
+    font-weight: 600; 
+    color: var(--text-primary); 
+    margin-top: 20px; 
+    margin-bottom: 10px; 
+    padding-bottom: 5px; 
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.form-divider { 
+    border: none; 
+    border-top: 1px solid var(--border-color); 
+    margin: 20px 0; 
+}
+
+/* [FIX #8] 버튼 스타일 개선 */
+.btn-secondary { 
+    background: var(--bg-primary); 
+    color: var(--text-primary); 
+    border: 1px solid var(--border-color); 
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-secondary:hover { 
+    background: #e9ecef; 
+    border-color: #adb5bd;
+}
+
+.btn-danger { 
+    background: var(--color-danger); 
+    color: white; 
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-danger:hover { 
+    background: #c0392b; 
+}
+
+.btn-primary { 
+    background: var(--korea-red); 
+    color: white; 
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover { 
+    background: var(--korea-red-dark); 
+}
+
+/* [FIX #8] 모달 푸터 레이아웃 개선 */
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-footer.space-between {
+    justify-content: space-between;
+}
+
+#addTimeSlotContainer, #editTimeSlotContainer { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    margin-bottom: 10px; 
+}
+
+.timeslot-entry { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr 1fr 1fr auto; 
+    gap: 8px; 
+    align-items: center; 
+}
+
+.timeslot-entry select, .timeslot-entry input { 
+    padding: 8px; 
+    font-size: 13px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px; 
+}
+
+.timeslot-delete-btn { 
+    background: none; 
+    border: none; 
+    color: var(--color-danger); 
+    cursor: pointer; 
+    font-size: 16px; 
+}
+
+.memo-subtitle { 
+    font-size: 14px; 
+    font-weight: 600; 
+    color: var(--text-primary); 
+    margin-bottom: 8px; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+}
+
+.memo-subtitle i { 
+    color: var(--korea-red); 
+}
+
+.memo-todo-list { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0; 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    background: var(--bg-primary); 
+    overflow-y: auto; 
+}
+
+.todo-item { 
+    display: flex; 
+    align-items: center; 
+    padding: 8px 12px; 
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.todo-item:last-child { 
+    border-bottom: none; 
+}
+
+.todo-item.done .todo-label { 
+    text-decoration: line-through; 
+    color: var(--text-secondary); 
+}
+
+.todo-item input[type="checkbox"] { 
+    width: 15px; 
+    height: 15px; 
+    margin-right: 8px; 
+    flex-shrink: 0; 
+    accent-color: var(--korea-red); 
+    cursor: pointer; 
+}
+
+.todo-label { 
+    flex-grow: 1; 
+    font-size: 13px; 
+    color: var(--text-primary); 
+    cursor: pointer; 
+}
+
+.todo-delete-btn { 
+    font-size: 16px; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    padding: 0 5px; 
+    border-radius: 4px; 
+    font-weight: bold; 
+}
+
+.todo-delete-btn:hover { 
+    color: var(--color-danger); 
+    background: #f8d7da; 
+}
+
+.todo-empty { 
+    text-align: center; 
+    color: var(--text-secondary); 
+    font-size: 13px; 
+    padding: 15px; 
+}
+
+.memo-todo-add { 
+    display: flex; 
+    gap: 8px; 
+    margin-top: 8px; 
+}
+
+.memo-todo-add input[type="text"] { 
+    flex-grow: 1; 
+    padding: 8px 12px; 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    outline: none; 
+}
+
+.memo-todo-add input[type="text"]:focus { 
+    border-color: var(--korea-red); 
+}
+
+.memo-todo-add input[type="text"]:disabled { 
+    background: #f8f9fa; 
+    cursor: not-allowed;
+}
+
+.memo-todo-add button:disabled { 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+}
+
+/* [FIX #7] 모든 주차 모아보기 모달 스타일 (월별 헤더 추가) */
+.month-header {
+    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 20px 0 10px 0;
+}
+
+.month-header:first-child {
+    margin-top: 0;
+}
+
+.month-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.accordion { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+}
+
+.accordion-item { 
+    background: var(--bg-primary); 
+    border-radius: 8px; 
+    border: 1px solid var(--border-color); 
+}
+
 .accordion-header {
-    padding: 12px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; 
+    cursor: pointer; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
     font-weight: 600;
 }
-.accordion-header .week-title { color: var(--korea-red); }
-.accordion-header i { transition: transform 0.3s; }
-.accordion-item.active .accordion-header i { transform: rotate(180deg); }
-.accordion-content {
-    max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;
-    background: white; padding: 0 16px; border-top: 1px solid var(--border-color);
+
+.accordion-header .week-title { 
+    color: var(--korea-red); 
 }
-.accordion-content h4 { margin-top: 10px; }
-.accordion-content p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; margin-bottom: 10px; }
-.accordion-content .memo-todo-list { max-height: none; } /* 모달 내에서는 높이 제한 없음 */
-.accordion-content .todo-item { background: none; border: none; padding-left: 0; }
+
+.accordion-header i { 
+    transition: transform 0.3s; 
+}
+
+.accordion-item.active .accordion-header i { 
+    transform: rotate(180deg); 
+}
+
+.accordion-content {
+    max-height: 0; 
+    overflow: hidden; 
+    transition: max-height 0.3s ease-out;
+    background: white; 
+    padding: 0 16px; 
+    border-top: 1px solid var(--border-color);
+}
+
+.accordion-content h4 { 
+    margin-top: 10px; 
+}
+
+.accordion-content p { 
+    font-size: 13px; 
+    color: var(--text-secondary); 
+    line-height: 1.6; 
+    white-space: pre-wrap; 
+    margin-bottom: 10px; 
+}
+
+.accordion-content .memo-todo-list { 
+    max-height: none; 
+}
+
+.accordion-content .todo-item { 
+    background: none; 
+    border: none; 
+    padding-left: 0; 
+}
+
 .loading-spinner-small {
-    border: 3px solid var(--bg-primary); border-top: 3px solid var(--korea-red);
-    border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto;
+    border: 3px solid var(--bg-primary); 
+    border-top: 3px solid var(--korea-red);
+    border-radius: 50%; 
+    width: 30px; 
+    height: 30px; 
+    animation: spin 1s linear infinite; 
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 1200px) {
-    .timetable-management-page { grid-template-columns: 320px 1fr; }
-     .timetable-details-side-content { display: none; }
+    .timetable-management-page { 
+        grid-template-columns: 320px 1fr; 
+    }
+    .timetable-details-side-content { 
+        display: none; 
+    }
 }
+
 @media (max-width: 768px) {
-     .timetable-management-page { grid-template-columns: 1fr; height: auto; overflow-y: auto; }
-     .timetable-side-content { order: -1; }
+    .timetable-management-page { 
+        grid-template-columns: 1fr; 
+        height: auto; 
+        overflow-y: auto; 
+    }
+    .timetable-side-content { 
+        order: -1; 
+    }
 }

@@ -80,7 +80,6 @@
                         <option value="">학기 로딩 중...</option>
                     </select>
                 </div>
-                <!-- [수정] 새 과목 추가 버튼 UI 개선 (Req #7) -->
                 <div id="addSubjectBtnContainer">
                     <button id="addSubjectBtn" class="btn-add-subject">
                         <i class="fas fa-plus"></i>
@@ -122,8 +121,7 @@
         <div class="widget weekly-details-widget">
              <div class="widget-header">
                 <h3 id="weeklyDetailsTitle"><i class="fas fa-calendar-week"></i> 주차별 정보</h3>
-                <!-- [신규] 모든 주차 모아보기 버튼 (Req #4) -->
-                <button id="viewAllWeeksBtn" class="btn-more"><i class="fas fa-book-reader"></i> 모아보기</button>
+                <button id="viewAllWeeksBtn" class="btn-more" title="모든 주차 모아보기"><i class="fas fa-book-reader"></i></button>
              </div>
              <div class="week-selector">
                 <button id="prevWeekBtn" disabled><i class="fas fa-chevron-left"></i></button>
@@ -147,7 +145,6 @@
                      <button id="weeklyAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
                  </div>
                  <div class="save-button-container">
-                    <!-- [수정] 주차 정보 저장 버튼 UI 개선 (Req #6) -->
                      <button id="saveWeeklyMemoTodoBtn" class="btn-save-weekly" disabled>
                         <i class="fas fa-save"></i> 주차 정보 저장
                      </button>
@@ -157,7 +154,7 @@
     </div>
 </div>
 
-<!-- [신규] 모든 주차 모아보기 모달 (Req #4) -->
+<!-- 모든 주차 모아보기 모달 -->
 <div class="modal large-modal" id="allWeeksModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -175,7 +172,7 @@
     </div>
 </div>
 
-
+<!-- 새 과목 추가 모달 -->
 <div class="modal" id="addSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -213,6 +210,7 @@
     </div>
 </div>
 
+<!-- 과목 수정 모달 -->
 <div class="modal" id="editSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -253,9 +251,9 @@
                 <hr class="form-divider">
                  </form>
         </div>
-        <div class="modal-footer" style="justify-content: space-between;">
+        <div class="modal-footer space-between">
             <button class="btn btn-danger" id="deleteSubjectBtn"><i class="fas fa-trash"></i> 삭제</button>
-            <div>
+            <div style="display: flex; gap: 12px;">
                 <button class="btn btn-cancel modal-close">취소</button>
                 <button class="btn btn-save" id="updateSubjectBtn">수정 완료</button>
             </div>
