@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash
 from datetime import datetime, timedelta, date
-import json
+import json # json 임포트 확인
 import csv
 import os
 from functools import wraps
@@ -32,7 +32,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- Flask CLI 명령어 (최초 DB 생성용) ---
+# --- (유지) Flask CLI 명령어 (최초 DB 생성용) ---
 @app.cli.command("init-db")
 def init_db_command():
     """Creates the database tables and initial data."""
@@ -44,6 +44,7 @@ def init_db_command():
 BUS_TIME_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'bus_time.csv')
 STUDENT_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'student_menu.json')
 STAFF_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'staff_menu.json')
+CALENDAR_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'Calendar.csv') # 학사일정 경로 추가
 
 
 # --- Data Structures for Users/Admin ---
@@ -56,7 +57,7 @@ COLLEGES = {
     "스마트도시학부": ["스마트도시학부"]
 }
 
-# --- Database Models ---
+# --- Database Models (WeeklyMemo 추가) ---
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -79,9 +80,10 @@ class Semester(db.Model):
     __tablename__ = 'semesters'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    year = db.Column(db.Integer, nullable=False)
-    season = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(100), nullable=False) # 예: "2024년 1학기"
+    year = db.Column(db.Integer, nullable=False) # 예: 2024
+    season = db.Column(db.String(50), nullable=False) # 예: "1학기", "여름학기", "2학기"
+    start_date = db.Column(db.Date) # 학기 시작일 추가
     subjects = db.relationship('Subject', backref='semester', lazy=True, cascade="all, delete-orphan")
     __table_args__ = (db.UniqueConstraint('user_id', 'name', name='_user_semester_name_uc'),)
 
@@ -102,9 +104,9 @@ class TimeSlot(db.Model):
     __tablename__ = 'timeslots'
     id = db.Column(db.Integer, primary_key=True)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=False)
-    start_time = db.Column(db.String(5), nullable=False)
-    end_time = db.Column(db.String(5), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False) # 1:월, 2:화, ... 5:금
+    start_time = db.Column(db.String(5), nullable=False) # 예: "09:00"
+    end_time = db.Column(db.String(5), nullable=False) # 예: "10:15"
     room = db.Column(db.String(50))
 
 class WeeklyMemo(db.Model):
@@ -113,7 +115,7 @@ class WeeklyMemo(db.Model):
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     week_number = db.Column(db.Integer, nullable=False)
     note = db.Column(db.Text, default="")
-    todos = db.Column(db.Text, default=json.dumps([]))
+    todos = db.Column(db.Text, default=json.dumps([])) # JSON 배열을 문자열로 저장
     __table_args__ = (db.UniqueConstraint('subject_id', 'week_number', name='_subject_week_uc'),)
 
 class Schedule(db.Model):
@@ -141,7 +143,67 @@ class QuickLink(db.Model):
     url = db.Column(db.String(500), nullable=False)
     icon_url = db.Column(db.String(500))
 
-# --- 학기 생성 로직 ---
+# --- 학사일정 로드 함수 ---
+def load_academic_calendar():
+    calendar_data = {}
+    try:
+        with open(CALENDAR_PATH, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader, None) # 헤더 건너뛰기 (필요시)
+            for row in reader:
+                if len(row) >= 4:
+                    year, month, day, event_name = row[0:4]
+                    try:
+                        event_date = date(int(year), int(month), int(day))
+                        # "개강" 이벤트 찾기
+                        if "개강" in event_name:
+                            semester_key = f"{year}-{month.zfill(2)}" # 예: "2025-03"
+                            if semester_key not in calendar_data or event_date < calendar_data[semester_key]:
+                                calendar_data[semester_key] = event_date
+                    except ValueError:
+                        continue # 날짜 형식이 잘못된 경우 건너뛰기
+    except Exception as e:
+        print(f"Error loading academic calendar: {e}")
+    return calendar_data
+
+ACADEMIC_CALENDAR = load_academic_calendar()
+
+# --- 학기 시작일 계산 함수 (학사일정 기반) ---
+def get_semester_start_date_from_calendar(year, season):
+    """학사일정 데이터를 기반으로 학기 시작일을 반환합니다."""
+    month_key = ""
+    if "1학기" in season:
+        month_key = f"{year}-03" # 3월
+    elif "2학기" in season:
+        month_key = f"{year}-09" # 9월
+    elif "여름학기" in season:
+        month_key = f"{year}-06" # 6월 (대략)
+    elif "겨울학기" in season:
+        month_key = f"{year}-12" # 12월 (대략)
+
+    # 가장 가까운 '개강' 날짜 찾기 (여름/겨울은 추정)
+    start_date = ACADEMIC_CALENDAR.get(month_key)
+    if start_date:
+        return start_date
+
+    # 학사일정에 없으면 기존 추정 방식 사용
+    return _get_semester_start_date_fallback(year, season)
+
+# --- 기존 학기 시작일 추정 함수 (Fallback) ---
+def _get_semester_start_date_fallback(year, season):
+    """기존 방식대로 학기 시작 날짜를 추정합니다."""
+    if "1학기" in season:
+        return date(year, 3, 1) # 3월 1일 근처
+    elif "2학기" in season:
+        return date(year, 9, 1) # 9월 1일 근처
+    elif "여름학기" in season:
+        return date(year, 6, 20) # 6월 말
+    elif "겨울학기" in season:
+        return date(year, 12, 20) # 12월 말
+    return date(year, 1, 1)
+
+
+# --- (유지) 학기 생성 로직 (2020-2025년) ---
 def _create_semesters_for_user(user_id):
     """지정된 사용자를 위해 2020년부터 2025년까지의 모든 학기를 생성합니다."""
     start_year = 2020
@@ -153,67 +215,23 @@ def _create_semesters_for_user(user_id):
             semester_name = f"{year}년 {season}"
             existing_semester = Semester.query.filter_by(user_id=user_id, name=semester_name).first()
             if not existing_semester:
-                new_semester = Semester(user_id=user_id, name=semester_name, year=year, season=season)
+                start_date = get_semester_start_date_from_calendar(year, season) # 시작일 계산
+                new_semester = Semester(
+                    user_id=user_id,
+                    name=semester_name,
+                    year=year,
+                    season=season,
+                    start_date=start_date # 시작일 저장
+                )
                 db.session.add(new_semester)
     db.session.commit()
 
-# --- [FIX #6] 학기 시작일 계산 헬퍼 (Calendar.csv 기반) ---
-def _get_semester_start_date(semester):
-    """학기 객체를 기반으로 실제 시작 날짜를 반환합니다."""
-    if not semester:
-        return date.today()
-    
-    # 2025년 Calendar.csv 기준 실제 날짜
-    if semester.year == 2025:
-        if "1학기" in semester.season:
-            return date(2025, 3, 4)  # 2025학년도 제1학기 개강
-        elif "여름학기" in semester.season:
-            return date(2025, 6, 24)  # 여름계절수업 개강
-        elif "2학기" in semester.season:
-            return date(2025, 9, 1)  # 2025학년도 제2학기 개강
-        elif "겨울학기" in semester.season:
-            return date(2025, 12, 22)  # 겨울계절수업 개강
-    
-    # 다른 연도는 대략적인 날짜 추정
-    if "1학기" in semester.season:
-        return date(semester.year, 3, 1)
-    elif "2학기" in semester.season:
-        return date(semester.year, 9, 1)
-    elif "여름학기" in semester.season:
-        return date(semester.year, 6, 20)
-    elif "겨울학기" in semester.season:
-        return date(semester.year, 12, 20)
-    
-    return date(semester.year, 1, 1)
-
-# --- [NEW #1] 현재 학기 결정 함수 ---
-def _get_current_semester_for_user(user_id):
-    """오늘 날짜를 기준으로 사용자의 현재 학기를 반환합니다."""
-    today = date.today()
-    
-    # 사용자의 모든 학기 가져오기
-    semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
-    
-    if not semesters:
-        return None
-    
-    # 학기별 시작일과 종료일 계산 (대략 16주)
-    for semester in semesters:
-        start_date = _get_semester_start_date(semester)
-        end_date = start_date + timedelta(weeks=16)
-        
-        if start_date <= today <= end_date:
-            return semester
-    
-    # 현재 진행 중인 학기가 없으면 가장 최근 학기 반환
-    return semesters[0]
-
-# --- 학기 자동 관리 스케줄 작업 ---
+# --- [MODIFIED] 학기 자동 관리 스케줄 작업 ---
 def manage_semesters_job():
     """
     매년 12월 1일에 실행되는 학기 관리 작업.
     1. 다음 연도 학기(1,여름,2,겨울)를 모든 사용자에게 추가합니다.
-    2. 사용자의 학기 중 '가장 오래된 연도'의 학기(Subject가 없는)를 삭제합니다.
+    2. (수정) 사용자의 학기 중 '가장 오래된 연도'의 학기(Subject가 없는)를 삭제합니다.
     """
     with app.app_context():
         print(f"[{datetime.now()}] Starting semester management job...")
@@ -221,43 +239,50 @@ def manage_semesters_job():
             now = datetime.now()
             next_year = now.year + 1
             seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
-            
+
             all_users = User.query.all()
             if not all_users:
                 print("No users found. Exiting job.")
                 return
 
             for user in all_users:
-                # 1. 다음 연도 학기 추가
+                # 1. 다음 연도 학기 추가 (유지)
                 for season in seasons:
                     semester_name = f"{next_year}년 {season}"
                     exists = Semester.query.filter_by(user_id=user.id, name=semester_name).first()
                     if not exists:
+                        start_date = get_semester_start_date_from_calendar(next_year, season) # 시작일 계산
                         new_semester = Semester(
                             user_id=user.id,
                             name=semester_name,
                             year=next_year,
-                            season=season
+                            season=season,
+                            start_date=start_date # 시작일 저장
                         )
                         db.session.add(new_semester)
                         print(f"Added {semester_name} for user {user.id}")
-                
-                # 2. 가장 오래된 연도의 빈 학기 삭제
+
+                # 2. (수정) 가장 오래된 연도를 찾아 빈 학기 삭제 (Req #2, #3)
+                # 가장 오래된 학기를 찾아 그 연도를 확인
                 oldest_semester = Semester.query.filter_by(user_id=user.id).order_by(Semester.year.asc()).first()
                 if not oldest_semester:
-                    continue
-                
+                    continue # 이 사용자는 학기가 없으므로 건너뜀
+
                 oldest_year = oldest_semester.year
                 print(f"Checking oldest year {oldest_year} for user {user.id}")
 
+                # 가장 오래된 연도의 모든 학기를 가져옴
                 oldest_year_semesters = Semester.query.filter_by(user_id=user.id, year=oldest_year).all()
-                
+
                 for semester in oldest_year_semesters:
+                    # 이 학기에 연결된 과목이 있는지 확인
                     has_subjects = Subject.query.filter_by(semester_id=semester.id).first()
                     if not has_subjects:
+                        # (Req #3) 과목이 없으면 삭제
                         db.session.delete(semester)
                         print(f"Deleted oldest empty semester {semester.name} for user {user.id}")
                     else:
+                        # (Req #3) 과목이 있으면 유지
                         print(f"Keeping oldest semester {semester.name} (has data) for user {user.id}")
 
             db.session.commit()
@@ -266,7 +291,7 @@ def manage_semesters_job():
             db.session.rollback()
             print(f"Error in semester management job: {e}")
 
-# --- DB 초기화 ---
+# --- DB 초기화 (유지) ---
 def create_initial_data():
     with app.app_context():
         db.create_all()
@@ -278,18 +303,19 @@ def create_initial_data():
             admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("1234"), is_admin=True)
             db.session.add(admin_user)
             db.session.commit()
-            _create_semesters_for_user(admin_id)
+            _create_semesters_for_user(admin_id) # (유지) 2020-2025 학기 생성
 
         # 샘플 유저 생성 및 학기 추가, 샘플 데이터 추가
         if not db.session.get(User, sample_user_id):
             sample_user = User(name="장선규", id=sample_user_id, dob="2004-03-24", college="과학기술대학", department="컴퓨터융합소프트웨어학과", password_hash=generate_password_hash("password123"), is_admin=False)
             db.session.add(sample_user)
             db.session.commit()
-            _create_semesters_for_user(sample_user_id)
-            
-            # 샘플 데이터 추가 (2025년 2학기에)
+            _create_semesters_for_user(sample_user_id) # (유지) 2020-2025 학기 생성
+
+            # --- 샘플 데이터 추가 (2025년 2학기에) ---
             sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
             if sample_semester:
+                # [수정] Subject.memo는 과목 전체 메모로 유지
                 web_memo = json.dumps({"note": "과제 제출 기한 엄수! (과목 전체 메모)", "todos": [{"task": "Flask 라우팅 공부", "done": False}]})
                 s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3, memo=web_memo)
                 s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3)
@@ -299,22 +325,22 @@ def create_initial_data():
                 db.session.add(TimeSlot(subject_id=s1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
                 db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
                 db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
-                
-                # 샘플 주차별 메모 추가
+
+                # [신규] 샘플 주차별 메모 추가
                 db.session.add(WeeklyMemo(
-                    subject_id=s1.id, 
-                    week_number=3, 
-                    note="3주차: Flask 기본 라우팅", 
+                    subject_id=s1.id,
+                    week_number=3,
+                    note="3주차: Flask 기본 라우팅",
                     todos=json.dumps([{"task": "routes.py 실습", "done": True}, {"task": "templates 개념 익히기", "done": False}])
                 ))
                 db.session.add(WeeklyMemo(
-                    subject_id=s1.id, 
-                    week_number=4, 
-                    note="4주차: DB 연동 (SQLAlchemy)", 
+                    subject_id=s1.id,
+                    week_number=4,
+                    note="4주차: DB 연동 (SQLAlchemy)",
                     todos=json.dumps([{"task": "models.py 설계", "done": False}])
                 ))
 
-            # 샘플 퀵링크/일정
+            # --- 샘플 퀵링크/일정 ---
             QuickLink.query.filter_by(user_id=sample_user_id).delete()
             db.session.add_all([
                 QuickLink(user_id=sample_user_id, title="네이버", url="https://www.naver.com", icon_url="fa-solid fa-n"),
@@ -322,7 +348,8 @@ def create_initial_data():
             ])
             db.session.commit()
 
-# --- Authentication Decorators ---
+
+# --- Authentication Decorators (변경 없음) ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -350,7 +377,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- 데이터 로드 및 정제 함수 ---
+# --- 데이터 로드 및 정제 함수 (변경 없음) ---
 def load_bus_schedule():
     schedule = []
     try:
@@ -453,12 +480,12 @@ def index():
 def timetable_management():
     user_id = session['student_id']
     user = db.session.get(User, user_id)
-    
-    # 이수 학점 계산 (성적과 무관하게 등록된 모든 과목의 학점을 합산)
+
+    # 이수 학점 계산 (성적 무관 모든 과목)
     all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
     total_earned_credits = sum(subject.credits for subject in all_user_subjects)
 
-    # GPA 계산 (성적이 있는 과목만 계산)
+    # GPA 계산 (성적 있는 과목만)
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
     total_gpa_credits = 0
     total_gpa_score = 0
@@ -516,11 +543,11 @@ def register():
         if not all([name, student_id, password, password_confirm, dob, college, department]):
              flash("모든 필드를 입력해주세요.", "danger")
              return render_template('register.html', colleges=COLLEGES)
-        
+
         if password != password_confirm:
             flash("비밀번호가 일치하지 않습니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
-        
+
         if User.query.get(student_id):
             flash("이미 가입된 학번입니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
@@ -530,9 +557,9 @@ def register():
             new_user = User(id=student_id, name=name, dob=dob, college=college, department=department, password_hash=hashed_password, is_admin=False, total_credits_goal=130)
             db.session.add(new_user)
             db.session.commit()
-            
-            _create_semesters_for_user(new_user.id)
-            
+
+            _create_semesters_for_user(new_user.id) # (유지) 회원가입 후 2020-2025 학기 생성
+
             flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
             return redirect(url_for('login'))
         except Exception as e:
@@ -550,7 +577,7 @@ def admin_dashboard():
     member_list = sorted([{"id": user.id, "name": user.name, "department": user.department, "is_admin": user.is_admin} for user in all_users], key=lambda x: x['id'])
     return render_template('admin.html', member_count=member_count, member_list=member_list)
 
-# --- Public API Endpoints ---
+# --- Public API Endpoints (변경 없음) ---
 @app.route('/api/shuttle')
 def get_shuttle():
     return jsonify(SHUTTLE_SCHEDULE_DATA)
@@ -583,11 +610,11 @@ def get_schedule():
 def handle_semesters():
     user_id = session['student_id']
     semesters = Semester.query.filter_by(user_id=user_id).all()
-    
+
     # 학기 정렬 (최신순)
     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
     semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
-    
+
     return jsonify([{"id": s.id, "name": s.name} for s in semesters])
 
 
@@ -601,12 +628,18 @@ def get_timetable_data():
     if semester_id_str:
         semester = query.filter_by(id=int(semester_id_str)).first()
     else:
-        # [FIX #1] 현재 학기 자동 선택
-        semester = _get_current_semester_for_user(user_id)
+        # 기본값: 최신 학기
+        all_semesters = query.all()
+        if not all_semesters:
+             return jsonify({"semester": None, "subjects": []}) # 학기가 없으면 빈 데이터 반환
+
+        season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+        all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
+        semester = all_semesters[0]
 
     if not semester:
-        return jsonify({"semester_id": None, "subjects": []})
-    
+        return jsonify({"semester": None, "subjects": []})
+
     subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all()
     result = []
     for s in subjects:
@@ -616,7 +649,16 @@ def get_timetable_data():
         except (json.JSONDecodeError, TypeError):
             memo_data = {"note": "", "todos": []}
         result.append({"id": s.id, "name": s.name, "professor": s.professor, "credits": s.credits, "grade": s.grade, "memo": memo_data, "timeslots": timeslots_data})
-    return jsonify({"semester_id": semester.id, "subjects": result})
+
+    # 학기 정보 포함하여 반환
+    semester_info = {
+        "id": semester.id,
+        "name": semester.name,
+        "year": semester.year,
+        "season": semester.season,
+        "start_date": semester.start_date.isoformat() if semester.start_date else None # 시작일 추가
+    }
+    return jsonify({"semester": semester_info, "subjects": result})
 
 @app.route('/api/subjects', methods=['POST'])
 @login_required
@@ -625,7 +667,7 @@ def create_subject():
     data = request.json
     semester_id = data.get('semester_id')
     name = data.get('name')
-    
+
     if not semester_id or not name:
         return jsonify({"status": "error", "message": "학기 ID와 과목명은 필수입니다."}), 400
 
@@ -652,7 +694,7 @@ def create_subject():
                 start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
             ))
         db.session.commit()
-        
+
         created_subject_data = {
             "id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor,
             "credits": new_subject.credits, "grade": new_subject.grade,
@@ -681,7 +723,7 @@ def handle_subject(subject_id):
             subject.professor = data.get('professor', subject.professor)
             subject.credits = data.get('credits', subject.credits)
             subject.grade = data.get('grade', subject.grade)
-            
+
             if 'memo' in data and isinstance(data.get('memo'), dict):
                 subject.memo = json.dumps(data['memo'])
 
@@ -706,14 +748,20 @@ def handle_subject(subject_id):
 
     if request.method == 'DELETE':
         try:
+            # 관련된 WeeklyMemo 먼저 삭제
+            WeeklyMemo.query.filter_by(subject_id=subject.id).delete()
+            # 관련된 TimeSlot 삭제 (cascade 설정으로 자동 삭제될 수도 있지만 명시적 삭제)
+            TimeSlot.query.filter_by(subject_id=subject.id).delete()
+            # 과목 삭제
             db.session.delete(subject)
             db.session.commit()
-            return jsonify({"status": "success", "message": "과목이 삭제되었습니다."})
+            return jsonify({"status": "success", "message": "과목 및 관련 데이터가 삭제되었습니다."})
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": f"과목 삭제 중 오류 발생: {e}"}), 500
 
-# --- [FIX #5, #6] 주차별 메모/Todo API ---
+
+# --- [신규] 주차별 메모/Todo API (Req #1, #6) ---
 @app.route('/api/subjects/<int:subject_id>/week/<int:week_number>', methods=['GET'])
 @login_required
 def get_weekly_memo(subject_id, week_number):
@@ -724,21 +772,18 @@ def get_weekly_memo(subject_id, week_number):
         return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
 
     try:
-        # [FIX #6] 주차별 날짜 계산
         semester = subject.semester
-        semester_start_date = _get_semester_start_date(semester)
-        week_start_date = semester_start_date + timedelta(weeks=(week_number - 1))
-        week_end_date = week_start_date + timedelta(days=6)
-        
-        # 연도 표시 (다른 연도면 연도 포함)
-        today_year = date.today().year
-        if week_start_date.year == today_year and week_end_date.year == today_year:
+        semester_start_date = semester.start_date if semester.start_date else get_semester_start_date_from_calendar(semester.year, semester.season) # DB 또는 계산
+
+        if semester_start_date:
+            week_start_date = semester_start_date + timedelta(weeks=(week_number - 1))
+            week_end_date = week_start_date + timedelta(days=6)
             week_date_str = f"{week_start_date.strftime('%m.%d')} ~ {week_end_date.strftime('%m.%d')}"
         else:
-            week_date_str = f"{week_start_date.strftime('%y.%m.%d')} ~ {week_end_date.strftime('%y.%m.%d')}"
+            week_date_str = f"{week_number}주차" # 시작일 모를 경우
 
         weekly_memo = WeeklyMemo.query.filter_by(subject_id=subject.id, week_number=week_number).first()
-        
+
         if weekly_memo:
             todos = json.loads(weekly_memo.todos) if weekly_memo.todos else []
             note = weekly_memo.note if weekly_memo.note else ""
@@ -764,26 +809,26 @@ def update_weekly_memo(subject_id, week_number):
 
     if not subject or subject.user_id != user_id:
         return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
-    
+
     data = request.json
     note = data.get('note', '')
     todos = data.get('todos', [])
-    
+
     if not isinstance(todos, list):
         return jsonify({"status": "error", "message": "잘못된 todos 형식입니다."}), 400
 
     try:
         weekly_memo = WeeklyMemo.query.filter_by(subject_id=subject.id, week_number=week_number).first()
-        
+
         if not weekly_memo:
             weekly_memo = WeeklyMemo(subject_id=subject.id, week_number=week_number)
             db.session.add(weekly_memo)
 
         weekly_memo.note = note
         weekly_memo.todos = json.dumps(todos)
-        
+
         db.session.commit()
-        
+
         return jsonify({
             "status": "success",
             "message": f"{week_number}주차 정보가 저장되었습니다.",
@@ -797,7 +842,7 @@ def update_weekly_memo(subject_id, week_number):
         db.session.rollback()
         return jsonify({"status": "error", "message": f"주차별 정보 저장 중 오류: {e}"}), 500
 
-# [FIX #7] 모든 주차 정보 모아보기 API (월별 그룹핑)
+# [신규] 모든 주차 정보 모아보기 API (Req #4)
 @app.route('/api/subjects/<int:subject_id>/all-weeks', methods=['GET'])
 @login_required
 def get_all_weekly_memos(subject_id):
@@ -806,61 +851,56 @@ def get_all_weekly_memos(subject_id):
 
     if not subject or subject.user_id != user_id:
         return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
-    
+
     try:
         all_memos = WeeklyMemo.query.filter_by(subject_id=subject.id).order_by(WeeklyMemo.week_number).all()
-        
-        semester = subject.semester
-        semester_start_date = _get_semester_start_date(semester)
-        
-        # 월별로 그룹핑
-        months_data = {}
-        
-        for week_num in range(1, 17):
-            week_start = semester_start_date + timedelta(weeks=(week_num - 1))
-            week_end = week_start + timedelta(days=6)
-            
-            # 연도 표시
-            today_year = date.today().year
-            if week_start.year == today_year:
-                date_range = f"{week_start.strftime('%m.%d')} ~ {week_end.strftime('%m.%d')}"
-            else:
-                date_range = f"{week_start.strftime('%y.%m.%d')} ~ {week_end.strftime('%y.%m.%d')}"
-            
-            # 월 키 생성 (예: "2025년 3월")
-            month_key = f"{week_start.year}년 {week_start.month}월"
-            
-            if month_key not in months_data:
-                months_data[month_key] = []
-            
-            memo_data = next((m for m in all_memos if m.week_number == week_num), None)
-            
-            week_info = {
-                "week_number": week_num,
-                "date_range": date_range,
-                "note": memo_data.note if memo_data else "",
-                "todos": json.loads(memo_data.todos) if memo_data else []
-            }
-            
-            months_data[month_key].append(week_info)
 
-        return jsonify({"status": "success", "subject_name": subject.name, "data": months_data})
+        semester = subject.semester
+        semester_start_date = semester.start_date if semester.start_date else get_semester_start_date_from_calendar(semester.year, semester.season) # DB 또는 계산
+
+        result = []
+        for week_num in range(1, 17): # 1주차부터 16주차까지
+            date_range = f"{week_num}주차"
+            if semester_start_date:
+                 week_start = semester_start_date + timedelta(weeks=(week_num - 1))
+                 week_end = week_start + timedelta(days=6)
+                 date_range = f"{week_start.strftime('%m.%d')} ~ {week_end.strftime('%m.%d')}"
+
+            memo_data = next((m for m in all_memos if m.week_number == week_num), None)
+
+            if memo_data:
+                result.append({
+                    "week_number": week_num,
+                    "date_range": date_range,
+                    "note": memo_data.note,
+                    "todos": json.loads(memo_data.todos)
+                })
+            else:
+                 result.append({
+                    "week_number": week_num,
+                    "date_range": date_range,
+                    "note": "",
+                    "todos": []
+                })
+
+        return jsonify({"status": "success", "subject_name": subject.name, "data": result})
     except Exception as e:
+        print(f"Error in get_all_weekly_memos: {e}") # 에러 로깅 추가
         return jsonify({"status": "error", "message": f"전체 주차 정보 로드 중 오류: {e}"}), 500
+
 
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
     user_id = session['student_id']
     semesters = Semester.query.filter_by(user_id=user_id).all()
-    
-    # 학기 정렬
+
     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
     semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)))
 
     stats = []
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
-    
+
     for semester in semesters:
         subjects = semester.subjects
         semester_gpa_credits, semester_gpa_score = 0, 0
@@ -869,17 +909,14 @@ def get_gpa_stats():
             if grade_score is not None:
                 semester_gpa_credits += subject.credits
                 semester_gpa_score += (grade_score * subject.credits)
-        
-        # 성적이 있는 학기만 그래프에 포함
+
         if semester_gpa_credits > 0:
             semester_gpa = (semester_gpa_score / semester_gpa_credits)
             stats.append({"semester_name": semester.name, "gpa": round(semester_gpa, 2)})
 
-    # 이수 학점 계산 (성적과 무관)
     all_subjects = Subject.query.filter_by(user_id=user_id).all()
     total_earned_credits = sum(s.credits for s in all_subjects)
-    
-    # 전체 GPA 계산
+
     total_gpa_credits, total_gpa_score = 0, 0
     for subject in all_subjects:
         grade_score = GRADE_MAP.get(subject.grade)
@@ -887,7 +924,7 @@ def get_gpa_stats():
             total_gpa_credits += subject.credits
             total_gpa_score += (grade_score * subject.credits)
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
-    
+
     return jsonify({"semesters": stats, "overall_gpa": round(overall_gpa, 2), "total_earned_credits": total_earned_credits})
 
 @app.route('/api/study-stats', methods=['GET'])
@@ -901,7 +938,7 @@ def get_study_stats():
     seven_days_ago_str = (today - timedelta(days=6)).strftime('%Y-%m-%d')
     weekly_logs = StudyLog.query.filter(StudyLog.user_id == user_id, StudyLog.date >= seven_days_ago_str, StudyLog.date <= today_str).all()
     total_seconds = sum(log.duration_seconds for log in weekly_logs)
-    weekly_avg_seconds = total_seconds / 7
+    weekly_avg_seconds = total_seconds / 7 if len(weekly_logs) > 0 else 0 # 0으로 나누기 방지
     return jsonify({"today": today_seconds, "weekly_avg": weekly_avg_seconds})
 
 @app.route('/api/study-time', methods=['POST'])
@@ -979,11 +1016,15 @@ def update_credit_goal():
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
 if __name__ == '__main__':
+    # 학사일정 로드 확인
+    # print("Loaded Academic Calendar:", ACADEMIC_CALENDAR)
+
     scheduler = BackgroundScheduler()
+    # 매년 12월 1일 새벽 3시에 실행
     scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3)
     scheduler.start()
     print("Scheduler started... Press Ctrl+C to exit")
-    
+
     atexit.register(lambda: scheduler.shutdown())
-    
+
     app.run(debug=True, port=2424)
