@@ -66,6 +66,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center; /* [수정] 가로 중앙 정렬 */
     gap: 8px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: 0 4px 12px rgba(165, 0, 52, 0.2);
@@ -77,6 +78,7 @@
 }
 
 .btn-add-subject i {
+    color: white; /* [수정] 아이콘 색상 흰색으로 강제 */
     transition: transform 0.3s;
 }
 
@@ -180,12 +182,16 @@
     border-radius: 12px; 
     margin-bottom: 16px; 
     flex-shrink: 0; 
+    display: flex; /* [수정] 세로 중앙 정렬 */
+    align-items: center; /* [수정] 세로 중앙 정렬 */
 }
 
 .widget-tabs { 
     display: flex; 
     gap: 8px; 
     justify-content: center; /* [FIX #3] 탭 중앙 정렬 */
+    width: 100%; /* [수정] 너비 100% */
+    margin-bottom: 0; /* [수정] main.css 충돌 방지 */
 }
 
 .widget-tabs .tab {

@@ -1194,7 +1194,7 @@
 /* 신규: LARGE MODAL STYLE for Full View - 트렌디한 디자인 */
 .modal.large-modal .modal-content {
     max-width: 90%;
-    width: 900px;
+    width: 1200px; /* 너비 확장 */
     height: 90vh;
     display: flex;
     flex-direction: column;
@@ -1204,18 +1204,25 @@
     flex-grow: 1;
     overflow-y: auto;
     padding: 24px;
+    background-color: var(--bg-primary); /* 모달 배경색 약간 변경 */
 }
 
+/* [수정됨] 주간 식단표 모달 body 내부 컨텐츠를 위한 컨테이너 */
+.meal-modal-body-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px; /* 섹션 간 간격 */
+}
+
+
 /* 신규: 모달 내 테이블 스타일 - 트렌디한 디자인 적용 */
-.shuttle-full-table-container,
-.meal-full-table-container {
+.shuttle-full-table-container { /* 셔틀 테이블은 기존 스타일 유지 */
     overflow-x: auto;
-    padding: 10px 0; /* 상하 여백 추가 */
+    padding: 10px 0;
 }
 
 /* 테이블 공통 스타일 */
-.shuttle-full-table,
-.meal-full-table {
+.shuttle-full-table {
     width: 100%;
     border-collapse: separate; /* border-spacing 사용을 위해 */
     border-spacing: 0 8px; /* 행 간격 추가 */
@@ -1224,8 +1231,7 @@
 }
 
 /* 테이블 헤더 */
-.shuttle-full-table thead th,
-.meal-full-table thead th {
+.shuttle-full-table thead th {
     background: var(--korea-red);
     color: white;
     font-weight: 700;
@@ -1237,19 +1243,17 @@
     white-space: nowrap;
 }
 
-.shuttle-full-table tbody tr,
-.meal-full-table tbody tr {
+.shuttle-full-table tbody tr {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); /* 행별 그림자 */
     transition: all 0.2s;
 }
 
-.shuttle-full-table tbody tr:hover,
-.meal-full-table tbody tr:hover {
+.shuttle-full-table tbody tr:hover {
     background-color: #fef5f7; /* 호버 효과 */
 }
 
 /* 테이블 셀 스타일 */
-.shuttle-full-table td, .meal-full-table td {
+.shuttle-full-table td {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-left: none;
@@ -1259,12 +1263,11 @@
 }
 
 /* 첫 번째 셀, 마지막 셀의 border-radius 처리 */
-.shuttle-full-table td:first-child, .meal-full-table td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
-.shuttle-full-table td:last-child, .meal-full-table td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+.shuttle-full-table td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.shuttle-full-table td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
 .shuttle-full-table thead th:first-child { border-top-left-radius: 8px; }
 .shuttle-full-table thead th:last-child { border-top-right-radius: 8px; }
-.meal-full-table thead th:first-child { border-top-left-radius: 8px; }
-.meal-full-table thead th:last-child { border-top-right-radius: 8px; }
+
 
 /* 셔틀 테이블 그룹 헤더 */
 .shuttle-group-header {
@@ -1280,44 +1283,131 @@
     white-space: nowrap;
 }
 
-/* Weekly Meal Table Specific Styles */
-.meal-full-table td {
-    vertical-align: top;
-    text-align: left;
-    white-space: pre-wrap; /* 텍스트 줄바꿈 개선 */
-    line-height: 1.6;
-    font-size: 13px;
-    color: var(--text-primary);
-    padding: 15px 10px;
+/* [NEW] 주간 식단표 모달 UI 개선 - 식사 시간 중심 UI */
+.weekly-meal-header {
+    text-align: center;
+    margin-bottom: 20px; /* 간격 조정 */
 }
 
-/* 식단 카테고리 제목 */
-.meal-full-table .meal-category-title {
+.weekly-meal-header h3 {
+    font-size: 20px;
     font-weight: 700;
     color: var(--korea-red);
-    margin-bottom: 5px;
-    display: block;
-    padding-bottom: 5px;
-    border-bottom: 1px dashed var(--border-color);
-    font-size: 12px;
 }
-.meal-full-table .meal-menu-text {
-    font-size: 12px;
+
+.weekly-meal-header span {
+    font-size: 14px;
     color: var(--text-secondary);
 }
 
-/* 요일 구분 셀 배경 */
-.meal-full-table tbody tr:nth-child(even) td {
-    background: #f8f9fa;
+.meal-time-section {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    overflow: hidden; /* 내부 요소가 넘치지 않도록 */
 }
 
-/* 식사 구분 셀 */
-.meal-full-table .meal-type-cell {
-    background: var(--bg-primary) !important;
+.meal-time-title {
+    font-size: 16px;
     font-weight: 600;
+    color: var(--korea-red-dark);
+    padding: 12px 16px;
+    background: linear-gradient(to right, #fef5f7, #f8f9fa); /* 배경 약간 변경 */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meal-time-title i {
     color: var(--korea-red);
+}
+
+.meal-days-grid {
+    display: grid;
+    /* 5열 그리드, 최소 너비 설정으로 반응형 */
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+}
+
+.meal-day-item {
+    border-right: 1px solid var(--border-color);
+    display: flex; /* 내부 정렬 */
+    flex-direction: column; /* 세로 배치 */
+}
+.meal-day-item:last-child {
+    border-right: none;
+}
+
+.meal-day-header {
+    font-size: 13px;
+    font-weight: 600;
     text-align: center;
-    vertical-align: middle;
+    padding: 8px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0; /* 높이 고정 */
+}
+
+.meal-day-content {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    word-break: keep-all; /* 단어 단위 줄바꿈 */
+    flex-grow: 1; /* 남은 공간 채우기 */
+    display: flex; /* 내부 정렬 */
+    flex-direction: column;
+    justify-content: space-between; /* 내부 요소 간 공간 분배 */
+    min-height: 100px; /* 최소 높이 지정 (내용 짧을 때 대비) */
+}
+
+/* 학생 중식 상세 내용 */
+.meal-lunch-detail {
+    font-size: 12px;
+    line-height: 1.5;
+}
+.meal-lunch-detail:not(:last-child) {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #eee;
+}
+.meal-lunch-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block; /* 줄바꿈되도록 */
+    margin-bottom: 2px;
+}
+
+
+/* 오늘 날짜 강조 */
+.meal-day-item.is-today {
+    background-color: #fff8f9; /* 연한 핑크 배경 */
+    position: relative; /* 테두리 효과 기준 */
+}
+/* 오늘 날짜 왼쪽에 세로선 강조 */
+.meal-day-item.is-today::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: var(--korea-red-light);
+    border-radius: 4px 0 0 4px; /* 왼쪽만 둥글게 */
+}
+
+.meal-day-item.is-today .meal-day-header {
+    background-color: var(--korea-red);
+    color: white;
+    border-bottom-color: var(--korea-red-dark);
+}
+
+.meal-empty-message {
+    text-align: center;
+    padding: 40px;
+    font-size: 16px;
+    color: var(--text-secondary);
 }
 
 /* 스크롤바 스타일 */
@@ -1687,7 +1777,16 @@
         border-left: none;
         border-top: 5px solid var(--korea-red);
     }
+    /* [수정] 식단표 반응형 - 1200px 이하일 때 가로 스크롤 허용 */
+     .modal.large-modal .modal-body {
+        overflow-x: auto; /* 내용이 넘칠 경우 가로 스크롤 */
+    }
+     .meal-days-grid {
+        /* grid-template-columns 유지, 필요시 min-width 조정 */
+        width: max-content; /* 내부 컨텐츠 너비만큼 확장 */
+    }
 }
+
 
 @media (max-width: 768px) {
     .sidebar-left {
@@ -1728,6 +1827,11 @@
         right: 16px;
         width: calc(100vw - 32px);
     }
+
+     /* [수정] 식단표 반응형 - 768px 이하 */
+     .meal-days-grid {
+        /* 필요에 따라 grid-template-columns 조정 가능, 여기서는 가로 스크롤 유지 */
+    }
 }
 
 /* (신규) Request 4: 모바일에서 중식 3분할 깨짐 방지 */
@@ -1735,6 +1839,17 @@
     .meal-menu-group {
         grid-template-columns: 1fr; /* 1열로 변경 */
         gap: 10px;
+    }
+     .meal-days-grid {
+        /* 모바일에서는 각 요일 아이템의 최소 너비 조정 가능 */
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+    }
+     .meal-day-content {
+        padding: 8px 10px;
+    }
+     .meal-time-title {
+        font-size: 14px;
+        padding: 10px 12px;
     }
 }
 
@@ -1777,4 +1892,20 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* [NEW] 로딩 스피너 (식단 모달용) */
+.loading-spinner-small {
+    border: 3px solid var(--bg-primary);
+    border-top: 3px solid var(--korea-red);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

@@ -484,8 +484,13 @@ async function loadMealPlan(cafeteria) {
 
 async function openMealModal() {
     const modal = document.getElementById('mealModal');
-    const container = modal.querySelector('.meal-full-table-container');
-    container.innerHTML = '<p>주간 식단표를 불러오는 중입니다...</p>';
+    // [수정] 컨테이너 클래스 변경 (`.meal-full-table-container` -> `.meal-modal-body-content`)
+    const container = modal.querySelector('.meal-modal-body-content');
+    if (!container) {
+        console.error("Meal modal content container not found!");
+        return;
+    }
+    container.innerHTML = '<div class="loading-spinner-small"></div><p style="text-align: center;">주간 식단표를 불러오는 중입니다...</p>';
     modal.classList.add('active');
     try {
         const response = await fetch('/api/meal/week');
@@ -493,76 +498,96 @@ async function openMealModal() {
         renderWeeklyMealTable(container, data);
     } catch (error) {
         console.error('Failed to load weekly meal plan:', error);
-        container.innerHTML = '<p>주간 식단 데이터를 로드하는 데 실패했습니다.</p>';
+        container.innerHTML = '<p class="meal-empty-message">주간 식단 데이터를 로드하는 데 실패했습니다.</p>';
     }
 }
 
+// [수정됨] 주간 식단표 렌더링 함수 - 새로운 UI 구조 생성
 function renderWeeklyMealTable(container, data) {
     if (!data.식단 || Object.keys(data.식단).length === 0) {
-        container.innerHTML = '<p>이번 주 식단 정보가 없습니다.</p>';
+        container.innerHTML = '<p class="meal-empty-message">이번 주 식단 정보가 없습니다.</p>';
         return;
     }
+
     const studentMenu = data.식단.student || {};
-    // 모든 날짜 키 가져오기 (토, 일 포함 가능성 있음)
-    const allDates = Object.keys(studentMenu)
-        .sort((a, b) => { // 날짜순 정렬 (월.일 형식 가정)
+    const facultyMenu = data.식단.faculty || {};
+
+    // 평일 날짜만 추출 및 정렬
+    const weekdays = Object.keys(studentMenu)
+        .filter(date => !date.includes('(토)') && !date.includes('(일)'))
+        .sort((a, b) => {
             const [aMonth, aDay] = a.split('(')[0].split('.').map(Number);
             const [bMonth, bDay] = b.split('(')[0].split('.').map(Number);
             if (aMonth !== bMonth) return aMonth - bMonth;
             return aDay - bDay;
         });
 
-    if (allDates.length === 0) {
-        container.innerHTML = '<p>이번 주 식단 정보가 없습니다.</p>';
+    if (weekdays.length === 0) {
+        container.innerHTML = '<p class="meal-empty-message">평일 식단 정보가 없습니다.</p>';
         return;
     }
-    let html = `<p style="text-align:center; font-weight: bold; margin-bottom: 10px;">${data.기간.시작일} ~ ${data.기간.종료일}</p>`;
-    html += '<table class="meal-full-table"><thead><tr><th style="min-width: 120px;">구분</th>';
-    allDates.forEach(date => { html += `<th>${date}</th>`; });
-    html += '</tr></thead><tbody>';
 
-    const student = data.식단.student;
-    const faculty = data.식단.faculty;
+    // 오늘 날짜 문자열 (M.D 형식)
+    const today = new Date();
+    const todayString = `${today.getMonth() + 1}.${today.getDate()}`;
 
-    // 조식 (학생)
-    if (student) {
-        html += `<tr><td class="meal-type-cell">학생 - 조식</td>`;
-        allDates.forEach(date => { html += `<td>${student[date] ? student[date].breakfast : '-'}</td>`; });
-        html += `</tr>`;
+    // --- HTML 구조 생성 시작 ---
+    let html = `<div class="weekly-meal-header">
+                    <h3>주간 식단</h3>
+                    <span>${data.기간.시작일} ~ ${data.기간.종료일}</span>
+                </div>`;
 
-        // 중식 (학생 - 한식, 일품/분식, Plus)
-        const studentLunchMenus = [
-            { id: 'korean', name: '한식' },
-            { id: 'ala_carte', name: '일품/분식' },
-            { id: 'snack_plus', name: 'Plus' }
-        ];
-        studentLunchMenus.forEach((meal, index) => {
-            html += `<tr>`;
-            if (index === 0) html += `<td class="meal-type-cell" rowspan="3">학생 - 중식</td>`;
-            allDates.forEach(date => {
-                const dailyLunch = student[date] ? student[date].lunch : null;
-                const menuText = (dailyLunch && typeof dailyLunch === 'object') ? dailyLunch[meal.id] : (dailyLunch || '-');
-                html += `<td><span class="meal-category-title">${meal.name}</span><div class="meal-menu-text">${menuText}</div></td>`;
-            });
-            html += `</tr>`;
+    // 식사 시간별 섹션 생성 함수
+    const createMealSection = (title, iconClass, mealType, cafeteria) => {
+        let sectionHtml = `<section class="meal-time-section">
+                                <h4 class="meal-time-title"><i class="${iconClass}"></i> ${title}</h4>
+                                <div class="meal-days-grid">`;
+
+        weekdays.forEach(date => {
+            const menuData = cafeteria === 'student' ? studentMenu[date] : facultyMenu[date];
+            let menuContent = '-';
+
+            if (menuData) {
+                if (mealType === 'lunch' && cafeteria === 'student' && typeof menuData.lunch === 'object') {
+                    // 학생 중식 (한식, 일품, Plus)
+                    menuContent = `
+                        <div class="meal-lunch-detail">
+                            <span class="meal-lunch-type">한식:</span> ${menuData.lunch.korean || '-'}
+                        </div>
+                        <div class="meal-lunch-detail">
+                            <span class="meal-lunch-type">일품/분식:</span> ${menuData.lunch.ala_carte || '-'}
+                        </div>
+                        <div class="meal-lunch-detail">
+                            <span class="meal-lunch-type">Plus:</span> ${menuData.lunch.snack_plus || '-'}
+                        </div>
+                    `;
+                } else {
+                    menuContent = menuData[mealType] || '-';
+                }
+            }
+
+            const datePart = date.split('(')[0];
+            const isTodayClass = (datePart === todayString) ? 'is-today' : '';
+
+            sectionHtml += `<div class="meal-day-item ${isTodayClass}">
+                                <div class="meal-day-header">${date}</div>
+                                <div class="meal-day-content">${menuContent}</div>
+                            </div>`;
         });
 
-        // 석식 (학생)
-        html += `<tr><td class="meal-type-cell">학생 - 석식</td>`;
-        allDates.forEach(date => { html += `<td>${student[date] ? student[date].dinner : '-'}</td>`; });
-        html += `</tr>`;
-    }
+        sectionHtml += `</div></section>`;
+        return sectionHtml;
+    };
 
-    // 중식 (교직원)
-    if (faculty) {
-        html += `<tr><td class="meal-type-cell">교직원 - 중식</td>`;
-        allDates.forEach(date => { html += `<td>${faculty[date] ? faculty[date].lunch : '-'}</td>`; });
-        html += `</tr>`;
-    }
+    // 각 섹션 HTML 생성 및 결합
+    html += createMealSection('조식', 'fas fa-bread-slice', 'breakfast', 'student');
+    html += createMealSection('학생 중식', 'fas fa-sun', 'lunch', 'student');
+    html += createMealSection('교직원 중식', 'fas fa-user-tie', 'lunch', 'faculty');
+    html += createMealSection('석식', 'fas fa-moon', 'dinner', 'student');
 
-    html += '</tbody></table>';
     container.innerHTML = html;
 }
+
 
 
 // --- 일정 함수 (기존과 동일) ---
