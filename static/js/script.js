@@ -43,7 +43,7 @@ function initializeApp() {
     if (document.querySelector('.profile-widget .profile-header .profile-name')) {
         loadStudyStats();
         loadTodaySchedule();
-        loadTimetable(); // 새 로직으로 실행
+        loadTimetable(); // 새 로직으로 실행 (학기 ID 없이 호출)
     }
 
     // 셔틀버스 실시간 업데이트 시작
@@ -152,21 +152,25 @@ function setupEventListeners() {
             const dataUrl = e.currentTarget.dataset.url;
 
             if (linkUrl && linkUrl !== '#' && !dataUrl) {
-                return;
+                // 일반 페이지 이동 (href가 있고 data-url이 없을 때)
+                return; // 기본 동작 수행
             }
-            e.preventDefault();
+            e.preventDefault(); // 외부 링크 또는 # 링크일 때 기본 동작 막기
 
-            if (linkUrl && linkUrl !== '#') {
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                e.currentTarget.classList.add('active');
+            // #이 아닌 내부 링크 클릭 시 활성 상태 변경 (외부 링크는 활성 상태 변경 안 함)
+            if (linkUrl && linkUrl !== '#' && !dataUrl) {
+                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                 e.currentTarget.classList.add('active');
+                 // 페이지 이동은 기본 동작에 맡김
             }
 
+            // 외부 링크(data-url) 클릭 시 로딩 오버레이 후 새 탭
             if (dataUrl) {
                 if (loadingOverlay) loadingOverlay.classList.add('active');
                 setTimeout(() => {
                     window.open(dataUrl, '_blank');
                     if (loadingOverlay) loadingOverlay.classList.remove('active');
-                }, 1500);
+                }, 1500); // 1.5초 후 새 탭 열기
             }
         });
     });
@@ -270,7 +274,7 @@ async function loadStudyStats() {
 }
 
 
-// --- 셔틀버스 함수 (기존과 동일) ---
+// --- 셔틀버스 함수 ---
 function startRealTimeUpdates() {
     if (shuttleUpdateInterval) clearInterval(shuttleUpdateInterval);
     shuttleUpdateInterval = setInterval(() => {
@@ -292,6 +296,7 @@ async function loadShuttleSchedule() {
     }
 }
 
+// [수정됨] 요구사항 1, 3 반영
 function updateRealTimeShuttle() {
     const container = document.getElementById('shuttleList');
     if (!container) return;
@@ -305,8 +310,10 @@ function updateRealTimeShuttle() {
     // 수정: 토요일도 평일 시간표 적용 (단, CSV에 토요일 시간표가 따로 없다면)
     const dayType = (todayDayOfWeek === 0) ? '일요일' : '평일';
 
+    // 1. 요일 필터링
     data = data.filter(s => s.type === dayType || s.type === '기타');
 
+    // 2. 탭 필터링
     data = data.filter(s => {
         switch (currentFilter) {
             case 'school_to_station': return s.route.includes('학교 → 조치원역');
@@ -319,6 +326,7 @@ function updateRealTimeShuttle() {
     const now = new Date();
     const currentSecondsOfDay = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
 
+    // 3. 시간 처리 및 정렬
     let processedData = data
         .map(shuttle => {
             const [hour, minute] = shuttle.time.split(':').map(Number);
@@ -336,11 +344,23 @@ function updateRealTimeShuttle() {
         return;
     }
 
+    // [수정] 요구사항 3: 다음 2개 셔틀 인덱스 찾기
+    let upcomingShuttleIndices = [];
+    let foundCount = 0;
+    for (let i = 0; i < processedData.length && foundCount < 2; i++) {
+        if (processedData[i].remainingTimeSeconds > 0) {
+            upcomingShuttleIndices.push(i);
+            foundCount++;
+        }
+    }
+
+    // 4. UI 렌더링
     processedData.forEach((shuttle, index) => {
         const remainingTimeSeconds = shuttle.remainingTimeSeconds;
         let statusText = '';
         let statusClass = 'scheduled';
-        const isNextShuttle = (index === 0 && remainingTimeSeconds > 0) || (index === 1 && remainingTimeSeconds > 0 && processedData[0].remainingTimeSeconds <= 0); // 다음 또는 다다음 출발 예정 셔틀
+        // [수정] 요구사항 3: 강조 여부 확인
+        const isNextShuttle = upcomingShuttleIndices.includes(index);
 
         if (remainingTimeSeconds <= 0) {
             statusText = '운행 완료';
@@ -348,26 +368,27 @@ function updateRealTimeShuttle() {
         } else if (remainingTimeSeconds <= 300) { // 5분 이내
             const remainingMins = Math.floor(remainingTimeSeconds / 60);
             const remainingSecs = remainingTimeSeconds % 60;
-            statusText = `곧 도착 (${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초)`;
-            statusClass = 'active blinking';
+            // [수정] 요구사항 1: 줄바꿈 추가
+            statusText = `곧 도착<br>(${String(remainingMins).padStart(2, '0')}분 ${String(remainingSecs).padStart(2, '0')}초)`;
+            statusClass = 'active blinking'; // Blinking class 유지
         } else { // 5분 초과
             const remainingHours = Math.floor(remainingTimeSeconds / 3600);
             const remainingMins = Math.floor((remainingTimeSeconds % 3600) / 60);
             let minDisplay = (remainingHours > 0) ? `${remainingHours}시간 ${remainingMins}분 후` : `${remainingMins}분 후`;
-            statusText = `출발 예정 (${minDisplay})`;
+            // [수정] 요구사항 1: 줄바꿈 추가
+            statusText = `출발 예정<br>(${minDisplay})`;
             statusClass = 'scheduled';
             if (isNextShuttle) {
-                 statusClass = 'active'; // 다음 셔틀 강조 (녹색 배경)
+                 statusClass = 'active'; // 강조 (녹색 배경)
             }
         }
 
         const item = document.createElement('div');
         item.className = 'shuttle-item';
-        // 'next-shuttle' 클래스 추가 조건 수정: 다음 또는 다다음 출발 예정인 경우
-         if (isNextShuttle && remainingTimeSeconds > 0) {
+        // [수정] 요구사항 3: 강조 클래스 추가 조건
+         if (isNextShuttle) {
             item.classList.add('next-shuttle');
         }
-
 
         item.innerHTML = `
             <div class="shuttle-time">${shuttle.time}</div>
@@ -397,6 +418,7 @@ function renderFullShuttleTable(container) {
         container.innerHTML = '<p>시간표 정보가 없습니다.</p>';
         return;
     }
+    // 데이터 그룹화 및 정렬
     const groupedData = data.reduce((acc, shuttle) => {
         acc[shuttle.type] = acc[shuttle.type] || {};
         const groupKey = shuttle.route_group === 'Osong_Included' ? 'Osong' : 'Jochiwon';
@@ -409,9 +431,12 @@ function renderFullShuttleTable(container) {
             groupedData[day][routeGroup].sort((a, b) => a.time.localeCompare(b.time));
         }
     }
+
+    // HTML 생성
     let html = '';
-    const dayOrder = ['평일', '일요일']; // 토요일은 평일에 포함될 수 있음
+    const dayOrder = ['평일', '일요일']; // 순서 정의
     const routeOrder = ['Jochiwon', 'Osong'];
+
     dayOrder.forEach(dayType => {
         if (groupedData[dayType]) {
             routeOrder.forEach(routeGroup => {
@@ -435,6 +460,7 @@ function renderFullShuttleTable(container) {
             });
         }
     });
+
     container.innerHTML = html || '<p>시간표 정보가 없습니다.</p>';
 }
 
@@ -548,21 +574,26 @@ function renderWeeklyMealTable(container, data) {
             let menuContent = '-';
 
             if (menuData) {
-                if (mealType === 'lunch' && cafeteria === 'student' && typeof menuData.lunch === 'object') {
-                    // 학생 중식 (한식, 일품, Plus)
+                if (mealType === 'lunch' && cafeteria === 'student' && typeof menuData['중식-한식'] !== 'undefined') {
+                    // 학생 중식 (한식, 일품, Plus) - 키 이름 직접 사용
                     menuContent = `
                         <div class="meal-lunch-detail">
-                            <span class="meal-lunch-type">한식:</span> ${menuData.lunch.korean || '-'}
+                            <span class="meal-lunch-type">한식:</span> ${menuData['중식-한식'] ? menuData['중식-한식'].메뉴.join(', ') : '-'}
                         </div>
                         <div class="meal-lunch-detail">
-                            <span class="meal-lunch-type">일품/분식:</span> ${menuData.lunch.ala_carte || '-'}
+                            <span class="meal-lunch-type">일품/분식:</span>
+                            ${menuData['중식-일품'] ? menuData['중식-일품'].메뉴.join(', ') : ''}
+                            ${menuData['중식-분식'] ? (menuData['중식-일품'] ? ' / ' : '') + menuData['중식-분식'].메뉴.join(', ') : ''}
+                            ${!menuData['중식-일품'] && !menuData['중식-분식'] ? '-' : ''}
                         </div>
                         <div class="meal-lunch-detail">
-                            <span class="meal-lunch-type">Plus:</span> ${menuData.lunch.snack_plus || '-'}
+                            <span class="meal-lunch-type">Plus:</span> ${menuData['중식-plus'] ? menuData['중식-plus'].메뉴.join(', ') : '-'}
                         </div>
                     `;
-                } else {
-                    menuContent = menuData[mealType] || '-';
+                } else if (menuData[mealType] && menuData[mealType].메뉴) {
+                    menuContent = menuData[mealType].메뉴.join(', ');
+                } else if (mealType === 'lunch' && cafeteria === 'faculty' && menuData['중식'] && menuData['중식'].메뉴) {
+                    menuContent = menuData['중식'].메뉴.join(', '); // 교직원 중식 처리
                 }
             }
 
@@ -580,10 +611,10 @@ function renderWeeklyMealTable(container, data) {
     };
 
     // 각 섹션 HTML 생성 및 결합
-    html += createMealSection('조식', 'fas fa-bread-slice', 'breakfast', 'student');
-    html += createMealSection('학생 중식', 'fas fa-sun', 'lunch', 'student');
-    html += createMealSection('교직원 중식', 'fas fa-user-tie', 'lunch', 'faculty');
-    html += createMealSection('석식', 'fas fa-moon', 'dinner', 'student');
+    html += createMealSection('조식', 'fas fa-bread-slice', '조식', 'student');
+    html += createMealSection('학생 중식', 'fas fa-sun', 'lunch', 'student'); // 내부적으로 한식/일품/분식/plus 처리
+    html += createMealSection('교직원 중식', 'fas fa-user-tie', 'lunch', 'faculty'); // 내부적으로 '중식' 키 처리
+    html += createMealSection('석식', 'fas fa-moon', '석식', 'student');
 
     container.innerHTML = html;
 }
@@ -643,6 +674,7 @@ function displaySchedule(data) {
 
 // --- 시간표/메모 함수 ---
 
+// [수정됨] 요구사항 2: 학기 ID 없이 API 호출
 async function loadTimetable() {
     const tbody = document.getElementById('timetableBody');
     if (!tbody) return;

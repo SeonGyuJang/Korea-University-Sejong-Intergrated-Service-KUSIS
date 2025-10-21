@@ -103,26 +103,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 1. 초기화 ---
+    // [수정됨] 요구사항 2 반영: 현재 날짜 기준 학기 로드
     async function initializePage() {
         setupEventListeners();
-        await loadAllSemesters(); // 모든 학기 목록 로드 및 드롭다운 채우기
+        await loadAllSemesters(); // 모든 학기 목록 로드 및 드롭다운 채우기 (기존 유지)
 
-        // Request 2: 페이지 로드 시 최신 학기 데이터 자동 로드
-        if (allSemesters.length > 0) {
-            // allSemesters는 이미 최신순으로 정렬되어 있음 (백엔드에서 처리)
-            currentSemesterId = allSemesters[0].id; // 가장 첫 번째 (최신) 학기 ID
-            semesterSelect.value = currentSemesterId; // 드롭다운 선택
-            await loadTimetableForSemester(currentSemesterId); // 해당 학기 시간표 로드
-        } else {
-            // 학기가 없을 경우 UI 처리
-            timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">등록된 학기가 없습니다.</td></tr>`;
-            if(subjectDetailsListUl) subjectDetailsListUl.innerHTML = '<li class="subject-details-empty">등록된 학기가 없습니다.</li>';
-            todoSummaryList.innerHTML = '<p class="todo-summary-empty">등록된 학기가 없습니다.</p>';
+        // Request 2: 페이지 로드 시 학기 ID 없이 API 호출하여 기본(현재 날짜 기준) 학기 로드
+        try {
+            timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">기본 시간표 로딩 중...</td></tr>`;
+            const response = await fetch('/api/timetable-data'); // semester_id 없이 호출
+            if (!response.ok) throw new Error(`기본 시간표 로드 실패 (${response.status})`);
+            const data = await response.json();
+
+            if (data.semester && data.semester.id) {
+                // 성공적으로 기본 학기 정보를 받아왔다면
+                currentSemesterId = data.semester.id;
+                currentSemesterInfo = data.semester;
+                currentSubjects = data.subjects || [];
+
+                // 드롭다운에서 해당 학기 선택
+                if (semesterSelect) semesterSelect.value = currentSemesterId;
+
+                // 과목 메모 파싱 (loadTimetableForSemester와 동일)
+                currentSubjects.forEach(s => {
+                    if (typeof s.memo === 'string') { try { s.memo = JSON.parse(s.memo); } catch(e) { s.memo = {note: '', todos: []}; } }
+                    if (!s.memo || typeof s.memo !== 'object') s.memo = {note: '', todos: []};
+                    if (!Array.isArray(s.memo.todos)) s.memo.todos = [];
+                    if (typeof s.memo.note !== 'string') s.memo.note = '';
+                });
+
+                // UI 렌더링
+                renderTimetableGrid(currentSubjects);
+                renderTodoSummary(currentSubjects);
+                renderSubjectDetailsList(currentSubjects);
+                resetWeeklyDetailsPanel(); // 초기에는 주차별 정보 리셋
+                addSubjectBtn.disabled = false; // 새 과목 추가 버튼 활성화
+
+            } else if (allSemesters.length > 0) {
+                 // 기본 학기 로드 실패했지만, 다른 학기 목록이 있다면 최신 학기 로드 시도 (Fallback)
+                 console.warn("기본 학기 로드 실패 또는 학기 정보 없음. 최신 학기로 대체합니다.");
+                 currentSemesterId = allSemesters[0].id; // 가장 첫 번째 (최신) 학기 ID
+                 if (semesterSelect) semesterSelect.value = currentSemesterId;
+                 await loadTimetableForSemester(currentSemesterId); // 해당 학기 시간표 로드
+
+            } else {
+                 // 학기 목록 자체가 없을 경우
+                 throw new Error("등록된 학기가 없습니다.");
+            }
+
+        } catch (error) {
+            // 초기 로드 실패 시 UI 처리
+            console.error("초기 시간표 로드 실패:", error);
+            timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">${error.message}</td></tr>`;
+            if(subjectDetailsListUl) subjectDetailsListUl.innerHTML = `<li class="subject-details-empty">${error.message}</li>`;
+            todoSummaryList.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
             addSubjectBtn.disabled = true;
             resetWeeklyDetailsPanel(); // 주차별 정보 패널 비활성화
         }
 
-        // GPA 통계 로드 (현재 학점 계산 포함)
+        // GPA 통계 로드 (현재 학점 계산 포함) - 학기 로드 후 실행
         loadGpaStats();
         // 주차별 정보 초기화 (선택된 과목 없음 상태)
         updateWeekView();
@@ -131,36 +170,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. 이벤트 리스너 설정 ---
     function setupEventListeners() {
-        semesterSelect.addEventListener('change', handleSemesterChange);
-        addSubjectBtn.addEventListener('click', openAddSubjectModal);
+        if (semesterSelect) semesterSelect.addEventListener('change', handleSemesterChange);
+        if (addSubjectBtn) addSubjectBtn.addEventListener('click', openAddSubjectModal);
 
-        editGoalBtn.addEventListener('click', () => { editGoalForm.style.display = 'flex'; editGoalBtn.style.display = 'none'; });
-        cancelGoalBtn.addEventListener('click', () => { editGoalForm.style.display = 'none'; editGoalBtn.style.display = 'inline-block'; });
-        saveGoalBtn.addEventListener('click', saveCreditGoal);
-        refreshGpaChartBtn.addEventListener('click', loadGpaStats);
+        if (editGoalBtn) editGoalBtn.addEventListener('click', () => { editGoalForm.style.display = 'flex'; editGoalBtn.style.display = 'none'; });
+        if (cancelGoalBtn) cancelGoalBtn.addEventListener('click', () => { editGoalForm.style.display = 'none'; editGoalBtn.style.display = 'inline-block'; });
+        if (saveGoalBtn) saveGoalBtn.addEventListener('click', saveCreditGoal);
+        if (refreshGpaChartBtn) refreshGpaChartBtn.addEventListener('click', loadGpaStats);
 
-        addMoreTimeSlotBtn.addEventListener('click', () => createTimeSlotEntry(null, addTimeSlotContainer));
-        saveNewSubjectBtn.addEventListener('click', saveNewSubject);
-        addSubjectModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => addSubjectModal.classList.remove('active')));
+        if (addMoreTimeSlotBtn) addMoreTimeSlotBtn.addEventListener('click', () => createTimeSlotEntry(null, addTimeSlotContainer));
+        if (saveNewSubjectBtn) saveNewSubjectBtn.addEventListener('click', saveNewSubject);
+        if (addSubjectModal) addSubjectModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => addSubjectModal.classList.remove('active')));
 
-        editAddTimeSlotBtn.addEventListener('click', () => createTimeSlotEntry(null, editTimeSlotContainer));
-        updateSubjectBtn.addEventListener('click', updateSubject);
-        deleteSubjectBtn.addEventListener('click', deleteSubject);
-        editSubjectModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => editSubjectModal.classList.remove('active')));
+        if (editAddTimeSlotBtn) editAddTimeSlotBtn.addEventListener('click', () => createTimeSlotEntry(null, editTimeSlotContainer));
+        if (updateSubjectBtn) updateSubjectBtn.addEventListener('click', updateSubject);
+        if (deleteSubjectBtn) deleteSubjectBtn.addEventListener('click', deleteSubject);
+        if (editSubjectModal) editSubjectModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => editSubjectModal.classList.remove('active')));
 
-        prevWeekBtn.addEventListener('click', () => changeWeek(-1));
-        nextWeekBtn.addEventListener('click', () => changeWeek(1));
-        weeklyAddTodoBtn.addEventListener('click', addWeeklyTodoItem);
-        weeklyNewTodoInput.addEventListener('keypress', (e) => {
+        if (prevWeekBtn) prevWeekBtn.addEventListener('click', () => changeWeek(-1));
+        if (nextWeekBtn) nextWeekBtn.addEventListener('click', () => changeWeek(1));
+        if (weeklyAddTodoBtn) weeklyAddTodoBtn.addEventListener('click', addWeeklyTodoItem);
+        if (weeklyNewTodoInput) weeklyNewTodoInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addWeeklyTodoItem();
             }
         });
-        saveWeeklyMemoTodoBtn.addEventListener('click', saveWeeklyMemoTodo);
+        if (saveWeeklyMemoTodoBtn) saveWeeklyMemoTodoBtn.addEventListener('click', saveWeeklyMemoTodo);
 
-        viewAllWeeksBtn.addEventListener('click', openAllWeeksModal);
-        allWeeksModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allWeeksModal.classList.remove('active')));
+        if (viewAllWeeksBtn) viewAllWeeksBtn.addEventListener('click', openAllWeeksModal);
+        if (allWeeksModal) allWeeksModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allWeeksModal.classList.remove('active')));
     }
 
     // --- 3. 데이터 로딩 (API) ---
@@ -172,18 +211,19 @@ document.addEventListener('DOMContentLoaded', () => {
             populateSemesterDropdown();
         } catch (error) {
             console.error(error);
-            semesterSelect.innerHTML = `<option value="">${error.message}</option>`;
+            if (semesterSelect) semesterSelect.innerHTML = `<option value="">${error.message}</option>`;
         }
     }
 
     async function handleSemesterChange() {
+        if (!semesterSelect) return;
         const selectedId = parseInt(semesterSelect.value, 10);
         if (selectedId && selectedId !== currentSemesterId) {
             currentSemesterId = selectedId;
             await loadTimetableForSemester(currentSemesterId);
             selectedSubjectForDetails = null; // 학기 변경 시 선택된 과목 초기화
             resetWeeklyDetailsPanel(); // 주차별 정보 패널 초기화
-            loadGpaStats(); // 학기 변경 시 GPA 통계 다시 로드 (현재 학점 반영 위해)
+            // loadGpaStats(); // 학기 변경 시 GPA 통계 다시 로드할 필요 없음 (전체 통계이므로)
         }
     }
 
@@ -194,11 +234,13 @@ document.addEventListener('DOMContentLoaded', () => {
             resetSubjectDetailsPanel();
             resetWeeklyDetailsPanel();
             currentSemesterInfo = null; // 학기 정보 초기화
+            if (addSubjectBtn) addSubjectBtn.disabled = true; // 학기 없으면 추가 불가
             return;
         }
-        timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">시간표 로딩 중...</td></tr>`;
-        subjectDetailsListUl.innerHTML = '<li class="subject-details-empty">과목 목록 로딩 중...</li>';
-        todoSummaryList.innerHTML = '<p class="todo-summary-empty">Todo 로딩 중...</p>'; // Todo 로딩 상태 추가
+        if (timetableBody) timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">시간표 로딩 중...</td></tr>`;
+        if (subjectDetailsListUl) subjectDetailsListUl.innerHTML = '<li class="subject-details-empty">과목 목록 로딩 중...</li>';
+        if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">Todo 로딩 중...</p>'; // Todo 로딩 상태 추가
+
         try {
             const response = await fetch(`/api/timetable-data?semester_id=${semesterId}`);
             if (!response.ok) throw new Error(`시간표 로드 실패 (${response.status})`);
@@ -222,55 +264,66 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTodoSummary(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
             resetWeeklyDetailsPanel(); // 과목 선택 전까지 주차별 정보는 초기화
+             if (addSubjectBtn) addSubjectBtn.disabled = false; // 학기 로드 성공 시 추가 버튼 활성화
+
         } catch (error) {
             console.error(error);
             clearTimetableAndTodos();
             resetSubjectDetailsPanel(error.message);
             resetWeeklyDetailsPanel();
             currentSemesterInfo = null;
+            if (addSubjectBtn) addSubjectBtn.disabled = true;
         }
     }
 
 
     async function loadGpaStats() {
-        if (!gpaChartCanvas) return;
+        // GPA 관련 DOM 요소 없으면 실행 중지
+        if (!gpaChartCanvas || !creditProgressCircle || !overallGpaEl) return;
         try {
             const response = await fetch('/api/gpa-stats');
             if (!response.ok) throw new Error(`GPA 통계 로드 실패 (${response.status})`);
             const statsData = await response.json();
 
-            updateCreditProgress(statsData.total_earned_credits, parseInt(goalCreditsEl.textContent, 10));
-            overallGpaEl.textContent = statsData.overall_gpa;
+            // 목표 학점은 goalCreditsEl 에서 직접 읽어옴
+            const currentGoal = goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130;
+            updateCreditProgress(statsData.total_earned_credits, currentGoal);
+            if (overallGpaEl) overallGpaEl.textContent = statsData.overall_gpa;
 
             renderGpaChart(statsData.semesters);
         } catch (error) {
             console.error(error);
-            const ctx = gpaChartCanvas.getContext('2d');
+            const ctx = gpaChartCanvas ? gpaChartCanvas.getContext('2d') : null;
             if (ctx) {
                 ctx.clearRect(0, 0, gpaChartCanvas.width, gpaChartCanvas.height);
                 ctx.textAlign = 'center';
                 ctx.fillText(error.message, gpaChartCanvas.width / 2, gpaChartCanvas.height / 2);
             }
+             // 에러 발생 시 학점 UI 기본값 표시
+             updateCreditProgress(0, goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130);
+             if (overallGpaEl) overallGpaEl.textContent = 'N/A';
         }
     }
 
     // --- 4. 렌더링 함수 ---
     function populateSemesterDropdown() {
+        if (!semesterSelect) return;
         semesterSelect.innerHTML = '';
         if (allSemesters.length > 0) {
             allSemesters.forEach(s => {
                 const option = new Option(s.name, s.id);
                 semesterSelect.add(option);
             });
-            addSubjectBtn.disabled = false;
+            // addSubjectBtn 활성화는 초기 로드 로직에서 처리
         } else {
             semesterSelect.innerHTML = '<option value="">학기 없음</option>';
-            addSubjectBtn.disabled = true;
+            if (addSubjectBtn) addSubjectBtn.disabled = true;
         }
     }
 
     // 시간표 그리드 렌더링
     function renderTimetableGrid(subjects) {
+        if (!timetableBody) return;
         timetableBody.innerHTML = '';
         subjectColorMap = {}; // 색상 맵 초기화
 
@@ -279,19 +332,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 시간 범위 계산 및 색상 매핑
         if (subjects && subjects.length > 0) {
-            let earliestStartHour = 24, latestEndHour = 0;
+            let earliestStartHour = 24, latestEndHour = -1; // latestEndHour 초기값 수정
             subjects.forEach((subject, index) => {
                 if (!subjectColorMap[subject.id]) {
                     subjectColorMap[subject.id] = subjectColors[index % subjectColors.length];
                 }
                 subject.timeslots.forEach(ts => {
-                    const startH = parseInt(ts.start.split(':')[0]), endH = parseInt(ts.end.split(':')[0]), endM = parseInt(ts.end.split(':')[1]);
-                    earliestStartHour = Math.min(earliestStartHour, startH);
-                    latestEndHour = Math.max(latestEndHour, (endM > 0 ? endH : endH - 1));
+                    if (ts.start && ts.end) { // 시간 정보 유효성 검사
+                        const startH = parseInt(ts.start.split(':')[0]);
+                        const endH = parseInt(ts.end.split(':')[0]);
+                        const endM = parseInt(ts.end.split(':')[1]);
+                        earliestStartHour = Math.min(earliestStartHour, startH);
+                        // 종료 시간이 정각이면 그 이전 시간까지만 포함, 아니면 해당 시간 포함
+                        latestEndHour = Math.max(latestEndHour, (endM > 0 ? endH : endH - 1));
+                    }
                 });
             });
+            // earliestStartHour가 24가 아니면(즉, 유효한 시작 시간이 있으면) minHour 업데이트
             if (earliestStartHour < 24) minHour = Math.min(minHour, earliestStartHour);
-            if (latestEndHour >= 0) maxHour = Math.max(maxHour, latestEndHour + 1);
+            // latestEndHour가 0보다 크면(즉, 유효한 종료 시간이 있으면) maxHour 업데이트
+            if (latestEndHour >= 0) maxHour = Math.max(maxHour, latestEndHour + 1); // +1은 해당 시간대까지 포함하기 위함
+            else if (earliestStartHour < 24) maxHour = Math.max(maxHour, earliestStartHour + 1); // 시작 시간만 있으면 최소 1시간 표시
         }
 
         // 시간표 행 생성
@@ -313,11 +374,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 시간표 슬롯 배치
     function positionTimetableSlots(subjects) {
+         if (!timetableBody) return;
         requestAnimationFrame(() => { // DOM 렌더링 후 실행 보장
             const firstRowCell = timetableBody.querySelector('td[data-day="1"]');
-            if (!firstRowCell) { return; }
+            if (!firstRowCell) { return; } // 셀 없으면 중단
             const cellHeight = firstRowCell.offsetHeight; // 셀 높이 측정
-            if (!cellHeight || cellHeight === 0) { // 높이가 0이면 잠시 후 재시도
+            if (!cellHeight || cellHeight <= 0) { // 높이 0이면 잠시 후 재시도 (렌더링 지연 문제)
+                console.warn("Cell height is 0, retrying slot positioning...");
                 setTimeout(() => positionTimetableSlots(subjects), 100);
                 return;
             }
@@ -327,23 +390,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 const borderColor = subjectColor.replace('0.1', '0.8'); // 테두리 색상
 
                 subject.timeslots.forEach(ts => {
+                     // 시간 정보 유효성 검사 추가
+                     if (!ts.start || !ts.end || !ts.start.includes(':') || !ts.end.includes(':')) {
+                         console.warn(`Invalid timeslot data for subject ${subject.name}:`, ts);
+                         return; // 유효하지 않으면 건너뛰기
+                     }
+
                     const [startH, startM] = ts.start.split(':').map(Number);
                     const [endH, endM] = ts.end.split(':').map(Number);
                     // 슬롯이 시작하는 시간대의 셀 찾기
                     const targetCell = timetableBody.querySelector(`tr[data-hour="${String(startH).padStart(2, '0')}"] td[data-day="${ts.day}"]`);
-                    if (!targetCell) { return; } // 해당 셀이 없으면 건너뛰기
+                    if (!targetCell) { return; } // 해당 셀이 없으면 건너뛰기 (시간 범위 밖)
 
                     const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM); // 총 지속 시간(분)
+                    if (durationMinutes <= 0) return; // 지속시간 없으면 건너뛰기
+
                     const topOffset = (startM / 60) * cellHeight; // 셀 상단에서의 오프셋
-                    const slotHeight = Math.max(10, (durationMinutes / 60) * cellHeight - 2); // 슬롯 높이 계산 (최소 10px)
+                    // 슬롯 높이 계산 (최소 10px), 셀 경계선 고려하여 -2px
+                    const slotHeight = Math.max(10, (durationMinutes / 60) * cellHeight - 2);
 
                     // 슬롯 div 생성 및 스타일 설정
                     const slotDiv = document.createElement('div');
                     slotDiv.className = 'subject-slot';
                     slotDiv.style.top = `${topOffset}px`;
                     slotDiv.style.height = `${slotHeight}px`;
-                    slotDiv.style.backgroundColor = subjectColor;
-                    slotDiv.style.borderLeft = `4px solid ${borderColor}`;
+                    slotDiv.style.backgroundColor = subjectColor; // 배경색 적용
+                    slotDiv.style.borderLeft = `4px solid ${borderColor}`; // 테두리색 적용
 
                     // 슬롯 내용 (과목명, 강의실)
                     let innerHTML = `<div class="slot-subject">${subject.name}</div>`;
@@ -351,7 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     slotDiv.innerHTML = innerHTML;
 
                     // 클릭 시 수정 모달 열기
-                    slotDiv.addEventListener('click', () => openEditSubjectModal(subject.id));
+                    slotDiv.addEventListener('click', (e) => {
+                        e.stopPropagation(); // 이벤트 버블링 방지
+                        openEditSubjectModal(subject.id);
+                    });
                     targetCell.appendChild(slotDiv); // 셀에 슬롯 추가
                 });
             });
@@ -360,27 +435,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function clearTimetableAndTodos() {
-        timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">표시할 시간표가 없습니다.</td></tr>`;
-        todoSummaryList.innerHTML = '<p class="todo-summary-empty">학기를 선택해주세요.</p>';
+        if (timetableBody) timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">표시할 시간표가 없습니다.</td></tr>`;
+        if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">학기를 선택해주세요.</p>';
     }
 
     function renderTodoSummary(subjects) {
+        if (!todoSummaryList) return;
         todoSummaryList.innerHTML = '';
-        const subjectsWithTodos = subjects.filter(s => s.memo && s.memo.todos && s.memo.todos.length > 0);
-        if (subjectsWithTodos.length === 0) {
-            todoSummaryList.innerHTML = '<p class="todo-summary-empty">이번 학기 Todo가 없습니다.</p>';
+        // 메모(note) 또는 할일(todos)이 있는 과목 필터링
+        const subjectsWithContent = subjects.filter(s => s.memo && (s.memo.note || (s.memo.todos && s.memo.todos.length > 0)));
+
+        if (subjectsWithContent.length === 0) {
+            todoSummaryList.innerHTML = '<p class="todo-summary-empty">이번 학기 메모/Todo가 없습니다.</p>';
             return;
         }
-        subjectsWithTodos.forEach(subject => {
-            const pendingTodos = subject.memo.todos.filter(t => !t.done);
-            const isCompleted = pendingTodos.length === 0;
+
+        subjectsWithContent.forEach(subject => {
+            const hasNote = subject.memo.note && subject.memo.note.trim() !== '';
+            const hasTodos = subject.memo.todos && subject.memo.todos.length > 0;
+            const pendingTodos = hasTodos ? subject.memo.todos.filter(t => !t.done) : [];
+            const isCompleted = hasTodos && pendingTodos.length === 0;
+
             const itemDiv = document.createElement('div');
             itemDiv.className = `todo-summary-item ${isCompleted ? 'completed' : ''}`;
+
+            let statusText = '';
+            if (hasNote && hasTodos) statusText = `메모 있음 / ${isCompleted ? 'Todo 완료' : `${pendingTodos.length}개 남음`}`;
+            else if (hasNote) statusText = '메모 있음';
+            else if (hasTodos) statusText = isCompleted ? 'Todo 완료' : `${pendingTodos.length}개 남음`;
+
             itemDiv.innerHTML = `
-                <div class="todo-subject">${subject.name} (${isCompleted ? '완료' : `${pendingTodos.length}개 남음`})</div>
+                <div class="todo-subject">${subject.name} (${statusText})</div>
+                ${hasTodos ? `
                 <ul class="todo-list">
                     ${subject.memo.todos.map(todo => `<li class="todo-list-item ${todo.done ? 'done' : 'pending'}"><i class="fas ${todo.done ? 'fa-check-square' : 'fa-square'}"></i> ${todo.task}</li>`).join('')}
-                </ul>`;
+                </ul>` : ''}
+                ${hasNote ? `<div class="todo-note-preview"><i class="fas fa-sticky-note"></i> ${subject.memo.note.substring(0, 50)}${subject.memo.note.length > 50 ? '...' : ''}</div>` : ''}`; // 메모 미리보기 추가
+
             todoSummaryList.appendChild(itemDiv);
         });
     }
@@ -414,6 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 과목 목록 렌더링 (오른쪽 사이드바)
     function renderSubjectDetailsList(subjects) {
+        if (!subjectDetailsListUl) return;
         subjectDetailsListUl.innerHTML = ''; // 목록 초기화
         if (!subjects || subjects.length === 0) {
             subjectDetailsListUl.innerHTML = '<li class="subject-details-empty">이 학기에 등록된 과목이 없습니다.</li>';
@@ -431,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="subject-grade">
                     <select class="grade-select" data-subject-id="${subject.id}">
-                        <option value="Not Set" ${subject.grade === 'Not Set' ? 'selected' : ''}>미설정</option>
+                        <option value="Not Set" ${!subject.grade || subject.grade === 'Not Set' ? 'selected' : ''}>미설정</option>
                         <option value="A+" ${subject.grade === 'A+' ? 'selected' : ''}>A+</option>
                         <option value="A0" ${subject.grade === 'A0' ? 'selected' : ''}>A0</option>
                         <option value="B+" ${subject.grade === 'B+' ? 'selected' : ''}>B+</option>
@@ -447,13 +539,16 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             // 클릭 시 해당 과목 선택 및 주차별 정보 로드
             li.addEventListener('click', () => {
-                 subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
+                 if (subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
                  li.classList.add('selected');
                  selectSubjectForDetails(subject.id);
             });
             // 등급 변경 시 이벤트 처리 (버블링 방지)
-             li.querySelector('.grade-select').addEventListener('change', handleGradeChange);
-             li.querySelector('.grade-select').addEventListener('click', (e) => e.stopPropagation());
+             const gradeSelect = li.querySelector('.grade-select');
+             if (gradeSelect) {
+                gradeSelect.addEventListener('change', handleGradeChange);
+                gradeSelect.addEventListener('click', (e) => e.stopPropagation());
+             }
 
             subjectDetailsListUl.appendChild(li);
         });
@@ -462,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
      // 과목 선택 시 처리 (Request 3 수정)
      function selectSubjectForDetails(subjectId) {
          selectedSubjectForDetails = currentSubjects.find(s => s.id === subjectId);
-         if (selectedSubjectForDetails && currentSemesterInfo) {
+         if (selectedSubjectForDetails && currentSemesterInfo && weeklyDetailsTitle) {
              weeklyDetailsTitle.innerHTML = `<i class="fas fa-calendar-week"></i> 주차별 정보 (${selectedSubjectForDetails.name})`;
 
              // Request 3: 현재 날짜 기준 주차 계산
@@ -488,8 +583,12 @@ document.addEventListener('DOMContentLoaded', () => {
          const subject = currentSubjects.find(s => s.id === subjectId);
          if (!subject) return;
 
-         subject.grade = newGrade; // 로컬 데이터 업데이트
-         const subjectMemo = subject.memo || { note: '', todos: [] };
+         // 등급 변경 시 로컬 데이터 즉시 업데이트
+         subject.grade = newGrade;
+         const subjectMemo = subject.memo || { note: '', todos: [] }; // 메모 정보 가져오기
+
+         // 옵티미스틱 UI 업데이트: 서버 응답 기다리지 않고 바로 GPA 재계산 (선택적)
+         // calculateAndDisplayLocalGPA();
 
          try {
              // 서버에 업데이트 요청 (메모 포함)
@@ -501,16 +600,20 @@ document.addEventListener('DOMContentLoaded', () => {
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({
                     name: subject.name, professor: subject.professor, credits: subject.credits,
-                    grade: newGrade, timeslots: timeslotsData, memo: subjectMemo
+                    grade: newGrade, timeslots: timeslotsData, memo: subjectMemo // 메모 함께 전송
                  })
              });
              const result = await response.json();
              if (result.status !== 'success') throw new Error(result.message);
-             loadGpaStats(); // GPA 통계 다시 로드
+
+             // 서버 업데이트 성공 후, 전체 GPA 통계 다시 로드 (정확성 보장)
+             loadGpaStats();
+
          } catch (error) {
              alert(`등급 업데이트 실패: ${error.message}`);
              // 실패 시 원래 등급으로 되돌리기 (선택적)
              // selectElement.value = subject.grade;
+             // calculateAndDisplayLocalGPA(); // 롤백 후 GPA 다시 계산
          }
      }
 
@@ -525,20 +628,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 주차별 정보 UI 업데이트 및 데이터 로드 트리거
      async function updateWeekView() {
-         prevWeekBtn.disabled = (currentWeek === 1); // 이전 버튼 비활성화 (1주차)
-         nextWeekBtn.disabled = (currentWeek === TOTAL_WEEKS); // 다음 버튼 비활성화 (16주차)
+         if (prevWeekBtn) prevWeekBtn.disabled = (currentWeek === 1); // 이전 버튼 비활성화 (1주차)
+         if (nextWeekBtn) nextWeekBtn.disabled = (currentWeek === TOTAL_WEEKS); // 다음 버튼 비활성화 (16주차)
 
          if (selectedSubjectForDetails) {
              await loadWeeklyMemoTodo(); // 선택된 과목 있으면 해당 주차 데이터 로드
          } else {
-             currentWeekDisplay.textContent = '주차 선택'; // 과목 없으면 기본 텍스트
+            if (currentWeekDisplay) currentWeekDisplay.textContent = '주차 선택'; // 과목 없으면 기본 텍스트
              resetWeeklyDetailsPanel(); // 패널 리셋
          }
      }
 
      // 특정 주차의 메모/Todo 데이터 로드 (API 호출)
      async function loadWeeklyMemoTodo() {
-         if (!selectedSubjectForDetails) return;
+         if (!selectedSubjectForDetails || !weeklyMemoText || !weeklyTodoListUl) return;
          // 로딩 상태 UI 설정
          weeklyMemoText.disabled = true;
          weeklyMemoText.value = '로딩 중...';
@@ -552,11 +655,11 @@ document.addEventListener('DOMContentLoaded', () => {
              if (weeklyData.status === 'success') {
                 // 성공 시 데이터 저장 및 UI 업데이트
                 currentWeeklyData = { note: weeklyData.note || '', todos: weeklyData.todos || [] };
-                currentWeekDisplay.textContent = `${weeklyData.week_date_str} (${currentWeek}주차)`; // 날짜 범위 표시
+                if (currentWeekDisplay) currentWeekDisplay.textContent = `${weeklyData.week_date_str} (${currentWeek}주차)`; // 날짜 범위 표시
                 weeklyMemoText.value = currentWeeklyData.note;
                 renderWeeklyTodoList(currentWeeklyData.todos);
-                weeklyMemoSubjectName.textContent = selectedSubjectForDetails.name; // 과목 이름 표시
-                weeklyTodoSubjectName.textContent = selectedSubjectForDetails.name;
+                if (weeklyMemoSubjectName) weeklyMemoSubjectName.textContent = selectedSubjectForDetails.name; // 과목 이름 표시
+                if (weeklyTodoSubjectName) weeklyTodoSubjectName.textContent = selectedSubjectForDetails.name;
                 enableWeeklyDetailsPanel(); // 입력 필드 활성화
              } else {
                 throw new Error(weeklyData.message || '데이터 로드 실패');
@@ -564,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
          } catch (error) {
              // 실패 시 에러 메시지 표시
              console.error(`Error loading week ${currentWeek} data:`, error);
-             currentWeekDisplay.textContent = `${currentWeek}주차 (로드 실패)`;
+             if (currentWeekDisplay) currentWeekDisplay.textContent = `${currentWeek}주차 (로드 실패)`;
              weeklyMemoText.value = '주차 정보 로드에 실패했습니다.';
              weeklyTodoListUl.innerHTML = `<li class="todo-empty">${error.message}</li>`;
              disableWeeklyDetailsPanel();
@@ -573,6 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 주차별 Todo 목록 렌더링
      function renderWeeklyTodoList(todos) {
+        if (!weeklyTodoListUl) return;
          weeklyTodoListUl.innerHTML = ''; // 목록 초기화
          if (!todos || todos.length === 0) {
              weeklyTodoListUl.innerHTML = '<li class="todo-empty">할 일이 없습니다.</li>';
@@ -592,11 +696,13 @@ document.addEventListener('DOMContentLoaded', () => {
              `;
              // 체크박스 변경 시: 로컬 데이터 업데이트, UI 변경, 저장 버튼 활성화
              li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
-                 if (currentWeeklyData.todos[index]) {
+                 if (currentWeeklyData.todos && currentWeeklyData.todos[index]) {
                      currentWeeklyData.todos[index].done = e.target.checked;
                      li.classList.toggle('done', e.target.checked);
-                     saveWeeklyMemoTodoBtn.disabled = false;
-                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                     if (saveWeeklyMemoTodoBtn) {
+                        saveWeeklyMemoTodoBtn.disabled = false;
+                        saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                     }
                  }
              });
              // 삭제 버튼 클릭 시: 로컬 데이터에서 삭제, UI 다시 렌더링, 저장 버튼 활성화
@@ -605,8 +711,10 @@ document.addEventListener('DOMContentLoaded', () => {
                      const indexToRemove = parseInt(e.target.dataset.index, 10);
                      currentWeeklyData.todos.splice(indexToRemove, 1);
                      renderWeeklyTodoList(currentWeeklyData.todos); // 목록 다시 렌더링
-                     saveWeeklyMemoTodoBtn.disabled = false;
-                     saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                     if (saveWeeklyMemoTodoBtn) {
+                        saveWeeklyMemoTodoBtn.disabled = false;
+                        saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                     }
                  }
              });
              weeklyTodoListUl.appendChild(li);
@@ -615,19 +723,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 주차별 Todo 항목 추가
      function addWeeklyTodoItem() {
+        if (!weeklyNewTodoInput || !selectedSubjectForDetails) return;
          const taskText = weeklyNewTodoInput.value.trim();
-         if (taskText === '' || !selectedSubjectForDetails) return; // 내용 없거나 과목 선택 안됐으면 무시
+         if (taskText === '') return; // 내용 없으면 무시
 
          const newTodo = { task: taskText, done: false }; // 새 Todo 객체
-         const emptyMsg = weeklyTodoListUl.querySelector('.todo-empty');
-         if (emptyMsg) weeklyTodoListUl.innerHTML = ''; // "없음" 메시지 제거
+         if (weeklyTodoListUl) {
+            const emptyMsg = weeklyTodoListUl.querySelector('.todo-empty');
+            if (emptyMsg) weeklyTodoListUl.innerHTML = ''; // "없음" 메시지 제거
+         }
          if (!currentWeeklyData.todos) currentWeeklyData.todos = []; // 배열 초기화
          currentWeeklyData.todos.push(newTodo); // 로컬 데이터에 추가
          renderWeeklyTodoList(currentWeeklyData.todos); // 목록 다시 렌더링
          weeklyNewTodoInput.value = ''; // 입력 필드 비우기
          weeklyNewTodoInput.focus(); // 입력 필드 포커스
-         saveWeeklyMemoTodoBtn.disabled = false; // 저장 버튼 활성화
-         saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         if (saveWeeklyMemoTodoBtn) {
+            saveWeeklyMemoTodoBtn.disabled = false; // 저장 버튼 활성화
+            saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         }
      }
 
      // 주차별 메모/Todo 저장 (API 호출)
@@ -636,10 +749,12 @@ document.addEventListener('DOMContentLoaded', () => {
              alert("과목을 먼저 선택해주세요.");
              return;
          }
-         currentWeeklyData.note = weeklyMemoText.value.trim(); // 현재 메모 내용 가져오기
+         currentWeeklyData.note = weeklyMemoText ? weeklyMemoText.value.trim() : ""; // 현재 메모 내용 가져오기
          // 저장 버튼 상태 변경 (로딩)
-         saveWeeklyMemoTodoBtn.disabled = true;
-         saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+         if (saveWeeklyMemoTodoBtn) {
+            saveWeeklyMemoTodoBtn.disabled = true;
+            saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+         }
 
          try {
              // 서버에 PUT 요청으로 데이터 전송
@@ -652,23 +767,29 @@ document.addEventListener('DOMContentLoaded', () => {
              if (result.status !== 'success') throw new Error(result.message || '저장 실패');
 
              // 성공 시 버튼 상태 변경 (완료) 후 잠시 뒤 원래대로 복구
-             saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-check"></i> 저장 완료!';
-             setTimeout(() => {
-                 saveWeeklyMemoTodoBtn.disabled = false;
-                 saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
-             }, 2000);
+             if (saveWeeklyMemoTodoBtn) {
+                saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-check"></i> 저장 완료!';
+                setTimeout(() => {
+                     if (saveWeeklyMemoTodoBtn) { // setTimeout 콜백 내에서 다시 확인
+                        saveWeeklyMemoTodoBtn.disabled = false;
+                        saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+                     }
+                }, 2000);
+             }
          } catch (error) {
              // 실패 시 에러 메시지 표시 및 버튼 상태 변경 (실패)
              console.error("Failed to save weekly memo/todo:", error);
              alert(`주차별 정보 저장 실패: ${error.message}`);
-             saveWeeklyMemoTodoBtn.disabled = false;
-             saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-times"></i> 저장 실패';
+             if (saveWeeklyMemoTodoBtn) {
+                saveWeeklyMemoTodoBtn.disabled = false;
+                saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-times"></i> 저장 실패';
+             }
          }
      }
 
      // '모든 주차 모아보기' 모달 열기 (Request 4 수정)
      async function openAllWeeksModal() {
-        if (!selectedSubjectForDetails) {
+        if (!selectedSubjectForDetails || !allWeeksModal) {
             alert("먼저 과목을 선택해주세요.");
             return;
         }
@@ -676,8 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalTitle = allWeeksModal.querySelector('.modal-header h3');
         const accordionContainer = allWeeksModal.querySelector('#allWeeksAccordion');
 
-        modalTitle.textContent = `${selectedSubjectForDetails.name} - 전체 주차 정보`;
-        accordionContainer.innerHTML = '<div class="loading-spinner-small"></div>'; // 로딩 스피너 표시
+        if (modalTitle) modalTitle.textContent = `${selectedSubjectForDetails.name} - 전체 주차 정보`;
+        if (accordionContainer) accordionContainer.innerHTML = '<div class="loading-spinner-small"></div>'; // 로딩 스피너 표시
         allWeeksModal.classList.add('active'); // 모달 활성화
 
         try {
@@ -695,16 +816,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             // 실패 시 에러 메시지 표시
-            accordionContainer.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
+             if (accordionContainer) accordionContainer.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
         }
      }
 
     // '모든 주차 모아보기' 아코디언 렌더링 (Request 4 수정)
      function renderAllWeeksAccordion(allWeeksData, container) {
+         if (!container) return;
         container.innerHTML = ''; // 컨테이너 초기화
 
         // Request 4 Fix: allWeeksData가 배열인지 다시 확인하고 .some 사용
-        const hasAnyContent = Array.isArray(allWeeksData) && allWeeksData.some(week => week.note || (week.todos && week.todos.length > 0));
+        const hasAnyContent = Array.isArray(allWeeksData) && allWeeksData.some(week => (week.note && week.note.trim()) || (week.todos && week.todos.length > 0));
 
         if (!hasAnyContent) {
             container.innerHTML = `<p class="todo-summary-empty">모든 주차에 기록된 정보가 없습니다.</p>`;
@@ -713,8 +835,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 주차별 데이터 반복 처리
         allWeeksData.forEach(week => {
+             const weekNote = week.note ? week.note.trim() : '';
+             const weekTodos = week.todos || [];
             // 내용이 없으면 해당 주차는 건너뛰기
-            if (!week.note && (!week.todos || week.todos.length === 0)) return;
+            if (!weekNote && weekTodos.length === 0) return;
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'accordion-item';
@@ -724,11 +848,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="week-title">${week.week_number}주차 (${week.date_range})</span>
                     <i class="fas fa-chevron-down"></i>
                 </div>
-                <div class="accordion-content" style="padding: 16px;"> ${week.note ? `<h4><i class="fas fa-sticky-note"></i> 메모</h4><p style="white-space: pre-wrap;">${week.note}</p>` : ''}
-                    ${week.todos && week.todos.length > 0 ? `
-                        <h4 style="margin-top: 10px;"><i class="fas fa-check-square"></i> Todo</h4>
+                <div class="accordion-content" style="padding: 16px;"> ${weekNote ? `<h4><i class="fas fa-sticky-note"></i> 메모</h4><p style="white-space: pre-wrap; margin-bottom: 10px;">${weekNote}</p>` : ''}
+                    ${weekTodos.length > 0 ? `
+                        <h4 style="margin-top: ${weekNote ? '10px' : '0'};"><i class="fas fa-check-square"></i> Todo</h4>
                         <ul class="memo-todo-list" style="border: none; background: none; max-height: none; padding-left: 5px;">
-                            ${week.todos.map(todo => `<li class="todo-item ${todo.done ? 'done' : ''}" style="padding: 4px 0; border: none; align-items: flex-start;">
+                            ${weekTodos.map(todo => `<li class="todo-item ${todo.done ? 'done' : ''}" style="padding: 4px 0; border: none; align-items: flex-start;">
                                 <i class="fas ${todo.done ? 'fa-check-square' : 'fa-square'}" style="margin-top: 2px; margin-right: 8px; color: ${todo.done ? 'var(--color-success)' : 'var(--text-secondary)'};"></i>
                                 <span class="todo-label" style="line-height: 1.4;">${todo.task}</span>
                                </li>`).join('')}
@@ -756,10 +880,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 현재 클릭된 아코디언 토글
                 item.classList.toggle('active', !isActive);
-                if (!isActive) {
-                    content.style.maxHeight = content.scrollHeight + "px"; // 열기
-                } else {
-                    content.style.maxHeight = null; // 닫기
+                if (content) { // content 요소가 있는지 확인
+                    if (!isActive) {
+                        content.style.maxHeight = content.scrollHeight + "px"; // 열기
+                    } else {
+                        content.style.maxHeight = null; // 닫기
+                    }
                 }
             });
         });
@@ -773,17 +899,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 주차별 정보 패널 리셋 및 비활성화
      function resetWeeklyDetailsPanel() {
-         weeklyDetailsTitle.innerHTML = '<i class="fas fa-calendar-week"></i> 주차별 정보';
-         weeklyMemoSubjectName.textContent = "과목 선택";
-         weeklyTodoSubjectName.textContent = "과목 선택";
-         weeklyMemoText.value = '';
-         weeklyTodoListUl.innerHTML = '<li class="todo-empty">과목을 선택해주세요.</li>';
-         weeklyNewTodoInput.value = '';
+         if (weeklyDetailsTitle) weeklyDetailsTitle.innerHTML = '<i class="fas fa-calendar-week"></i> 주차별 정보';
+         if (weeklyMemoSubjectName) weeklyMemoSubjectName.textContent = "과목 선택";
+         if (weeklyTodoSubjectName) weeklyTodoSubjectName.textContent = "과목 선택";
+         if (weeklyMemoText) weeklyMemoText.value = '';
+         if (weeklyTodoListUl) weeklyTodoListUl.innerHTML = '<li class="todo-empty">과목을 선택해주세요.</li>';
+         if (weeklyNewTodoInput) weeklyNewTodoInput.value = '';
+
          currentWeek = 1; // 주차를 1로 리셋
          currentWeeklyData = { note: "", todos: [] }; // 데이터 리셋
-         currentWeekDisplay.textContent = '주차 선택'; // 주차 표시 리셋
-         prevWeekBtn.disabled = true; // 이전 버튼 비활성화
-         nextWeekBtn.disabled = (TOTAL_WEEKS <= 1); // 다음 버튼 상태 설정
+         if (currentWeekDisplay) currentWeekDisplay.textContent = '주차 선택'; // 주차 표시 리셋
+         if (prevWeekBtn) prevWeekBtn.disabled = true; // 이전 버튼 비활성화
+         if (nextWeekBtn) nextWeekBtn.disabled = (TOTAL_WEEKS <= 1); // 다음 버튼 상태 설정
          disableWeeklyDetailsPanel(); // 입력 필드 비활성화
          selectedSubjectForDetails = null; // 선택된 과목 없음
          // 과목 목록에서 'selected' 클래스 제거
@@ -792,24 +919,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 주차별 정보 패널 활성화
      function enableWeeklyDetailsPanel() {
-         weeklyMemoText.disabled = false;
-         weeklyNewTodoInput.disabled = false;
-         weeklyAddTodoBtn.disabled = false;
-         saveWeeklyMemoTodoBtn.disabled = false;
-         saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         if (weeklyMemoText) weeklyMemoText.disabled = false;
+         if (weeklyNewTodoInput) weeklyNewTodoInput.disabled = false;
+         if (weeklyAddTodoBtn) weeklyAddTodoBtn.disabled = false;
+         if (saveWeeklyMemoTodoBtn) {
+            saveWeeklyMemoTodoBtn.disabled = false;
+            saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         }
      }
 
      // 주차별 정보 패널 비활성화
      function disableWeeklyDetailsPanel() {
-         weeklyMemoText.disabled = true;
-         weeklyNewTodoInput.disabled = true;
-         weeklyAddTodoBtn.disabled = true;
-         saveWeeklyMemoTodoBtn.disabled = true;
-         saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         if (weeklyMemoText) weeklyMemoText.disabled = true;
+         if (weeklyNewTodoInput) weeklyNewTodoInput.disabled = true;
+         if (weeklyAddTodoBtn) weeklyAddTodoBtn.disabled = true;
+         if (saveWeeklyMemoTodoBtn) {
+            saveWeeklyMemoTodoBtn.disabled = true;
+            saveWeeklyMemoTodoBtn.innerHTML = '<i class="fas fa-save"></i> 주차 정보 저장';
+         }
      }
 
     // 학점 진행률 업데이트
     function updateCreditProgress(current, goal) {
+         // 관련 DOM 요소 없으면 중단
+         if (!currentCreditsEl || !goalCreditsEl || !remainingCreditsEl || !creditPercentageEl) return;
          const remaining = Math.max(0, goal - current); // 남은 학점
          const percentage = (goal > 0) ? Math.min(100, (current / goal) * 100) : 0; // 달성률(%)
          const circumference = 2 * Math.PI * 45; // 원 둘레
@@ -824,6 +957,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 목표 학점 저장
     async function saveCreditGoal() {
+         // 관련 DOM 요소 없으면 중단
+         if (!newGoalInput || !saveGoalBtn || !currentCreditsEl || !editGoalForm || !editGoalBtn) return;
         const newGoal = parseInt(newGoalInput.value, 10);
         if (isNaN(newGoal) || newGoal <= 0) { alert('유효한 학점을 입력하세요.'); return; }
         saveGoalBtn.disabled = true; // 저장 버튼 비활성화
@@ -846,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 새 과목 추가 모달 열기
     function openAddSubjectModal() {
         if (!currentSemesterId) { alert("과목을 추가할 학기를 선택해주세요."); return; }
+        if (!addSubjectModal || !addSubjectForm || !addSubjectSemesterIdInput || !addTimeSlotContainer) return;
         addSubjectForm.reset(); // 폼 리셋
         addSubjectSemesterIdInput.value = currentSemesterId; // 현재 학기 ID 설정
         addTimeSlotContainer.innerHTML = ''; // 시간 슬롯 초기화
@@ -855,16 +991,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 과목 수정 모달 열기
     function openEditSubjectModal(subjectId) {
+        if (!editSubjectModal || !editSubjectIdInput || !editNameInput || !editProfInput || !editCreditsInput || !editGradeInput || !editTimeSlotContainer) return;
         const subject = currentSubjects.find(s => s.id === subjectId); // 해당 과목 찾기
         if (!subject) return;
         // 모달 폼에 과목 정보 채우기
         editSubjectIdInput.value = subject.id;
         editNameInput.value = subject.name;
-        editProfInput.value = subject.professor;
+        editProfInput.value = subject.professor || ''; // null일 경우 빈 문자열
         editCreditsInput.value = subject.credits;
-        editGradeInput.value = subject.grade || "Not Set";
+        editGradeInput.value = subject.grade || "Not Set"; // null일 경우 "Not Set"
         editTimeSlotContainer.innerHTML = ''; // 시간 슬롯 초기화
-        if (subject.timeslots.length > 0) { // 기존 시간 슬롯 추가
+        if (subject.timeslots && subject.timeslots.length > 0) { // 기존 시간 슬롯 추가
             subject.timeslots.forEach(ts => createTimeSlotEntry(ts, editTimeSlotContainer));
         } else {
             createTimeSlotEntry(null, editTimeSlotContainer); // 없으면 기본 슬롯 하나 추가
@@ -874,21 +1011,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 시간/장소 입력 슬롯 생성 (추가/수정 모달 공통 사용)
     function createTimeSlotEntry(timeslot, container) {
+        if (!container) return;
         const entryDiv = document.createElement('div');
         entryDiv.className = 'timeslot-entry';
         // 요일, 시작시간, 종료시간, 강의실 입력 필드 HTML
         entryDiv.innerHTML = `
             <select name="day">
-                <option value="1">월</option><option value="2">화</option><option value="3">수</option>
-                <option value="4">목</option><option value="5">금</option>
+                <option value="1" ${timeslot && timeslot.day == 1 ? 'selected' : ''}>월</option>
+                <option value="2" ${timeslot && timeslot.day == 2 ? 'selected' : ''}>화</option>
+                <option value="3" ${timeslot && timeslot.day == 3 ? 'selected' : ''}>수</option>
+                <option value="4" ${timeslot && timeslot.day == 4 ? 'selected' : ''}>목</option>
+                <option value="5" ${timeslot && timeslot.day == 5 ? 'selected' : ''}>금</option>
             </select>
             <input type="time" name="start_time" value="${timeslot ? (timeslot.start || '09:00') : '09:00'}">
             <input type="time" name="end_time" value="${timeslot ? (timeslot.end || '10:15') : '10:15'}">
             <input type="text" name="room" placeholder="강의실" value="${timeslot ? (timeslot.room || '') : ''}">
             <button type="button" class="timeslot-delete-btn">&times;</button>
         `;
-        // 기존 timeslot 정보 있으면 요일 선택
-        if (timeslot && timeslot.day) entryDiv.querySelector('select[name="day"]').value = timeslot.day;
         // 삭제 버튼 이벤트
         entryDiv.querySelector('.timeslot-delete-btn').addEventListener('click', () => entryDiv.remove());
         container.appendChild(entryDiv); // 컨테이너에 슬롯 추가
@@ -896,6 +1035,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 새 과목 저장 (API 호출)
     async function saveNewSubject() {
+         // 관련 DOM 요소 없으면 중단
+        if (!addSubjectSemesterIdInput || !addNameInput || !addProfInput || !addCreditsInput || !addTimeSlotContainer || !saveNewSubjectBtn || !addSubjectModal) return;
+
         // 폼 데이터 수집
         const data = {
             semester_id: parseInt(addSubjectSemesterIdInput.value, 10),
@@ -929,6 +1071,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 과목 정보 수정 (API 호출)
     async function updateSubject() {
+         // 관련 DOM 요소 없으면 중단
+         if (!editSubjectIdInput || !editNameInput || !editProfInput || !editCreditsInput || !editGradeInput || !editTimeSlotContainer || !updateSubjectBtn || !editSubjectModal) return;
+
         const subjectId = editSubjectIdInput.value;
         const subject = currentSubjects.find(s => s.id === parseInt(subjectId, 10));
         if (!subject) return;
@@ -961,9 +1106,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const updatedSubjectData = result.subject;
             const index = currentSubjects.findIndex(s => s.id === updatedSubjectData.id);
             if (index !== -1) {
+                 // 메모 파싱 로직 추가
                 let memo = updatedSubjectData.memo;
-                if (typeof memo === 'string') memo = JSON.parse(memo); // 메모 파싱
-                currentSubjects[index] = { ...updatedSubjectData, memo: memo };
+                if (typeof memo === 'string') {
+                    try { memo = JSON.parse(memo); } catch(e) { memo = { note: '', todos: [] }; }
+                }
+                if (!memo || typeof memo !== 'object') memo = { note: '', todos: [] };
+                if (!Array.isArray(memo.todos)) memo.todos = [];
+                if (typeof memo.note !== 'string') memo.note = '';
+
+                currentSubjects[index] = { ...updatedSubjectData, memo: memo }; // 파싱된 메모로 업데이트
             }
 
             // UI 다시 렌더링
@@ -973,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 주차별 정보 패널 업데이트 (선택된 과목이면)
             if (selectedSubjectForDetails && selectedSubjectForDetails.id === updatedSubjectData.id) {
-                 selectSubjectForDetails(updatedSubjectData.id); // 과목 정보 업데이트
+                 selectSubjectForDetails(updatedSubjectData.id); // 업데이트된 과목 정보로 다시 선택
             }
             loadGpaStats(); // GPA 통계 다시 로드
 
@@ -986,6 +1138,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 과목 삭제 (API 호출)
     async function deleteSubject() {
+         // 관련 DOM 요소 없으면 중단
+         if (!editSubjectIdInput || !deleteSubjectBtn || !editSubjectModal) return;
+
         const subjectId = editSubjectIdInput.value;
         if (!subjectId || !confirm('정말로 이 과목을 삭제하시겠습니까? 관련된 시간표, 메모, Todo 정보도 모두 삭제됩니다.')) return;
 
@@ -1019,7 +1174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Helper Functions --- (Request 3)
-    // JS에서 학기 시작일 추정 (백엔드 start_date 없을 경우 대비)
+    // JS에서 학기 시작일 추정 (백엔드 start_date 없을 경우 대비) - 사용되지 않음 (백엔드 처리)
+    /*
     function _get_semester_start_date_js(year, season) {
         if (!year || !season) return null;
         if (season.includes("1학기")) return new Date(year, 2, 1); // 3월 1일
@@ -1028,19 +1184,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (season.includes("겨울학기")) return new Date(year, 11, 20); // 12월 20일
         return null;
     }
+    */
 
     // 현재 날짜 기준 주차 계산 (Request 3)
     function calculateCurrentWeekNumber(startDate) {
         if (!startDate) return 1; // 시작일 없으면 1주차
         const today = new Date();
+        const start = new Date(startDate); // Date 객체로 변환
+
         // 시간을 0으로 설정하여 날짜만 비교
         today.setHours(0, 0, 0, 0);
-        startDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
 
-        const diffTime = today - startDate;
+        const diffTime = today - start;
         if (diffTime < 0) return 1; // 학기 시작 전이면 1주차
 
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // 날짜 차이 계산 (밀리초 -> 일)
+        // getTimezoneOffset()을 더하여 UTC 기준으로 변환 후 차이 계산 (일광 절약 시간제 등 문제 방지)
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        // 주차 계산 (0일부터 6일까지가 1주차)
         const weekNumber = Math.floor(diffDays / 7) + 1;
 
         return Math.max(1, Math.min(weekNumber, TOTAL_WEEKS)); // 1~16 범위 보장
