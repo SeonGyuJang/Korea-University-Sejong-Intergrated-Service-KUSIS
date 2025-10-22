@@ -446,6 +446,20 @@ body {
     flex-shrink: 0;
 }
 
+/* --- [신규] 이미지 로고 스타일 --- */
+.quick-link-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    /* 이미지가 찌그러지지 않도록 object-fit 추가 */
+    object-fit: cover; 
+    flex-shrink: 0;
+    /* 배경이 투명할 경우를 대비 (선택 사항) */
+    background-color: #ffffff; 
+}
+/* --- [신규] --- */
+
+
 .link-text {
     white-space: nowrap;
     font-size: 14px;
