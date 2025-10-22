@@ -56,8 +56,11 @@ body {
     display: none;
 }
 
+.sidebar-left.collapsed .nav-text {
+    display: none;
+}
+
 .sidebar-left.collapsed .logo-text,
-.sidebar-left.collapsed .nav-text,
 .sidebar-left.collapsed .logo-subtitle-en {
     opacity: 0;
     visibility: hidden;
