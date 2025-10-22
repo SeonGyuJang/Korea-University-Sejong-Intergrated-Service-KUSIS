@@ -52,10 +52,6 @@ body {
     width: 88px;
 }
 
-.sidebar-left.collapsed .logo {
-    padding-left: 24px;
-}
-
 .sidebar-left.collapsed .logo-text,
 .sidebar-left.collapsed .nav-text,
 .sidebar-left.collapsed .logo-subtitle-en {
@@ -63,6 +59,18 @@ body {
     visibility: hidden;
     width: 0;
     margin-left: -16px;
+}
+
+.sidebar-left.collapsed .nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.sidebar-left.collapsed .logo {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .logo {
