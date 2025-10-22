@@ -32,8 +32,6 @@
                 {% block content %}{% endblock %}
             </main>
         </div>
-
-        {% include 'fragments/_sidebar_right.html' %}
     </div>
 
     <div class="loading-overlay" id="loadingOverlay">
@@ -42,39 +40,6 @@
             이동 중입니다... 새로운 탭에서 열립니다.
         </div>
     </div>
-
-    <div class="modal" id="quickLinkModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>자주 찾는 사이트 추가</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="quickLinkForm">
-                    <div class="input-group">
-                        <label for="linkTitle"><i class="fas fa-signature"></i> 사이트 이름</label>
-                        <input type="text" id="linkTitle" name="title" required placeholder="예: 네이버">
-                    </div>
-                    <div class="input-group">
-                        <label for="linkUrl"><i class="fas fa-link"></i> URL (https:// 포함)</label>
-                        <input type="text" id="linkUrl" name="url" required placeholder="예: https://www.naver.com">
-                    </div>
-                    <div class="input-group">
-                        <label for="linkIcon"><i class="fas fa-icons"></i> 아이콘 (FontAwesome 클래스)</label>
-                        <input type="text" id="linkIcon" name="icon_url" placeholder="예: fas fa-globe (선택)">
-                        <small style="color: var(--text-secondary); font-size: 12px; margin-top: 5px;">
-                            <a href="https://fontawesome.com/search?m=free&s=solid,brands" target="_blank">FontAwesome 아이콘 검색하기</a>
-                        </small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                 <button class="btn btn-cancel modal-close">취소</button>
-                <button class="btn btn-save" id="saveQuickLinkBtn">저장</button>
-            </div>
-        </div>
-    </div>
-
 
     <script src="https://kit.fontawesome.com/6478f529f2.js" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/layout.js') }}"></script>

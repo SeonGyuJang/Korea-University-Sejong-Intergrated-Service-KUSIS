@@ -76,8 +76,8 @@ class User(db.Model):
     subjects = db.relationship('Subject', backref='user', lazy=True, cascade="all, delete-orphan")
     schedules = db.relationship('Schedule', backref='user', lazy=True, cascade="all, delete-orphan")
     study_logs = db.relationship('StudyLog', backref='user', lazy=True, cascade="all, delete-orphan")
-    # --- [수정됨] QuickLink 관계 제거 ---
-    # quick_links = db.relationship('QuickLink', backref='user', lazy=True, cascade="all, delete-orphan")
+    # --- [제거됨] QuickLink 관계 제거 ---
+
 
 class Semester(db.Model):
     # ... (기존과 동일)
@@ -146,14 +146,8 @@ class StudyLog(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'date', name='_user_date_uc'),)
 
 
-# --- [수정됨] QuickLink 모델 제거 (주석 처리) ---
-# class QuickLink(db.Model):
-#     __tablename__ = 'quick_links'
-#     entry_id = db.Column(db.Integer, primary_key=True)
-#     user_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
-#     title = db.Column(db.String(100), nullable=False)
-#     url = db.Column(db.String(500), nullable=False)
-#     icon_url = db.Column(db.String(500))
+# --- [제거됨] QuickLink 모델 제거 ---
+
 
 # --- 학사일정, 학기 시작일 관련 함수 (기존 유지) ---
 # ... (load_academic_calendar, get_semester_start_date_from_calendar, _get_semester_start_date_fallback, _create_semesters_for_user 함수들) ...
@@ -342,12 +336,7 @@ def create_initial_data():
             ))
             db.session.commit()
 
-        # --- [수정됨] 샘플 퀵링크 제거 ---
-        # QuickLink.query.filter_by(user_id=sample_user_id).delete()
-        # db.session.add_all([
-        #     QuickLink(user_id=sample_user_id, title="네이버", url="https://www.naver.com", icon_url="fa-solid fa-n"),
-        #     QuickLink(user_id=sample_user_id, title="LMS", url="https://lms.korea.ac.kr", icon_url="fa-solid fa-book"),
-        # ])
+        # --- [제거됨] 샘플 퀵링크 제거 ---
 
         # --- 샘플 Schedule 유지 ---
         Schedule.query.filter_by(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d')).delete()
@@ -886,42 +875,8 @@ def save_study_time():
     except Exception as e:
         db.session.rollback(); return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
 
-# --- [수정됨] QuickLink 관련 API 제거 (주석 처리) ---
-# @app.route('/api/quick-links', methods=['GET', 'POST'])
-# @login_required
-# def handle_quick_links():
-#     user_id = session['student_id']
-#     if request.method == 'GET':
-#         links = QuickLink.query.filter_by(user_id=user_id).order_by(QuickLink.entry_id).all()
-#         return jsonify([{"id": link.entry_id, "title": link.title, "url": link.url, "icon_url": link.icon_url} for link in links])
-#     if request.method == 'POST':
-#         data = request.json
-#         title, url, icon_url = data.get('title'), data.get('url'), data.get('icon_url')
-#         if not title or not url: return jsonify({"status": "error", "message": "제목과 URL은 필수입니다."}), 400
-#         if not url.startswith(('http://', 'https://')): url = 'https://' + url
-#         try:
-#             new_link = QuickLink(user_id=user_id, title=title, url=url, icon_url=icon_url)
-#             db.session.add(new_link)
-#             db.session.commit()
-#             return jsonify({"status": "success", "link": {"id": new_link.entry_id, "title": new_link.title, "url": new_link.url, "icon_url": new_link.icon_url}}), 201
-#         except Exception as e:
-#             db.session.rollback()
-#             return jsonify({"status": "error", "message": f"링크 추가 중 오류 발생: {e}"}), 500
+# --- [제거됨] QuickLink 관련 API 제거 ---
 
-# @app.route('/api/quick-links/<int:link_id>', methods=['DELETE'])
-# @login_required
-# def delete_quick_link(link_id):
-#     user_id = session['student_id']
-#     link = db.session.get(QuickLink, link_id)
-#     if not link or link.user_id != user_id:
-#         return jsonify({"status": "error", "message": "링크를 찾을 수 없거나 권한이 없습니다."}), 404
-#     try:
-#         db.session.delete(link)
-#         db.session.commit()
-#         return jsonify({"status": "success", "message": "링크가 삭제되었습니다."})
-#     except Exception as e:
-#         db.session.rollback()
-#         return jsonify({"status": "error", "message": f"링크 삭제 중 오류 발생: {e}"}), 500
 
 @app.route('/api/credits/goal', methods=['POST'])
 @login_required

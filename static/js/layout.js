@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- 사이드바 토글 기능 ---
     const leftSidebarToggle = document.getElementById('leftSidebarToggle');
-    const rightSidebarToggle = document.getElementById('rightSidebarToggle');
+    // [제거됨] rightSidebarToggle 변수
     const sidebarLeft = document.getElementById('sidebarLeft');
-    const sidebarRight = document.getElementById('sidebarRight');
+    // [제거됨] sidebarRight 변수
 
     if (leftSidebarToggle && sidebarLeft) {
         leftSidebarToggle.addEventListener('click', () => {
@@ -11,12 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (rightSidebarToggle && sidebarRight) {
-        rightSidebarToggle.addEventListener('click', () => {
-            sidebarRight.classList.toggle('expanded');
-        });
-    }
-
+    // [제거됨] rightSidebarToggle 클릭 이벤트 리스너
+    
     // --- 알림 드롭다운 Logic (기존 유지) ---
     const notificationToggle = document.getElementById('notificationToggle');
     const notificationDropdown = document.getElementById('notificationDropdown');
