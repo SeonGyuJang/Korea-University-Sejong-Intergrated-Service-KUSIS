@@ -139,6 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetWeeklyDetailsPanel(); // 초기에는 주차별 정보 리셋
                 addSubjectBtn.disabled = false; // 새 과목 추가 버튼 활성화
 
+                // 학점 통계 로드
+                await loadGpaStats();
+
             } else if (allSemesters.length > 0) {
                  // 기본 학기 로드 실패했지만, 다른 학기 목록이 있다면 최신 학기 로드 시도 (Fallback)
                  console.warn("기본 학기 로드 실패 또는 학기 정보 없음. 최신 학기로 대체합니다.");
@@ -266,6 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
             resetWeeklyDetailsPanel(); // 과목 선택 전까지 주차별 정보는 초기화
              if (addSubjectBtn) addSubjectBtn.disabled = false; // 학기 로드 성공 시 추가 버튼 활성화
 
+            // 학점 통계 로드
+            await loadGpaStats();
+
         } catch (error) {
             console.error(error);
             clearTimetableAndTodos();
@@ -277,6 +283,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // 현재 학기 과목들의 총 학점 직접 계산 (grade 설정 여부와 무관)
+    function calculateTotalCreditsFromCurrentSubjects() {
+        if (!currentSubjects || currentSubjects.length === 0) return 0;
+        return currentSubjects.reduce((total, subject) => {
+            const credits = parseInt(subject.credits, 10) || 0;
+            return total + credits;
+        }, 0);
+    }
+
     async function loadGpaStats() {
         // GPA 관련 DOM 요소 없으면 실행 중지
         if (!gpaChartCanvas || !creditProgressCircle || !overallGpaEl) return;
@@ -287,7 +302,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 목표 학점은 goalCreditsEl 에서 직접 읽어옴
             const currentGoal = goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130;
-            updateCreditProgress(statsData.total_earned_credits, currentGoal);
+
+            // 백엔드에서 가져온 학점과 현재 학기 학점을 비교하여 더 큰 값 사용
+            // (grade가 설정되지 않은 과목도 포함하기 위해)
+            const apiCredits = statsData.total_earned_credits || 0;
+            const currentSemesterCredits = calculateTotalCreditsFromCurrentSubjects();
+            const totalCredits = Math.max(apiCredits, currentSemesterCredits);
+
+            updateCreditProgress(totalCredits, currentGoal);
             if (overallGpaEl) overallGpaEl.textContent = statsData.overall_gpa;
 
             renderGpaChart(statsData.semesters);
@@ -299,8 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.textAlign = 'center';
                 ctx.fillText(error.message, gpaChartCanvas.width / 2, gpaChartCanvas.height / 2);
             }
-             // 에러 발생 시 학점 UI 기본값 표시
-             updateCreditProgress(0, goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130);
+             // 에러 발생 시 현재 학기 학점으로 계산
+             const currentSemesterCredits = calculateTotalCreditsFromCurrentSubjects();
+             updateCreditProgress(currentSemesterCredits, goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130);
              if (overallGpaEl) overallGpaEl.textContent = 'N/A';
         }
     }
@@ -557,15 +580,30 @@ document.addEventListener('DOMContentLoaded', () => {
      // 과목 선택 시 처리 (Request 3 수정)
      function selectSubjectForDetails(subjectId) {
          selectedSubjectForDetails = currentSubjects.find(s => s.id === subjectId);
-         if (selectedSubjectForDetails && currentSemesterInfo && weeklyDetailsTitle) {
+         if (selectedSubjectForDetails && weeklyDetailsTitle) {
              weeklyDetailsTitle.innerHTML = `<i class="fas fa-calendar-week"></i> 주차별 정보 (${selectedSubjectForDetails.name})`;
 
              // Request 3: 현재 날짜 기준 주차 계산
-             const startDate = currentSemesterInfo.start_date ? new Date(currentSemesterInfo.start_date) : null;
              let calculatedWeek = 1;
-             if (startDate) {
+
+             // 학기 정보에서 시작일 가져오기
+             if (currentSemesterInfo && currentSemesterInfo.start_date) {
+                 const startDate = new Date(currentSemesterInfo.start_date);
                  calculatedWeek = calculateCurrentWeekNumber(startDate);
+                 console.log(`[Week Calculation] Semester start: ${currentSemesterInfo.start_date}, Calculated week: ${calculatedWeek}`);
+             } else {
+                 // 학기 시작일이 없으면 학기 이름에서 추정 (2024-2학기 형식)
+                 if (currentSemesterInfo && currentSemesterInfo.name) {
+                     const estimatedStartDate = estimateSemesterStartDate(currentSemesterInfo.name);
+                     if (estimatedStartDate) {
+                         calculatedWeek = calculateCurrentWeekNumber(estimatedStartDate);
+                         console.log(`[Week Calculation] Estimated start from semester name '${currentSemesterInfo.name}': ${estimatedStartDate.toISOString().split('T')[0]}, Calculated week: ${calculatedWeek}`);
+                     }
+                 } else {
+                     console.warn('[Week Calculation] No semester info or start_date available, using week 1');
+                 }
              }
+
              currentWeek = calculatedWeek; // 계산된 주차 또는 기본값 1로 설정
 
              updateWeekView(); // 계산된 주차 정보 로드 및 UI 업데이트
@@ -1127,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedSubjectForDetails && selectedSubjectForDetails.id === updatedSubjectData.id) {
                  selectSubjectForDetails(updatedSubjectData.id); // 업데이트된 과목 정보로 다시 선택
             }
-            loadGpaStats(); // GPA 통계 다시 로드
+            await loadGpaStats(); // GPA 통계 다시 로드
 
         } catch (error) {
             alert(`수정 실패: ${error.message}`);
@@ -1174,17 +1212,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Helper Functions --- (Request 3)
-    // JS에서 학기 시작일 추정 (백엔드 start_date 없을 경우 대비) - 사용되지 않음 (백엔드 처리)
-    /*
-    function _get_semester_start_date_js(year, season) {
-        if (!year || !season) return null;
-        if (season.includes("1학기")) return new Date(year, 2, 1); // 3월 1일
-        if (season.includes("2학기")) return new Date(year, 8, 1); // 9월 1일
-        if (season.includes("여름학기")) return new Date(year, 5, 20); // 6월 20일
-        if (season.includes("겨울학기")) return new Date(year, 11, 20); // 12월 20일
+    // 학기 이름에서 시작일 추정 (백엔드 start_date 없을 경우 대비)
+    function estimateSemesterStartDate(semesterName) {
+        if (!semesterName) return null;
+
+        // 학기 이름 파싱: "2024-2학기", "2024-1학기" 등
+        const match = semesterName.match(/(\d{4})-?(\d|1|2|여름|겨울)?학기/);
+        if (!match) return null;
+
+        const year = parseInt(match[1], 10);
+        const season = match[2];
+
+        // 학기별 시작일 추정
+        if (season === '1' || season === '첫' || season === '봄') {
+            return new Date(year, 2, 2); // 3월 2일
+        } else if (season === '2' || season === '가을') {
+            return new Date(year, 8, 1); // 9월 1일
+        } else if (season === '여름' || semesterName.includes('여름')) {
+            return new Date(year, 5, 20); // 6월 20일
+        } else if (season === '겨울' || semesterName.includes('겨울')) {
+            return new Date(year, 11, 20); // 12월 20일
+        }
+
         return null;
     }
-    */
 
     // 현재 날짜 기준 주차 계산 (Request 3)
     function calculateCurrentWeekNumber(startDate) {
