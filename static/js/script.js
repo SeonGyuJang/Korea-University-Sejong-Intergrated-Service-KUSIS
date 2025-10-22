@@ -334,7 +334,7 @@ function updateRealTimeShuttle() {
             shuttle.remainingTimeSeconds = shuttle.shuttleSecondsOfDay - currentSecondsOfDay;
             return shuttle;
         })
-        .filter(shuttle => shuttle.remainingTimeSeconds > -600) // 운행 종료 10분 후까지 표시
+        .filter(shuttle => shuttle.remainingTimeSeconds > 0) // 운행 완료된 셔틀버스 제거
         .sort((a, b) => a.shuttleSecondsOfDay - b.shuttleSecondsOfDay);
 
     container.innerHTML = '';

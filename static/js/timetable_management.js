@@ -139,6 +139,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetWeeklyDetailsPanel(); // 초기에는 주차별 정보 리셋
                 addSubjectBtn.disabled = false; // 새 과목 추가 버튼 활성화
 
+                // 학점 통계 로드
+                await loadGpaStats();
+
             } else if (allSemesters.length > 0) {
                  // 기본 학기 로드 실패했지만, 다른 학기 목록이 있다면 최신 학기 로드 시도 (Fallback)
                  console.warn("기본 학기 로드 실패 또는 학기 정보 없음. 최신 학기로 대체합니다.");
@@ -265,6 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSubjectDetailsList(currentSubjects);
             resetWeeklyDetailsPanel(); // 과목 선택 전까지 주차별 정보는 초기화
              if (addSubjectBtn) addSubjectBtn.disabled = false; // 학기 로드 성공 시 추가 버튼 활성화
+
+            // 학점 통계 로드
+            await loadGpaStats();
 
         } catch (error) {
             console.error(error);
@@ -1127,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedSubjectForDetails && selectedSubjectForDetails.id === updatedSubjectData.id) {
                  selectSubjectForDetails(updatedSubjectData.id); // 업데이트된 과목 정보로 다시 선택
             }
-            loadGpaStats(); // GPA 통계 다시 로드
+            await loadGpaStats(); // GPA 통계 다시 로드
 
         } catch (error) {
             alert(`수정 실패: ${error.message}`);

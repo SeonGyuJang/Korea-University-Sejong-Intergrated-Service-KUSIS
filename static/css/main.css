@@ -1450,10 +1450,14 @@
     font-weight: bold;
     cursor: pointer;
     opacity: 0.8;
+    z-index: 10;
+    pointer-events: none; /* 기본적으로 클릭 불가 */
+    transition: opacity 0.2s ease;
 }
 /* 사이드바가 확장되었을 때만 삭제 버튼 보이기 */
 .sidebar-right.expanded .quick-link:hover .quick-link-delete {
     display: flex;
+    pointer-events: auto; /* 표시될 때만 클릭 가능 */
 }
 .quick-link-delete:hover {
     opacity: 1;
