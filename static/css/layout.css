@@ -406,7 +406,8 @@ body {
     max-width: 100%;
     cursor: pointer;
     position: relative;
-    /* [핵심] transition 완전 제거 */
+    /* [핵심] transition은 background만 적용 */
+    transition: background 0.2s ease;
 }
 
 .quick-link:hover {
@@ -471,6 +472,43 @@ body {
     border-style: solid;
     color: var(--korea-red);
 }
+
+/* [신규] 삭제 버튼 스타일 - 깜빡임 완전 제거 */
+.quick-link-delete {
+    display: none;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--korea-red);
+    color: white;
+    font-size: 18px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+}
+
+.sidebar-right.expanded .quick-link:hover .quick-link-delete {
+    display: block;
+    opacity: 1;
+}
+
+.quick-link-delete:hover {
+    background: var(--korea-red-dark);
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* [신규] 삭제 버튼이 표시될 때 링크 텍스트 영역 조정 */
+.sidebar-right.expanded .quick-link:hover .link-text {
+    max-width: calc(100% - 60px);
+}
+
 /* ======================================== */
 /* 수정 종료                   */
 /* ======================================== */
