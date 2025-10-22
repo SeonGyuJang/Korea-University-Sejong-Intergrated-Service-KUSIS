@@ -1429,7 +1429,7 @@
     background: var(--text-secondary);
 }
 
-/* (신규) Request 1: 퀵 링크 삭제 버튼 - 깜빡임 완전 해결 */
+/* 퀵 링크 삭제 버튼 - 완전 재설계 (깜빡임 완전 제거) */
 .quick-link-delete {
     position: absolute;
     top: 4px;
@@ -1439,39 +1439,33 @@
     background: var(--color-danger);
     color: white;
     border-radius: 50%;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1;
     font-weight: bold;
     cursor: pointer;
     z-index: 15;
-    /* [수정] 항상 display: flex 유지, opacity와 transform으로만 제어 */
-    opacity: 0;
-    transform: scale(0.8);
     pointer-events: none;
-    transition: opacity 0.15s ease, transform 0.15s ease;
+    /* [핵심] transition 완전 제거 */
 }
 
-/* 사이드바가 확장되었을 때만 삭제 버튼 활성화 */
+/* 사이드바가 확장되었을 때만 삭제 버튼 표시 */
 .sidebar-right.expanded .quick-link:hover .quick-link-delete {
-    opacity: 0.85;
-    transform: scale(1);
+    display: flex;
     pointer-events: auto;
 }
 
-/* 삭제 버튼 자체에 hover 시 완전히 보이기 */
+/* 삭제 버튼 자체에 hover 시 불투명도 증가 */
 .sidebar-right.expanded .quick-link-delete:hover {
-    opacity: 1;
-    transform: scale(1.1);
+    background: #c0392b;
 }
 
 /* 사이드바가 축소된 상태에서는 삭제 버튼 완전히 비활성화 */
 .sidebar-right:not(.expanded) .quick-link-delete {
-    opacity: 0 !important;
+    display: none !important;
     pointer-events: none !important;
-    transform: scale(0) !important;
 }
 
 

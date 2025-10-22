@@ -108,33 +108,15 @@ async function loadUserQuickLinks() {
                 <span class="quick-link-delete" data-id="${link.id}" role="button" aria-label="삭제">&times;</span>
             `;
 
-            // [수정] 삭제 버튼 이벤트 리스너 - 안정성 강화
+            // [최적화] 삭제 버튼 이벤트 리스너 - 간소화
             const deleteBtn = linkEl.querySelector('.quick-link-delete');
 
-            // mousedown 이벤트로 변경하여 더 빠른 반응
-            deleteBtn.addEventListener('mousedown', async (e) => {
-                e.preventDefault(); // 링크 이동 방지
-                e.stopPropagation(); // 버블링 방지
-                e.stopImmediatePropagation(); // 모든 이벤트 전파 차단
-            });
-
-            // click 이벤트는 실제 삭제 처리
             deleteBtn.addEventListener('click', async (e) => {
-                e.preventDefault(); // 링크 이동 방지
-                e.stopPropagation(); // 버블링 방지
-                e.stopImmediatePropagation(); // 모든 이벤트 전파 차단
+                e.preventDefault();
+                e.stopPropagation();
 
                 if (confirm(`'${link.title}' 링크를 삭제하시겠습니까?`)) {
                     await deleteQuickLink(link.id);
-                }
-            });
-
-            // [신규] 링크 클릭 시 삭제 버튼 영역 체크
-            linkEl.addEventListener('click', (e) => {
-                // 삭제 버튼이나 그 자식 요소를 클릭한 경우 링크 이동 방지
-                if (e.target.closest('.quick-link-delete')) {
-                    e.preventDefault();
-                    e.stopPropagation();
                 }
             });
 
