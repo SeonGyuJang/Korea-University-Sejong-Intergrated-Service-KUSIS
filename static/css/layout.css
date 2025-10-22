@@ -65,12 +65,14 @@ body {
     justify-content: center;
     padding-left: 0;
     padding-right: 0;
+    gap: 0;
 }
 
 .sidebar-left.collapsed .logo {
     justify-content: center;
     padding-left: 0;
     padding-right: 0;
+    gap: 0;
 }
 
 .logo {
