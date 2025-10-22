@@ -52,6 +52,10 @@ body {
     width: 88px;
 }
 
+.sidebar-left.collapsed .logo-text-container {
+    display: none;
+}
+
 .sidebar-left.collapsed .logo-text,
 .sidebar-left.collapsed .nav-text,
 .sidebar-left.collapsed .logo-subtitle-en {
