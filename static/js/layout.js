@@ -144,7 +144,7 @@ async function loadUserQuickLinks() {
 }
 
 /**
- * (신규) Request 1: 퀵 링크 모달 설정
+ * [완전 재설계] 퀵 링크 모달 설정 - 이벤트 위임 적용
  */
 function setupQuickLinkModal() {
     const modal = document.getElementById('quickLinkModal');
@@ -154,16 +154,25 @@ function setupQuickLinkModal() {
 
     if (!modal || !addBtn || !saveBtn || !form) return;
 
-    // 모달 열기
+    // [핵심] 추가하기 버튼 - 단 한 번만 이벤트 리스너 추가
     addBtn.addEventListener('click', (e) => {
-        e.preventDefault(); // javascript:void(0); 링크 기본 동작 방지
-        form.reset(); // 폼 초기화
+        e.preventDefault();
+        e.stopPropagation();
+        form.reset();
         modal.classList.add('active');
+    }, { once: false, passive: false });
+
+    // [신규] 모달 닫기 버튼들 - 이벤트 위임 패턴
+    modal.addEventListener('click', (e) => {
+        // 닫기 버튼 클릭 또는 모달 배경 클릭 감지
+        if (e.target.classList.contains('modal-close') || e.target === modal) {
+            e.preventDefault();
+            e.stopPropagation();
+            modal.classList.remove('active');
+        }
     });
 
-    // 모달 닫기 (base.html의 .modal-close가 이미 처리)
-
-    // 저장 버튼 클릭
+    // [핵심] 저장 버튼 - 단 한 번만 이벤트 리스너 추가
     saveBtn.addEventListener('click', async () => {
         const title = document.getElementById('linkTitle').value.trim();
         const url = document.getElementById('linkUrl').value.trim();

@@ -357,6 +357,9 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     flex-grow: 1;
+    /* [신규] 부드러운 스크롤과 하드웨어 가속 */
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
 }
 
 .quick-links h4 {
@@ -460,10 +463,16 @@ body {
     display: block;
 }
 
+.quick-link-add {
+    /* [신규] 추가하기 버튼 위치 고정 */
+    margin-top: 8px;
+}
+
 .quick-link-add i {
     background: var(--bg-primary);
     color: var(--text-secondary);
     border: 1px dashed var(--border-color);
+    transition: border-color 0.2s ease, border-style 0.2s ease, color 0.2s ease;
 }
 
 /* [핵심] hover 스타일 단순화 - border만 변경 */
@@ -473,9 +482,8 @@ body {
     color: var(--korea-red);
 }
 
-/* [신규] 삭제 버튼 스타일 - 깜빡임 완전 제거 */
+/* [완전 재설계] 삭제 버튼 스타일 - display 전환 제거 */
 .quick-link-delete {
-    display: none;
     position: absolute;
     right: 8px;
     top: 50%;
@@ -489,19 +497,24 @@ body {
     line-height: 24px;
     text-align: center;
     cursor: pointer;
+    /* [핵심 수정] display 대신 visibility + opacity + pointer-events 사용 */
+    visibility: hidden;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: 10;
 }
 
 .sidebar-right.expanded .quick-link:hover .quick-link-delete {
-    display: block;
+    visibility: visible;
     opacity: 1;
+    pointer-events: auto;
 }
 
 .quick-link-delete:hover {
     background: var(--korea-red-dark);
     transform: translateY(-50%) scale(1.1);
+    transition: all 0.2s ease;
 }
 
 /* [신규] 삭제 버튼이 표시될 때 링크 텍스트 영역 조정 */
