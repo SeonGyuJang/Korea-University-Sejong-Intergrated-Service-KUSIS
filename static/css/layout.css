@@ -265,8 +265,6 @@ body {
     overflow: hidden;
     /* [유지] Z-index 문제 해결 */
     z-index: 50;
-    /* [수정] 빈 공간에서는 기본 커서 유지 */
-    cursor: default;
 }
 
 
@@ -364,8 +362,6 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     flex-grow: 1;
-    /* [수정] 빈 공간에서는 기본 커서 유지 */
-    cursor: default;
 }
 
 .quick-links h4 {
@@ -389,8 +385,11 @@ body {
     flex-direction: column;
     gap: 8px;
     width: 100%;
-    /* [수정] 빈 공간에서는 기본 커서 유지 */
-    cursor: default;
+}
+
+/* [신규] userQuickLinkList 컨테이너 스타일 */
+#userQuickLinkList {
+    display: contents;
 }
 
 .sidebar-right:not(.expanded) .link-list {
@@ -408,16 +407,15 @@ body {
     color: var(--text-primary);
     font-weight: 500;
     text-decoration: none;
-    /* [수정] width transition 추가하여 부드러운 전환 */
-    transition: background 0.2s, color 0.2s, padding 0.3s ease, gap 0.3s ease, width 0.3s ease;
+    /* [수정] transition 최적화 - width transition 제거하여 깜빡임 방지 */
+    transition: background 0.2s ease, color 0.2s ease;
     min-height: 48px;
     max-width: 100%;
-    /* [수정] 축소 상태의 기본값 설정으로 깜빡임 방지 */
-    width: 48px;
-    justify-content: center;
-    padding: 0;
     /* [수정] 클릭 가능한 요소임을 명확히 표시 */
     cursor: pointer;
+    position: relative;
+    /* [신규] will-change 추가로 성능 최적화 */
+    will-change: background;
 }
 
 .quick-link:hover {
@@ -429,6 +427,7 @@ body {
     height: 48px;
     justify-content: center;
     padding: 0;
+    gap: 0;
 }
 
 .sidebar-right.expanded .quick-link {
@@ -437,6 +436,7 @@ body {
     padding: 8px 12px;
     width: 100%;
     max-width: 220px;
+    height: auto;
 }
 
 .quick-link i {
@@ -454,22 +454,24 @@ body {
 .link-text {
     white-space: nowrap;
     font-size: 14px;
-    opacity: 0;
-    visibility: hidden;
-    /* [수정] max-width 트랜지션을 추가하여 부드러운 텍스트 표시 */
-    transition: opacity 0.3s ease, visibility 0.3s ease, max-width 0.3s ease;
     width: auto;
     overflow: hidden;
-    text-overflow: ellipsis; 
-    /* [수정] 초기 max-width를 0으로 설정 */
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+}
+
+.sidebar-right:not(.expanded) .link-text {
+    opacity: 0;
+    visibility: hidden;
     max-width: 0;
+    width: 0;
 }
 
 .sidebar-right.expanded .link-text {
     opacity: 1;
     visibility: visible;
-    width: auto;
     max-width: 140px;
+    transition: opacity 0.2s ease 0.1s;
 }
 
 .quick-link-add i {

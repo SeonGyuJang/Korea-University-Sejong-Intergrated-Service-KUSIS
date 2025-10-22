@@ -96,24 +96,45 @@ async function loadUserQuickLinks() {
             linkEl.href = link.url;
             linkEl.target = '_blank';
             linkEl.className = 'quick-link';
-            
+            linkEl.rel = 'noopener noreferrer'; // 보안 강화
+
             // (신규) 아이콘 랜덤 색상 배정 (아이콘이 없을 경우 대비)
             const defaultIcon = 'fas fa-globe';
             const iconClass = link.icon_url || defaultIcon;
-            
+
             linkEl.innerHTML = `
                 <i class="${iconClass}" style="${generateIconStyle(iconClass)}"></i>
                 <span class="link-text">${link.title}</span>
-                <span class="quick-link-delete" data-id="${link.id}">&times;</span>
+                <span class="quick-link-delete" data-id="${link.id}" role="button" aria-label="삭제">&times;</span>
             `;
 
-            // (신규) 삭제 버튼 이벤트 리스너
-            linkEl.querySelector('.quick-link-delete').addEventListener('click', async (e) => {
+            // [수정] 삭제 버튼 이벤트 리스너 - 안정성 강화
+            const deleteBtn = linkEl.querySelector('.quick-link-delete');
+
+            // mousedown 이벤트로 변경하여 더 빠른 반응
+            deleteBtn.addEventListener('mousedown', async (e) => {
                 e.preventDefault(); // 링크 이동 방지
                 e.stopPropagation(); // 버블링 방지
-                
+                e.stopImmediatePropagation(); // 모든 이벤트 전파 차단
+            });
+
+            // click 이벤트는 실제 삭제 처리
+            deleteBtn.addEventListener('click', async (e) => {
+                e.preventDefault(); // 링크 이동 방지
+                e.stopPropagation(); // 버블링 방지
+                e.stopImmediatePropagation(); // 모든 이벤트 전파 차단
+
                 if (confirm(`'${link.title}' 링크를 삭제하시겠습니까?`)) {
                     await deleteQuickLink(link.id);
+                }
+            });
+
+            // [신규] 링크 클릭 시 삭제 버튼 영역 체크
+            linkEl.addEventListener('click', (e) => {
+                // 삭제 버튼이나 그 자식 요소를 클릭한 경우 링크 이동 방지
+                if (e.target.closest('.quick-link-delete')) {
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
             });
 
@@ -138,7 +159,8 @@ function setupQuickLinkModal() {
     if (!modal || !addBtn || !saveBtn || !form) return;
 
     // 모달 열기
-    addBtn.addEventListener('click', () => {
+    addBtn.addEventListener('click', (e) => {
+        e.preventDefault(); // javascript:void(0); 링크 기본 동작 방지
         form.reset(); // 폼 초기화
         modal.classList.add('active');
     });
@@ -190,16 +212,21 @@ function setupQuickLinkModal() {
 async function deleteQuickLink(linkId) {
     try {
         const response = await fetch(`/api/quick-links/${linkId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            loadUserQuickLinks(); // (수정) 목록 새로고침
-        } else {
-            alert(`삭제 실패: ${result.message}`);
+
+        if (!response.ok) {
+            const result = await response.json();
+            alert(`삭제 실패: ${result.message || '알 수 없는 오류'}`);
+            return;
         }
+
+        // 성공 시 목록 새로고침
+        await loadUserQuickLinks();
+
     } catch (error) {
         console.error('Failed to delete quick link:', error);
         alert('링크 삭제 중 오류가 발생했습니다.');
