@@ -38,6 +38,32 @@
     z-index: 100;
 }
 
+/* 사이드바 collapsed 상태 */
+.sidebar-left.collapsed .logo-text-container {
+    display: none;
+}
+
+.sidebar-left.collapsed .nav-text {
+    display: none;
+}
+
+.sidebar-left.collapsed .logo {
+    justify-content: center;
+    padding: 16px 0;
+    gap: 0;
+}
+
+.sidebar-left.collapsed .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+}
+
+.sidebar-left.collapsed .nav-item i,
+.sidebar-left.collapsed .nav-item img {
+    margin: 0;
+}
+
 .logo {
     padding: 16px 20px;
     display: flex;
@@ -198,7 +224,7 @@
 /* 콘텐츠 영역 */
 .content-area {
     display: grid;
-    grid-template-columns: 320px 1fr 480px; /* 3단 그리드 */
+    grid-template-columns: 280px 1fr 550px; /* 3단 그리드 - 중앙 줄이고 우측(시간표) 늘림 */
     gap: 20px;
     padding: 20px;
     width: 100%;

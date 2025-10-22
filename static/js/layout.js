@@ -56,4 +56,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     // --- 알림 로직 종료 ---
+
+    // --- 도서관 검색 기능 ---
+    const librarySearchInput = document.getElementById('librarySearchInput');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+
+    if (librarySearchInput) {
+        // Enter 키 누를 때 검색 실행
+        librarySearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const searchQuery = librarySearchInput.value.trim();
+                if (searchQuery) {
+                    // 로딩 오버레이 메시지 변경
+                    if (loadingText) {
+                        loadingText.textContent = `검색하신 키워드로 고려대학교 도서관 사이트로 이동합니다.`;
+                    }
+
+                    // 로딩 오버레이 표시
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('active');
+                    }
+
+                    // 1.5초 후 도서관 사이트로 이동
+                    setTimeout(() => {
+                        const libraryUrl = `https://library.korea.ac.kr/main-search-result/?q=${encodeURIComponent(searchQuery)}`;
+                        window.open(libraryUrl, '_blank');
+
+                        // 로딩 오버레이 숨기기 및 메시지 원래대로
+                        if (loadingOverlay) {
+                            loadingOverlay.classList.remove('active');
+                        }
+                        if (loadingText) {
+                            loadingText.textContent = '이동 중입니다... 새로운 탭에서 열립니다.';
+                        }
+
+                        // 검색어 초기화
+                        librarySearchInput.value = '';
+                    }, 1500);
+                }
+            }
+        });
+
+        // 검색 아이콘 클릭 시에도 검색 실행 (선택적)
+        const searchIcon = librarySearchInput.parentElement.querySelector('.fa-search');
+        if (searchIcon) {
+            searchIcon.style.cursor = 'pointer';
+            searchIcon.addEventListener('click', () => {
+                const searchQuery = librarySearchInput.value.trim();
+                if (searchQuery) {
+                    // Enter 키 이벤트 트리거
+                    const event = new KeyboardEvent('keypress', { key: 'Enter' });
+                    librarySearchInput.dispatchEvent(event);
+                }
+            });
+        }
+    }
+    // --- 도서관 검색 기능 종료 ---
 });
