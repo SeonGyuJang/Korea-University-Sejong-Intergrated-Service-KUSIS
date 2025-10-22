@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebarRight.classList.toggle('expanded');
         });
     }
-    
+
     // --- (신규) Request 4: 알림 드롭다운 Logic ---
     const notificationToggle = document.getElementById('notificationToggle');
     const notificationDropdown = document.getElementById('notificationDropdown');
@@ -61,71 +61,85 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     // --- (신규) 알림 로직 종료 ---
 
-    // --- (수정) Request 1: Quick Links (자주 찾는 사이트) Logic ---
-    
-    // (수정) "추가하기" 버튼이 있는지 (즉, 로그인 상태인지) 확인
+    // --- [완전 재설계] Quick Links (자주 찾는 사이트) Logic ---
+
+    // "추가하기" 버튼이 있는지 (즉, 로그인 상태인지) 확인
     if (document.getElementById('addLinkBtn')) {
-        loadUserQuickLinks(); // (수정) API 호출 함수 실행
+        // [핵심 수정] 이벤트 위임 패턴으로 삭제 버튼 이벤트 리스너를 한 번만 설정
+        setupQuickLinkDelegation();
+        loadUserQuickLinks();
         setupQuickLinkModal();
     }
 });
 
 /**
- * (수정) Request 1: API에서 *사용자* 퀵 링크를 로드하여 렌더링
- * (함수 이름 변경: loadQuickLinks -> loadUserQuickLinks)
+ * [완전 재설계] 이벤트 위임 패턴으로 삭제 버튼 이벤트 설정
+ * 부모 컨테이너에 한 번만 이벤트 리스너를 추가하여 깜빡임 및 클릭 씹힘 완전 해결
+ */
+function setupQuickLinkDelegation() {
+    const linkList = document.getElementById('quickLinkList');
+    if (!linkList) return;
+
+    // [핵심] 부모 요소에 이벤트 리스너를 단 한 번만 추가
+    linkList.addEventListener('click', async (e) => {
+        // 삭제 버튼 클릭 감지
+        const deleteBtn = e.target.closest('.quick-link-delete');
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const linkId = deleteBtn.dataset.id;
+            const linkElement = deleteBtn.closest('.quick-link');
+            const linkTitle = linkElement.querySelector('.link-text')?.textContent || '이 링크';
+
+            if (confirm(`'${linkTitle}'를 삭제하시겠습니까?`)) {
+                await deleteQuickLink(linkId);
+            }
+        }
+    });
+}
+
+/**
+ * [완전 재설계] API에서 사용자 퀵 링크를 로드하여 렌더링
+ * 이벤트 리스너를 추가하지 않고 순수하게 DOM만 생성
  */
 async function loadUserQuickLinks() {
-    // (수정) 기본 링크(quickLinkList)가 아닌, 사용자 링크 컨테이너를 대상으로 함
-    const listContainer = document.getElementById('userQuickLinkList'); 
+    const listContainer = document.getElementById('userQuickLinkList');
     if (!listContainer) return;
 
     try {
         const response = await fetch('/api/quick-links');
-        
-        // (수정) 로그아웃 상태(401) 등일 경우 함수 종료 (이제 DOMContentLoaded에서 체크하므로 이 코드는 안전장치)
+
         if (!response.ok) {
             listContainer.innerHTML = '';
-            return; 
+            return;
         }
-        
+
         const links = await response.json();
-        listContainer.innerHTML = ''; // (유지) 사용자 링크 목록만 비우기
-        
+        listContainer.innerHTML = ''; // 사용자 링크 목록만 비우기
+
         links.forEach(link => {
             const linkEl = document.createElement('a');
             linkEl.href = link.url;
             linkEl.target = '_blank';
             linkEl.className = 'quick-link';
-            linkEl.rel = 'noopener noreferrer'; // 보안 강화
+            linkEl.rel = 'noopener noreferrer';
 
-            // (신규) 아이콘 랜덤 색상 배정 (아이콘이 없을 경우 대비)
             const defaultIcon = 'fas fa-globe';
             const iconClass = link.icon_url || defaultIcon;
 
+            // [핵심] 이벤트 리스너를 추가하지 않고 순수하게 DOM만 생성
             linkEl.innerHTML = `
                 <i class="${iconClass}" style="${generateIconStyle(iconClass)}"></i>
                 <span class="link-text">${link.title}</span>
                 <span class="quick-link-delete" data-id="${link.id}" role="button" aria-label="삭제">&times;</span>
             `;
 
-            // [최적화] 삭제 버튼 이벤트 리스너 - 간소화
-            const deleteBtn = linkEl.querySelector('.quick-link-delete');
-
-            deleteBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                if (confirm(`'${link.title}' 링크를 삭제하시겠습니까?`)) {
-                    await deleteQuickLink(link.id);
-                }
-            });
-
             listContainer.appendChild(linkEl);
         });
 
     } catch (error) {
         console.error('Failed to load user quick links:', error);
-        // (수정) "링크 로드 실패" 메시지를 UI에 표시하지 않음
     }
 }
 
