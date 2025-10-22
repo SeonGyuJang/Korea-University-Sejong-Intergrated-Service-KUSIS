@@ -10,6 +10,7 @@ import urllib.parse
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+from sqlalchemy import inspect # DB 테이블 존재 여부 확인을 위해 임포트
 
 load_dotenv()
 
@@ -36,7 +37,8 @@ db = SQLAlchemy(app)
 @app.cli.command("init-db")
 def init_db_command():
     """Creates the database tables and initial data."""
-    create_initial_data()
+    with app.app_context(): # [수정] CLI 명령어 실행 시 app_context 보장
+        create_initial_data()
     print("Database initialized.")
 
 
@@ -66,7 +68,8 @@ class User(db.Model):
     dob = db.Column(db.String(10), nullable=False)
     college = db.Column(db.String(100), nullable=False)
     department = db.Column(db.String(100), nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    # [수정] 회원가입 오류 (StringDataRightTruncation) 해결을 위해 128 -> 256으로 늘림
+    password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     total_credits_goal = db.Column(db.Integer, default=130, nullable=False)
 
@@ -293,65 +296,82 @@ def manage_semesters_job():
 
 # --- DB 초기화 (유지) ---
 def create_initial_data():
-    with app.app_context():
-        db.create_all()
-        admin_id = "9999123456"
-        sample_user_id = "2023390822"
+    """
+    [수정] 이 함수는 이제 app.app_context() 내부에서 호출되는 것을 가정합니다.
+    (예: init_db_command 또는 앱 시작 시 자동 체크 로직)
+    
+    [수정] 이 함수는 테이블이 없으면 생성하고 (db.create_all()),
+    관리자/샘플 유저가 없으면 생성하도록 하여 (if not db.session.get(...)),
+    몇 번을 실행해도 안전합니다 (Idempotent).
+    """
+    # db.create_all()은 테이블이 이미 존재하면 아무 작업도 수행하지 않아 안전합니다.
+    db.create_all()
+    
+    admin_id = "9999999999"
+    sample_user_id = "2023390822"
 
-        # 관리자 계정 생성 및 학기 추가
-        if not db.session.get(User, admin_id):
-            admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("1234"), is_admin=True)
-            db.session.add(admin_user)
-            db.session.commit()
-            _create_semesters_for_user(admin_id) # (유지) 2020-2025 학기 생성
+    # 관리자 계정 생성 (없는 경우에만)
+    if not db.session.get(User, admin_id):
+        print(f"Admin user {admin_id} not found. Creating...")
+        admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("13272441"), is_admin=True)
+        db.session.add(admin_user)
+        db.session.commit()
+        _create_semesters_for_user(admin_id) # (유지) 2020-2025 학기 생성
+        print(f"Admin user {admin_id} created.")
+    else:
+        print(f"Admin user {admin_id} already exists. Skipping.")
 
-        # 샘플 유저 생성 및 학기 추가, 샘플 데이터 추가
-        if not db.session.get(User, sample_user_id):
-            sample_user = User(name="장선규", id=sample_user_id, dob="2004-03-24", college="과학기술대학", department="컴퓨터융합소프트웨어학과", password_hash=generate_password_hash("password123"), is_admin=False)
-            db.session.add(sample_user)
-            db.session.commit()
-            _create_semesters_for_user(sample_user_id) # (유지) 2020-2025 학기 생성
+    # 샘플 유저 생성 (없는 경우에만)
+    if not db.session.get(User, sample_user_id):
+        print(f"Sample user {sample_user_id} not found. Creating...")
+        sample_user = User(name="장선규", id=sample_user_id, dob="2004-06-16", college="개발자", department="ADMIN", password_hash=generate_password_hash("top13272441"), is_admin=False)
+        db.session.add(sample_user)
+        db.session.commit()
+        _create_semesters_for_user(sample_user_id) # (유지) 2020-2025 학기 생성
 
-            # --- 샘플 데이터 추가 (2025년 2학기에) ---
-            sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
-            if sample_semester:
-                # [수정] Subject.memo는 과목 전체 메모로 유지
-                web_memo = json.dumps({"note": "과제 제출 기한 엄수! (과목 전체 메모)", "todos": [{"task": "Flask 라우팅 공부", "done": False}]})
-                s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3, memo=web_memo)
-                s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3)
-                db.session.add_all([s1, s2])
-                db.session.commit() # s1, s2 ID 생성을 위해 커밋
-                # ID 생성 후 TimeSlot 및 WeeklyMemo 추가
-                db.session.add(TimeSlot(subject_id=s1.id, day_of_week=1, start_time="10:00", end_time="11:15", room="창의관 101"))
-                db.session.add(TimeSlot(subject_id=s1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
-                db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
-                db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
+        # --- 샘플 데이터 추가 (2025년 2학기에) ---
+        sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
+        if sample_semester:
+            # [수정] Subject.memo는 과목 전체 메모로 유지
+            web_memo = json.dumps({"note": "과제 제출 기한 엄수! (과목 전체 메모)", "todos": [{"task": "Flask 라우팅 공부", "done": False}]})
+            s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3, memo=web_memo)
+            s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3)
+            db.session.add_all([s1, s2])
+            db.session.commit() # s1, s2 ID 생성을 위해 커밋
+            # ID 생성 후 TimeSlot 및 WeeklyMemo 추가
+            db.session.add(TimeSlot(subject_id=s1.id, day_of_week=1, start_time="10:00", end_time="11:15", room="창의관 101"))
+            db.session.add(TimeSlot(subject_id=s1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
+            db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
+            db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
 
-                # [신규] 샘플 주차별 메모 추가
-                db.session.add(WeeklyMemo(
-                    subject_id=s1.id,
-                    week_number=3,
-                    note="3주차: Flask 기본 라우팅",
-                    todos=json.dumps([{"task": "routes.py 실습", "done": True}, {"task": "templates 개념 익히기", "done": False}])
-                ))
-                db.session.add(WeeklyMemo(
-                    subject_id=s1.id,
-                    week_number=4,
-                    note="4주차: DB 연동 (SQLAlchemy)",
-                    todos=json.dumps([{"task": "models.py 설계", "done": False}])
-                ))
-                db.session.commit() # TimeSlot, WeeklyMemo 커밋
+            # [신규] 샘플 주차별 메모 추가
+            db.session.add(WeeklyMemo(
+                subject_id=s1.id,
+                week_number=3,
+                note="3주차: Flask 기본 라우팅",
+                todos=json.dumps([{"task": "routes.py 실습", "done": True}, {"task": "templates 개념 익히기", "done": False}])
+            ))
+            db.session.add(WeeklyMemo(
+                subject_id=s1.id,
+                week_number=4,
+                note="4주차: DB 연동 (SQLAlchemy)",
+                todos=json.dumps([{"task": "models.py 설계", "done": False}])
+            ))
+            db.session.commit() # TimeSlot, WeeklyMemo 커밋
 
-            # --- 샘플 퀵링크/일정 ---
-            QuickLink.query.filter_by(user_id=sample_user_id).delete() # 기존 샘플 퀵링크 삭제
-            db.session.add_all([
-                QuickLink(user_id=sample_user_id, title="네이버", url="https://www.naver.com", icon_url="fa-solid fa-n"),
-                QuickLink(user_id=sample_user_id, title="LMS", url="https://lms.korea.ac.kr", icon_url="fa-solid fa-book"),
-            ])
-            # --- 샘플 Schedule 추가 ---
-            Schedule.query.filter_by(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d')).delete() # 오늘 날짜 샘플 일정 삭제
-            db.session.add(Schedule(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d'), time="15:00", title="팀 프로젝트 회의", location="스터디룸 3"))
-            db.session.commit()
+        # --- 샘플 퀵링크/일정 ---
+        QuickLink.query.filter_by(user_id=sample_user_id).delete() # 기존 샘플 퀵링크 삭제
+        db.session.add_all([
+            QuickLink(user_id=sample_user_id, title="네이버", url="https://www.naver.com", icon_url="fa-solid fa-n"),
+            QuickLink(user_id=sample_user_id, title="LMS", url="https://lms.korea.ac.kr", icon_url="fa-solid fa-book"),
+        ])
+        # --- 샘플 Schedule 추가 ---
+        Schedule.query.filter_by(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d')).delete() # 오늘 날짜 샘플 일정 삭제
+        db.session.add(Schedule(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d'), time="15:00", title="팀 프로젝트 회의", location="스터디룸 3"))
+        db.session.commit()
+        print(f"Sample data for user {sample_user_id} created.")
+    else:
+        print(f"Sample user {sample_user_id} already exists. Skipping sample data creation.")
 
 
 # --- Authentication Decorators (변경 없음) ---
@@ -577,7 +597,8 @@ def register():
             flash("비밀번호가 일치하지 않습니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
 
-        if User.query.get(student_id):
+        # [수정] LegacyAPIWarning 해결: User.query.get -> db.session.get
+        if db.session.get(User, student_id):
             flash("이미 가입된 학번입니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
 
@@ -664,12 +685,13 @@ def get_schedule():
             elif "2학기" in s.season and date(s.year, 9, 1) <= today_date_obj <= date(s.year, 12, 31):
                 current_semester = s; current_found = True; break
             elif "겨울학기" in s.season and (date(s.year, 12, 15) <= today_date_obj <= date(s.year, 12, 31) or \
-                                           date(s.year + 1, 1, 1) <= today_date_obj <= date(s.year + 1, 1, 31)):
+                                          date(s.year + 1, 1, 1) <= today_date_obj <= date(s.year + 1, 1, 31)):
                 current_semester = s; current_found = True; break
         if not current_found: # 못찾으면 최신 학기
-             season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-             all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
-             current_semester = all_semesters[0]
+            season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+            all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
+            if all_semesters: # 학기가 하나라도 있을 경우
+                current_semester = all_semesters[0]
 
     # 현재 학기의 오늘 요일 수업 찾기
     if current_semester and 1 <= today_day_of_week <= 5: # 월요일~금요일
@@ -812,12 +834,19 @@ def get_timetable_data():
 
             # 현재 날짜에 해당하는 학기를 찾지 못하면 최신 학기로 설정
             if not current_found:
-                 season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-                 all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
-                 semester = all_semesters[0] # 정렬된 목록의 첫 번째 (최신)
+                season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+                all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
+                if all_semesters: # 학기가 하나라도 있을 경우
+                    semester = all_semesters[0] # 정렬된 목록의 첫 번째 (최신)
 
     if not semester:
-        return jsonify({"semester": None, "subjects": []}), 404 # 학기를 찾을 수 없음
+        # 사용자가 학기를 가지고 있지 않은 경우 (매우 드문 경우, 예: 신규 가입 직후)
+        all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
+        if all_semesters:
+             semester = all_semesters[0] # 그냥 최신 학기라도 반환
+        else:
+             # 정말 학기가 없음
+             return jsonify({"semester": None, "subjects": []}), 404 # 학기를 찾을 수 없음
 
     # 선택된 학기의 과목 정보 조회
     subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all()
@@ -873,10 +902,10 @@ def create_subject():
         for ts_data in data.get('timeslots', []):
              # 시간 데이터 유효성 검사 추가
              if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'):
-                db.session.add(TimeSlot(
-                    subject_id=new_subject.id, day_of_week=ts_data.get('day'),
-                    start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
-                ))
+                 db.session.add(TimeSlot(
+                     subject_id=new_subject.id, day_of_week=ts_data.get('day'),
+                     start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
+                 ))
         db.session.commit()
 
         # 생성된 과목 정보 반환 시 메모 파싱
@@ -924,10 +953,10 @@ def handle_subject(subject_id):
             for ts_data in data.get('timeslots', []):
                  # 시간 데이터 유효성 검사 추가
                  if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'):
-                    db.session.add(TimeSlot(
-                        subject_id=subject.id, day_of_week=ts_data.get('day'),
-                        start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
-                    ))
+                     db.session.add(TimeSlot(
+                         subject_id=subject.id, day_of_week=ts_data.get('day'),
+                         start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')
+                     ))
             db.session.commit()
 
             # 업데이트된 과목 정보 반환 시 메모 파싱
@@ -1252,6 +1281,27 @@ def update_credit_goal():
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
 if __name__ == '__main__':
+    # --- [수정] 앱 시작 시 자동 DB 초기화 검사 ---
+    with app.app_context():
+        try:
+            print("--- [KUSIS] Checking database and initial data... ---")
+            
+            # create_initial_data() 함수는 이제 다음을 보장합니다:
+            # 1. db.create_all() 호출 (테이블이 없으면 생성, 있으면 통과)
+            # 2. 관리자 계정 확인 (없으면 생성, 있으면 통과)
+            # 3. 샘플 유저 확인 (없으면 생성 및 샘플 데이터 추가, 있으면 통과)
+            # 이 함수는 몇 번을 실행해도 안전합니다.
+            create_initial_data()
+            
+            print("--- [KUSIS] Database check complete. System ready. ---")
+                
+        except Exception as e:
+            # DB 연결 자체에 실패한 경우 (예: .env 파일 오류, DB 서버 다운)
+            print(f"--- [KUSIS] CRITICAL: Error during DB check/initialization: {e} ---")
+            print("--- [KUSIS] Please check your .env file and ensure the database server is running. ---")
+            # DB 연결 실패 시에도 앱은 실행되지만, 대부분의 기능이 작동하지 않습니다.
+    # --- [수정] 자동 DB 초기화 검사 끝 ---
+
     # 학사일정 로드 확인
     # print("Loaded Academic Calendar:", ACADEMIC_CALENDAR)
 
