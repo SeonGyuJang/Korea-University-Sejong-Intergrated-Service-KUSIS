@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 게시물 관리{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="content-area" style="grid-template-columns: 1fr;">
+    <div class="widget post-management-widget">
+        <div class="widget-header">
+            <h3><i class="fas fa-clipboard-list"></i> 게시물 관리</h3>
+            <a href="{{ url_for('create_post') }}" class="btn btn-save">
+                <i class="fas fa-plus"></i> 새 게시물 작성
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="margin-bottom: 15px;">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {# 관리자만 승인 대기 목록 표시 #}
+        {% if user.is_admin and pending_posts %}
+        <div class="post-section">
+            <h4><i class="fas fa-clock"></i> 승인 대기 중인 게시물</h4>
+            <div class="post-list-container">
+                <table class="post-table">
+                    <thead>
+                        <tr>
+                            <th>제목</th>
+                            <th>작성자</th>
+                            <th>작성일</th>
+                            <th>공지</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pendingPostList">
+                        {% for post in pending_posts %}
+                        <tr data-post-id="{{ post.id }}">
+                            <td>{{ post.title }}</td>
+                            <td>{{ post.author.name }}</td>
+                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{% if post.is_notice %}<i class="fas fa-check" style="color: var(--color-success);"></i>{% else %}-{% endif %}</td>
+                            <td class="actions-cell">
+                                <button class="btn btn-sm btn-approve" data-post-id="{{ post.id }}">승인</button>
+                                <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-sm btn-view">보기</a>
+                                <button class="btn btn-sm btn-danger btn-delete" data-post-id="{{ post.id }}">삭제</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {# 승인된 게시물 목록 #}
+        <div class="post-section">
+            <h4><i class="fas fa-check-circle"></i> 게시된 글 목록 {% if user.is_associate %}(내가 작성한 글 포함){% endif %}</h4>
+            <div class="post-list-container">
+                <table class="post-table">
+                    <thead>
+                        <tr>
+                            <th>제목</th>
+                            <th>작성자</th>
+                            <th>작성일</th>
+                            <th>공지</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="approvedPostList">
+                        {% for post in approved_posts %}
+                        <tr data-post-id="{{ post.id }}">
+                            <td><a href="{{ url_for('view_post', post_id=post.id) }}">{{ post.title }}</a></td>
+                            <td>{{ post.author.name }}</td>
+                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{% if post.is_notice %}<i class="fas fa-check" style="color: var(--color-success);"></i>{% else %}-{% endif %}</td>
+                            <td class="actions-cell">
+                                {# 관리자 또는 본인만 삭제 가능 #}
+                                {% if user.is_admin or post.author_id == user.id %}
+                                <button class="btn btn-sm btn-danger btn-delete" data-post-id="{{ post.id }}">삭제</button>
+                                {% endif %}
+                                <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-sm btn-view">보기</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-secondary);">게시된 글이 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='js/post_management.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - {{ post.title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
+<style>
+    .post-view-widget { max-width: 900px; margin: 20px auto; }
+    .post-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .post-content { font-size: 15px; line-height: 1.8; min-height: 200px; }
+    /* 내용 스타일에 맞게 추가 CSS 작성 */
+    .post-content img { max-width: 100%; height: auto; margin: 10px 0; }
+    .post-content p { margin-bottom: 1em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-area" style="grid-template-columns: 1fr;">
+    <div class="widget post-view-widget">
+        <div class="widget-header" style="margin-bottom: 10px;">
+            <h3 style="font-size: 24px;">{{ post.title }}</h3>
+            {# 목록으로 돌아가기 버튼 등 추가 가능 #}
+            <a href="{{ url_for('index') }}" class="btn btn-cancel btn-sm">홈으로</a>
+        </div>
+        <div class="post-meta">
+            <span>작성자: {{ post.author.name }}</span> |
+            <span>작성일: {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            {% if post.is_notice %} | <span style="color: var(--korea-red); font-weight: bold;">[공지]</span>{% endif %}
+        </div>
+        <div class="post-content">
+            {# HTML 내용을 안전하게 렌더링하려면 |safe 필터 사용 (주의: XSS 공격 가능성 고려) #}
+            {# 또는 Markdown 라이브러리 사용 권장 #}
+            {{ post.content | safe }}
+        </div>
+        {# 댓글 기능 등 추가 가능 #}
+         <div style="margin-top: 30px; text-align: right;">
+             {% if user and (user.is_admin or post.author_id == user.id) %}
+                <button class="btn btn-danger btn-sm btn-delete" data-post-id="{{ post.id }}" onclick="deletePostFromView(this)">삭제</button>
+             {% endif %}
+            <a href="{{ url_for('post_management') if user and user.can_manage_posts else url_for('index') }}" class="btn btn-secondary btn-sm">목록</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    // view_post.html 페이지 내 삭제 기능
+    async function deletePostFromView(button) {
+        const postId = button.dataset.postId;
+        if (!postId || !confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
+
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 삭제 중...';
+
+        try {
+            const response = await fetch(`/post/${postId}/delete`, { method: 'POST' });
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                alert(result.message);
+                // 삭제 성공 시 홈 또는 관리 페이지로 이동
+                window.location.href = "{{ url_for('post_management') if user and user.can_manage_posts else url_for('index') }}";
+            } else {
+                throw new Error(result.message || '삭제 실패');
+            }
+        } catch (error) {
+            alert(`오류: ${error.message}`);
+            button.disabled = false;
+            button.textContent = '삭제';
+        }
+    }
+</script>
+{% endblock %}

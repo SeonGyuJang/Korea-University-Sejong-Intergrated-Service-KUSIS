@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 새 게시물 작성{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
+{# 필요시 리치 텍스트 에디터 CSS 추가 #}
+{% endblock %}
+
+{% block content %}
+<div class="content-area" style="grid-template-columns: 1fr;">
+    <div class="widget create-post-widget">
+        <div class="widget-header">
+            <h3><i class="fas fa-pencil-alt"></i> 새 게시물 작성</h3>
+            <a href="{{ url_for('post_management') }}" class="btn btn-cancel">목록으로</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="margin-bottom: 15px;">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('create_post') }}" id="createPostForm">
+            <div class="input-group">
+                <label for="title">제목</label>
+                <input type="text" id="title" name="title" required placeholder="게시물 제목을 입력하세요" value="{{ title or '' }}">
+            </div>
+            <div class="input-group">
+                <label for="content">내용</label>
+                {# 간단한 textarea. 리치 에디터(예: CKEditor, Quill)로 교체 가능 #}
+                <textarea id="content" name="content" rows="15" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
+                {# 이미지 첨부 기능은 여기에 추가 (예: <input type="file">) #}
+            </div>
+             <div class="input-group checkbox-group">
+                <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
+                <label for="is_notice">이 글을 공지사항으로 표시합니다 (관리자 승인 필요)</label>
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="submit" class="btn btn-save">
+                    <i class="fas fa-check"></i> 작성 완료
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
