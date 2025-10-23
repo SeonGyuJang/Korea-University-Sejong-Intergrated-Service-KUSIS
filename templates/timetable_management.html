@@ -15,8 +15,7 @@
                 <div class="widget-tabs">
                     <button class="tab active" data-tab="credits"><i class="fas fa-graduation-cap"></i> 학점</button>
                     <button class="tab" data-tab="gpa"><i class="fas fa-chart-line"></i> 성적</button>
-                    <button class="tab" data-tab="todos"><i class="fas fa-tasks"></i> Todo</button>
-                </div>
+                    </div>
             </div>
 
             <div class="widget-tab-content active" id="tab-content-credits">
@@ -64,12 +63,34 @@
                 </div>
             </div>
 
-            <div class="widget-tab-content" id="tab-content-todos">
-                <div class="todo-summary-list" id="todoSummaryList">
-                    <p class="todo-summary-empty">학기를 선택해주세요.</p>
+            </div>
+
+        <div class="widget global-todo-widget" id="globalTodoWidget">
+            <div class="widget-header">
+                <h3><i class="fas fa-tasks"></i> 이번 주 Todo</h3>
+                <span id="globalTodoWeekRange" class="week-range-display"></span>
+            </div>
+            <div class="todo-day-selector global-day-selector">
+                <button class="day-circle" data-day="1">월</button>
+                <button class="day-circle" data-day="2">화</button>
+                <button class="day-circle" data-day="3">수</button>
+                <button class="day-circle" data-day="4">목</button>
+                <button class="day-circle" data-day="5">금</button>
+                <button class="day-circle" data-day="6">토</button>
+                <button class="day-circle" data-day="0">일</button>
+            </div>
+            <div class="global-todo-widget-content">
+                <ul id="globalTodoList" class="memo-todo-list">
+                    <li class="todo-empty">학기를 선택하세요.</li>
+                </ul>
+                <div class="memo-todo-add global-todo-add">
+                    <div class="tag-suggestion-overlay" id="globalTagSuggestionOverlay"></div>
+                    <input type="text" id="globalNewTodoInput" placeholder="할 일 추가 (@과목 태그 가능)..." disabled>
+                    <button id="globalAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
                 </div>
             </div>
         </div>
+
     </div>
 
     <div class="timetable-main-content">
@@ -118,6 +139,7 @@
                 </ul>
             </div>
         </div>
+        
         <div class="widget weekly-details-widget">
              <div class="widget-header">
                 <h3 id="weeklyDetailsTitle"><i class="fas fa-calendar-week"></i> 주차별 정보</h3>

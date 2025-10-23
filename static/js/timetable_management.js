@@ -6,13 +6,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let allSemesters = [];
     let currentSubjects = [];
     let gpaChartInstance = null;
-    let selectedSubjectForDetails = null;
+    let selectedSubjectForDetails = null; // [Req 1] 우측 메모/과목Todo용
 
-    let currentWeek = 1;
+    let currentWeek = 1; // [Req 1] 우측 메모/과목Todo용
     const TOTAL_WEEKS = 16;
-    let currentWeeklyData = { note: "", todos: [] };
+    let currentWeeklyData = { note: "", todos: [] }; // [Req 1] 우측 메모/과목Todo용
 
-    // 과목별 색상 팔레트 (script.js와 동일하게 유지)
+    // [Req 2 & 4] Global Todo 위젯 관련 변수
+    let currentGlobalTodos = []; // 이번 주 전체 Todo (DB에서 로드)
+    let selectedTodoDay = new Date().getDay(); // 오늘 요일 (0:일, 1:월, ...)
+    const globalTodoWidget = document.getElementById('globalTodoWidget');
+    const globalTodoList = document.getElementById('globalTodoList');
+    const globalNewTodoInput = document.getElementById('globalNewTodoInput');
+    const globalAddTodoBtn = document.getElementById('globalAddTodoBtn');
+    const globalTagSuggestionOverlay = document.getElementById('globalTagSuggestionOverlay');
+    const globalTodoWeekRangeEl = document.getElementById('globalTodoWeekRange');
+    let currentWeekStartDate = null; // 현재 Todo 위젯에 표시되는 주의 시작일 (월요일)
+
+    // 과목별 색상 팔레트 (기존 유지)
     const subjectColors = [
         'rgba(239, 83, 80, 0.1)',   // Red
         'rgba(236, 64, 122, 0.1)',  // Pink
@@ -48,8 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelGoalBtn = document.getElementById('cancelGoalBtn');
     const gpaChartCanvas = document.getElementById('gpaChart');
     const refreshGpaChartBtn = document.getElementById('refreshGpaChartBtn');
-    const todoSummaryList = document.getElementById('todoSummaryList');
-
+    // [Req 2] const todoSummaryList = document.getElementById('todoSummaryList'); // 제거
+    
     // 오른쪽 과목 상세 정보 사이드바 DOM
     const subjectDetailsListUl = document.getElementById('subjectDetailsList');
     const weeklyDetailsTitle = document.getElementById('weeklyDetailsTitle');
@@ -69,9 +80,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.widget-tabs .tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             const targetTab = e.currentTarget.dataset.tab;
-            document.querySelectorAll('.widget-tabs .tab').forEach(t => t.classList.remove('active'));
+            // [Req 2] 부모 위젯을 기준으로 탭 전환
+            const parentWidget = e.currentTarget.closest('.widget');
+            if (!parentWidget) return;
+
+            parentWidget.querySelectorAll('.widget-tabs .tab').forEach(t => t.classList.remove('active'));
             e.currentTarget.classList.add('active');
-            document.querySelectorAll('.widget-tab-content').forEach(content => {
+            
+            parentWidget.querySelectorAll('.widget-tab-content').forEach(content => {
                 content.classList.toggle('active', content.id === `tab-content-${targetTab}`);
             });
         });
@@ -103,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // --- 1. 초기화 ---
-    // [수정됨] 요구사항 2 반영: 현재 날짜 기준 학기 로드
     async function initializePage() {
         setupEventListeners();
         await loadAllSemesters(); // 모든 학기 목록 로드 및 드롭다운 채우기 (기존 유지)
@@ -134,10 +149,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // UI 렌더링
                 renderTimetableGrid(currentSubjects);
-                renderTodoSummary(currentSubjects);
+                // [Req 2] renderTodoSummary(currentSubjects); // 제거
                 renderSubjectDetailsList(currentSubjects);
                 resetWeeklyDetailsPanel(); // 초기에는 주차별 정보 리셋
                 addSubjectBtn.disabled = false; // 새 과목 추가 버튼 활성화
+
+                // [Req 4] Global Todo 로드
+                await loadAndRenderGlobalTodos(new Date());
 
                 // 학점 통계 로드
                 await loadGpaStats();
@@ -159,7 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("초기 시간표 로드 실패:", error);
             timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">${error.message}</td></tr>`;
             if(subjectDetailsListUl) subjectDetailsListUl.innerHTML = `<li class="subject-details-empty">${error.message}</li>`;
-            todoSummaryList.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
+            // [Req 2] todoSummaryList.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`; // 제거
+            if(globalTodoList) globalTodoList.innerHTML = `<li class="todo-empty">${error.message}</li>`; // [Req 2] 새 위젯에 에러 표시
             addSubjectBtn.disabled = true;
             resetWeeklyDetailsPanel(); // 주차별 정보 패널 비활성화
         }
@@ -203,6 +222,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (viewAllWeeksBtn) viewAllWeeksBtn.addEventListener('click', openAllWeeksModal);
         if (allWeeksModal) allWeeksModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allWeeksModal.classList.remove('active')));
+
+        // [Req 2 & 4] Global Todo 위젯 이벤트 리스너
+        document.querySelectorAll('.global-day-selector .day-circle').forEach(button => {
+            button.addEventListener('click', (e) => {
+                selectedTodoDay = parseInt(e.currentTarget.dataset.day, 10);
+                updateTodoDaySelection(selectedTodoDay);
+                renderGlobalTodoList(); // 선택된 요일 기준으로 리스트 다시 렌더링
+            });
+        });
+
+        if (globalNewTodoInput) {
+            globalNewTodoInput.addEventListener('input', handleGlobalTodoInputTagging); // [Req 4] @태그
+            globalNewTodoInput.addEventListener('keypress', (e) => {
+                 if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // [Req 4] 오버레이 활성화 시 첫 항목 선택
+                    const firstSuggestion = globalTagSuggestionOverlay?.querySelector('.suggestion-item');
+                    if (globalTagSuggestionOverlay?.style.display === 'block' && firstSuggestion) {
+                        selectGlobalTagSuggestion(firstSuggestion.textContent);
+                    } else {
+                        addGlobalTodo(); // Todo 추가
+                    }
+                 }
+            });
+            globalNewTodoInput.addEventListener('blur', () => {
+                // 약간의 딜레이 후 오버레이 숨김
+                setTimeout(() => {
+                    if (globalTagSuggestionOverlay) globalTagSuggestionOverlay.style.display = 'none';
+                }, 150);
+            });
+        }
+        if (globalAddTodoBtn) globalAddTodoBtn.addEventListener('click', addGlobalTodo);
+        
+        // [Req 1] 과목 선택 리스너 (이벤트 위임 사용)
+        if (subjectDetailsListUl) {
+             subjectDetailsListUl.addEventListener('click', (e) => {
+                const li = e.target.closest('.subject-details-item');
+                if (li && li.dataset.subjectId) {
+                    // 등급 select나 수정 버튼 클릭이 아닌 경우에만
+                    if (!e.target.closest('.grade-select') && !e.target.closest('.btn-edit-subject')) { // 수정: btn-edit-subject 클래스 추가
+                        if (subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
+                        li.classList.add('selected');
+                        selectSubjectForDetails(parseInt(li.dataset.subjectId, 10));
+                    }
+                }
+            });
+            // 등급 변경 및 수정 버튼 이벤트 (이벤트 위임)
+             subjectDetailsListUl.addEventListener('change', (e) => {
+                 if (e.target.classList.contains('grade-select')) {
+                     handleGradeChange(e);
+                 }
+            });
+            // (수정 버튼은 renderSubjectDetailsList에서 개별 추가 -> 일관성을 위해 위임으로 변경)
+            // -> 아니, 기존 파일은 개별 추가였음. 기존 로직 유지.
+        }
+        
+        // [Req 1] 시간표 슬롯 클릭 리스너 (수정 모달 -> 과목 선택)
+        if (timetableBody) {
+            timetableBody.addEventListener('click', (e) => {
+                const slot = e.target.closest('.subject-slot');
+                if (slot && slot.dataset.subjectId) {
+                    e.stopPropagation();
+                    const subjectId = parseInt(slot.dataset.subjectId, 10);
+                    // [Req 1] 수정: 모달 열기 -> 과목 선택 함수 호출
+                    // openEditSubjectModal(subjectId); // <- 기존
+                    
+                    // 과목 목록에서 해당 항목 'selected' 처리
+                    if (subjectDetailsListUl) {
+                        subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
+                        const selectedLi = subjectDetailsListUl.querySelector(`li[data-subject-id="${subjectId}"]`);
+                        if(selectedLi) selectedLi.classList.add('selected');
+                    }
+                    // 상세 정보 패널 업데이트
+                    selectSubjectForDetails(subjectId);
+                }
+            });
+        }
     }
 
     // --- 3. 데이터 로딩 (API) ---
@@ -236,13 +332,15 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimetableAndTodos();
             resetSubjectDetailsPanel();
             resetWeeklyDetailsPanel();
+            disableGlobalTodoWidget("학기를 선택하세요."); // [Req 4]
             currentSemesterInfo = null; // 학기 정보 초기화
             if (addSubjectBtn) addSubjectBtn.disabled = true; // 학기 없으면 추가 불가
             return;
         }
         if (timetableBody) timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">시간표 로딩 중...</td></tr>`;
         if (subjectDetailsListUl) subjectDetailsListUl.innerHTML = '<li class="subject-details-empty">과목 목록 로딩 중...</li>';
-        if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">Todo 로딩 중...</p>'; // Todo 로딩 상태 추가
+        // [Req 2] if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">Todo 로딩 중...</p>'; // 제거
+        disableGlobalTodoWidget("학기 로딩 중..."); // [Req 4]
 
         try {
             const response = await fetch(`/api/timetable-data?semester_id=${semesterId}`);
@@ -264,10 +362,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             renderTimetableGrid(currentSubjects);
-            renderTodoSummary(currentSubjects);
+            // [Req 2] renderTodoSummary(currentSubjects); // 제거
             renderSubjectDetailsList(currentSubjects);
             resetWeeklyDetailsPanel(); // 과목 선택 전까지 주차별 정보는 초기화
              if (addSubjectBtn) addSubjectBtn.disabled = false; // 학기 로드 성공 시 추가 버튼 활성화
+
+            // [Req 4] Global Todo 로드
+            await loadAndRenderGlobalTodos(new Date());
 
             // 학점 통계 로드
             await loadGpaStats();
@@ -277,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimetableAndTodos();
             resetSubjectDetailsPanel(error.message);
             resetWeeklyDetailsPanel();
+            disableGlobalTodoWidget(error.message); // [Req 4]
             currentSemesterInfo = null;
             if (addSubjectBtn) addSubjectBtn.disabled = true;
         }
@@ -306,8 +408,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // 백엔드에서 가져온 학점과 현재 학기 학점을 비교하여 더 큰 값 사용
             // (grade가 설정되지 않은 과목도 포함하기 위해)
             const apiCredits = statsData.total_earned_credits || 0;
-            const currentSemesterCredits = calculateTotalCreditsFromCurrentSubjects();
-            const totalCredits = Math.max(apiCredits, currentSemesterCredits);
+            // [Fix] 현재 학기 학점은 apiCredits에 이미 포함되어 있을 수 있으므로, total_earned_credits를 그대로 사용
+            // const currentSemesterCredits = calculateTotalCreditsFromCurrentSubjects(); // 이 로직 불필요
+            const totalCredits = apiCredits; // 백엔드가 계산한 총 이수 학점 사용
 
             updateCreditProgress(totalCredits, currentGoal);
             if (overallGpaEl) overallGpaEl.textContent = statsData.overall_gpa;
@@ -321,9 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.textAlign = 'center';
                 ctx.fillText(error.message, gpaChartCanvas.width / 2, gpaChartCanvas.height / 2);
             }
-             // 에러 발생 시 현재 학기 학점으로 계산
-             const currentSemesterCredits = calculateTotalCreditsFromCurrentSubjects();
-             updateCreditProgress(currentSemesterCredits, goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130);
+             // 에러 발생 시 0으로 표시
+             updateCreditProgress(0, goalCreditsEl ? parseInt(goalCreditsEl.textContent, 10) : 130);
              if (overallGpaEl) overallGpaEl.textContent = 'N/A';
         }
     }
@@ -439,17 +541,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     slotDiv.style.height = `${slotHeight}px`;
                     slotDiv.style.backgroundColor = subjectColor; // 배경색 적용
                     slotDiv.style.borderLeft = `4px solid ${borderColor}`; // 테두리색 적용
+                    slotDiv.dataset.subjectId = subject.id; // [Req 1] 과목 ID 저장
 
                     // 슬롯 내용 (과목명, 강의실)
                     let innerHTML = `<div class="slot-subject">${subject.name}</div>`;
                     if (slotHeight > 30) innerHTML += `<div class="slot-room">${ts.room || ''}</div>`; // 높이가 충분할 때만 강의실 표시
                     slotDiv.innerHTML = innerHTML;
 
-                    // 클릭 시 수정 모달 열기
-                    slotDiv.addEventListener('click', (e) => {
-                        e.stopPropagation(); // 이벤트 버블링 방지
-                        openEditSubjectModal(subject.id);
-                    });
+                    // [Req 1] 클릭 리스너는 setupEventListeners에서 이벤트 위임으로 처리
+                    // slotDiv.addEventListener('click', (e) => { ... });
+                    
                     targetCell.appendChild(slotDiv); // 셀에 슬롯 추가
                 });
             });
@@ -459,45 +560,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clearTimetableAndTodos() {
         if (timetableBody) timetableBody.innerHTML = `<tr><td colspan="6" class="todo-summary-empty">표시할 시간표가 없습니다.</td></tr>`;
-        if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">학기를 선택해주세요.</p>';
+        // [Req 2] if (todoSummaryList) todoSummaryList.innerHTML = '<p class="todo-summary-empty">학기를 선택해주세요.</p>'; // 제거
     }
 
+    // [Req 2] renderTodoSummary 함수 전체 제거
+    /*
     function renderTodoSummary(subjects) {
-        if (!todoSummaryList) return;
-        todoSummaryList.innerHTML = '';
-        // 메모(note) 또는 할일(todos)이 있는 과목 필터링
-        const subjectsWithContent = subjects.filter(s => s.memo && (s.memo.note || (s.memo.todos && s.memo.todos.length > 0)));
-
-        if (subjectsWithContent.length === 0) {
-            todoSummaryList.innerHTML = '<p class="todo-summary-empty">이번 학기 메모/Todo가 없습니다.</p>';
-            return;
-        }
-
-        subjectsWithContent.forEach(subject => {
-            const hasNote = subject.memo.note && subject.memo.note.trim() !== '';
-            const hasTodos = subject.memo.todos && subject.memo.todos.length > 0;
-            const pendingTodos = hasTodos ? subject.memo.todos.filter(t => !t.done) : [];
-            const isCompleted = hasTodos && pendingTodos.length === 0;
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = `todo-summary-item ${isCompleted ? 'completed' : ''}`;
-
-            let statusText = '';
-            if (hasNote && hasTodos) statusText = `메모 있음 / ${isCompleted ? 'Todo 완료' : `${pendingTodos.length}개 남음`}`;
-            else if (hasNote) statusText = '메모 있음';
-            else if (hasTodos) statusText = isCompleted ? 'Todo 완료' : `${pendingTodos.length}개 남음`;
-
-            itemDiv.innerHTML = `
-                <div class="todo-subject">${subject.name} (${statusText})</div>
-                ${hasTodos ? `
-                <ul class="todo-list">
-                    ${subject.memo.todos.map(todo => `<li class="todo-list-item ${todo.done ? 'done' : 'pending'}"><i class="fas ${todo.done ? 'fa-check-square' : 'fa-square'}"></i> ${todo.task}</li>`).join('')}
-                </ul>` : ''}
-                ${hasNote ? `<div class="todo-note-preview"><i class="fas fa-sticky-note"></i> ${subject.memo.note.substring(0, 50)}${subject.memo.note.length > 50 ? '...' : ''}</div>` : ''}`; // 메모 미리보기 추가
-
-            todoSummaryList.appendChild(itemDiv);
-        });
+        ...
     }
+    */
 
     // GPA 차트 렌더링
     function renderGpaChart(semesters) {
@@ -545,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="subject-prof">${subject.professor || ''} (${subject.credits}학점)</span>
                 </div>
                 <div class="subject-grade">
-                    <select class="grade-select" data-subject-id="${subject.id}">
+                    <select class="grade-select" data-subject-id="${subject.id}" title="등급 설정">
                         <option value="Not Set" ${!subject.grade || subject.grade === 'Not Set' ? 'selected' : ''}>미설정</option>
                         <option value="A+" ${subject.grade === 'A+' ? 'selected' : ''}>A+</option>
                         <option value="A0" ${subject.grade === 'A0' ? 'selected' : ''}>A0</option>
@@ -559,25 +630,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="P" ${subject.grade === 'P' ? 'selected' : ''}>Pass</option>
                     </select>
                 </div>
+                <button class="btn-edit-subject" data-subject-id="${subject.id}" title="과목 수정"><i class="fas fa-edit"></i></button>
             `;
-            // 클릭 시 해당 과목 선택 및 주차별 정보 로드
-            li.addEventListener('click', () => {
-                 if (subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
-                 li.classList.add('selected');
-                 selectSubjectForDetails(subject.id);
-            });
+            // [Req 1] 클릭 리스너는 setupEventListeners에서 이벤트 위임으로 처리
+            // li.addEventListener('click', () => { ... });
+            
             // 등급 변경 시 이벤트 처리 (버블링 방지)
              const gradeSelect = li.querySelector('.grade-select');
              if (gradeSelect) {
                 gradeSelect.addEventListener('change', handleGradeChange);
                 gradeSelect.addEventListener('click', (e) => e.stopPropagation());
              }
+             
+             // [Req 1] 수정 버튼 리스너 (기존 파일에 없었으나, 슬롯 클릭 기능 변경으로 추가)
+             const editBtn = li.querySelector('.btn-edit-subject');
+             if (editBtn) {
+                 editBtn.addEventListener('click', (e) => {
+                     e.stopPropagation();
+                     openEditSubjectModal(subject.id);
+                 });
+             }
 
             subjectDetailsListUl.appendChild(li);
         });
     }
 
-     // 과목 선택 시 처리 (Request 3 수정)
+     // [Req 1] 과목 선택 시 처리 (메모/과목Todo 패널 업데이트)
      function selectSubjectForDetails(subjectId) {
          selectedSubjectForDetails = currentSubjects.find(s => s.id === subjectId);
          if (selectedSubjectForDetails && weeklyDetailsTitle) {
@@ -592,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  calculatedWeek = calculateCurrentWeekNumber(startDate);
                  console.log(`[Week Calculation] Semester start: ${currentSemesterInfo.start_date}, Calculated week: ${calculatedWeek}`);
              } else {
-                 // 학기 시작일이 없으면 학기 이름에서 추정 (2024-2학기 형식)
+                 // 학기 시작일이 없으면 학기 이름에서 추정 (기존 로직)
                  if (currentSemesterInfo && currentSemesterInfo.name) {
                      const estimatedStartDate = estimateSemesterStartDate(currentSemesterInfo.name);
                      if (estimatedStartDate) {
@@ -611,6 +689,8 @@ document.addEventListener('DOMContentLoaded', () => {
          } else {
              resetWeeklyDetailsPanel(); // 과목 없거나 학기 정보 없으면 리셋
          }
+         
+         // [Req 1, 4] 이 함수는 Global Todo에 영향을 주지 않음.
      }
 
      // 등급 변경 처리
@@ -728,14 +808,15 @@ document.addEventListener('DOMContentLoaded', () => {
              const todoId = `weekly-todo-${currentWeek}-${index}-${Date.now()}`; // 고유 ID 생성
              // Todo 항목 HTML (체크박스, 라벨, 삭제 버튼)
              li.innerHTML = `
-                 <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
+                 <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''} data-index="${index}">
                  <label for="${todoId}" class="todo-label">${todo.task}</label>
-                 <span class="todo-delete-btn" data-index="${index}">&times;</span>
+                 <span class="todo-delete-btn" data-index="${index}" title="삭제">&times;</span>
              `;
              // 체크박스 변경 시: 로컬 데이터 업데이트, UI 변경, 저장 버튼 활성화
              li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
-                 if (currentWeeklyData.todos && currentWeeklyData.todos[index]) {
-                     currentWeeklyData.todos[index].done = e.target.checked;
+                 const idx = parseInt(e.target.dataset.index, 10); // [Req 3] BugFix: index 사용
+                 if (currentWeeklyData.todos && currentWeeklyData.todos[idx]) {
+                     currentWeeklyData.todos[idx].done = e.target.checked;
                      li.classList.toggle('done', e.target.checked);
                      if (saveWeeklyMemoTodoBtn) {
                         saveWeeklyMemoTodoBtn.disabled = false;
@@ -908,19 +989,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = header.parentElement;
                 const isActive = item.classList.contains('active');
 
-                // 모든 활성 아코디언 닫기 (선택적: 하나만 열리게 하려면)
-                // container.querySelectorAll('.accordion-item.active').forEach(activeItem => {
-                //     if (activeItem !== item) {
-                //         activeItem.classList.remove('active');
-                //         activeItem.querySelector('.accordion-content').style.maxHeight = null;
-                //     }
-                // });
-
                 // 현재 클릭된 아코디언 토글
                 item.classList.toggle('active', !isActive);
                 if (content) { // content 요소가 있는지 확인
                     if (!isActive) {
-                        content.style.maxHeight = content.scrollHeight + "px"; // 열기
+                        content.style.maxHeight = content.scrollHeight + 32 + "px"; // 열기 (패딩 16px * 2)
                     } else {
                         content.style.maxHeight = null; // 닫기
                     }
@@ -1054,17 +1127,17 @@ document.addEventListener('DOMContentLoaded', () => {
         entryDiv.className = 'timeslot-entry';
         // 요일, 시작시간, 종료시간, 강의실 입력 필드 HTML
         entryDiv.innerHTML = `
-            <select name="day">
+            <select name="day" title="요일">
                 <option value="1" ${timeslot && timeslot.day == 1 ? 'selected' : ''}>월</option>
                 <option value="2" ${timeslot && timeslot.day == 2 ? 'selected' : ''}>화</option>
                 <option value="3" ${timeslot && timeslot.day == 3 ? 'selected' : ''}>수</option>
                 <option value="4" ${timeslot && timeslot.day == 4 ? 'selected' : ''}>목</option>
                 <option value="5" ${timeslot && timeslot.day == 5 ? 'selected' : ''}>금</option>
             </select>
-            <input type="time" name="start_time" value="${timeslot ? (timeslot.start || '09:00') : '09:00'}">
-            <input type="time" name="end_time" value="${timeslot ? (timeslot.end || '10:15') : '10:15'}">
-            <input type="text" name="room" placeholder="강의실" value="${timeslot ? (timeslot.room || '') : ''}">
-            <button type="button" class="timeslot-delete-btn">&times;</button>
+            <input type="time" name="start_time" value="${timeslot ? (timeslot.start || '09:00') : '09:00'}" title="시작 시간">
+            <input type="time" name="end_time" value="${timeslot ? (timeslot.end || '10:15') : '10:15'}" title="종료 시간">
+            <input type="text" name="room" placeholder="강의실" value="${timeslot ? (timeslot.room || '') : ''}" title="강의실">
+            <button type="button" class="timeslot-delete-btn" title="시간 삭제">&times;</button>
         `;
         // 삭제 버튼 이벤트
         entryDiv.querySelector('.timeslot-delete-btn').addEventListener('click', () => entryDiv.remove());
@@ -1158,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // UI 다시 렌더링
             renderTimetableGrid(currentSubjects);
-            renderTodoSummary(currentSubjects);
+            // [Req 2] renderTodoSummary(currentSubjects); // 제거
             renderSubjectDetailsList(currentSubjects);
 
             // 주차별 정보 패널 업데이트 (선택된 과목이면)
@@ -1195,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // UI 다시 렌더링
             renderTimetableGrid(currentSubjects);
-            renderTodoSummary(currentSubjects);
+            // [Req 2] renderTodoSummary(currentSubjects); // 제거
             renderSubjectDetailsList(currentSubjects);
 
             // 주차별 정보 패널 리셋 (삭제된 과목이 선택된 상태였다면)
@@ -1216,21 +1289,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function estimateSemesterStartDate(semesterName) {
         if (!semesterName) return null;
 
-        // 학기 이름 파싱: "2024-2학기", "2024-1학기" 등
-        const match = semesterName.match(/(\d{4})-?(\d|1|2|여름|겨울)?학기/);
+        // 학기 이름 파싱: "2024년 1학기" (기존 파일 형식)
+        const match = semesterName.match(/(\d{4})년 (1|2|여름|겨울)학기/);
         if (!match) return null;
 
         const year = parseInt(match[1], 10);
         const season = match[2];
 
         // 학기별 시작일 추정
-        if (season === '1' || season === '첫' || season === '봄') {
-            return new Date(year, 2, 2); // 3월 2일
-        } else if (season === '2' || season === '가을') {
-            return new Date(year, 8, 1); // 9월 1일
-        } else if (season === '여름' || semesterName.includes('여름')) {
+        if (season === '1') {
+            return new Date(year, 2, 2); // 3월 2일 (월요일 고려)
+        } else if (season === '2') {
+            return new Date(year, 8, 1); // 9월 1일 (월요일 고려)
+        } else if (season === '여름') {
             return new Date(year, 5, 20); // 6월 20일
-        } else if (season === '겨울' || semesterName.includes('겨울')) {
+        } else if (season === '겨울') {
             return new Date(year, 11, 20); // 12월 20일
         }
 
@@ -1251,7 +1324,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (diffTime < 0) return 1; // 학기 시작 전이면 1주차
 
         // 날짜 차이 계산 (밀리초 -> 일)
-        // getTimezoneOffset()을 더하여 UTC 기준으로 변환 후 차이 계산 (일광 절약 시간제 등 문제 방지)
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
         // 주차 계산 (0일부터 6일까지가 1주차)
@@ -1260,6 +1332,295 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.max(1, Math.min(weekNumber, TOTAL_WEEKS)); // 1~16 범위 보장
     }
 
+
+    // --- [Req 2 & 4] Global Todo 위젯 관련 Helper Functions ---
+    
+    // (Global Todo) 현재 날짜 기준 주의 시작(월)/종료(일)일 계산
+    function getWeekRange(date) {
+        const today = new Date(date.setHours(0,0,0,0));
+        const dayOfWeek = today.getDay(); // 0:일, 1:월, ..., 6:토
+        // 월요일을 주의 시작(1)으로, 일요일을 주의 끝(0)으로 맞춤
+        const diffToMonday = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek; // 일요일(0)이면 -6, 월요일(1)이면 0, 화요일(2)이면 -1
+        
+        const monday = new Date(new Date(today).setDate(today.getDate() + diffToMonday));
+        const sunday = new Date(new Date(monday).setDate(monday.getDate() + 6));
+        
+        return {
+            start: monday, // 월요일 Date 객체
+            end: sunday    // 일요일 Date 객체
+        };
+    }
+    
+    // 날짜 포맷팅 (YYYY-MM-DD)
+    function formatDateYYYYMMDD(date) {
+        if (!date) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // 날짜 포맷팅 (MM.DD)
+    function formatDateMMDD(date) {
+        if (!date) return '';
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}.${day}`;
+    }
+    
+    // Global Todo 위젯 활성화
+    function enableGlobalTodoWidget() {
+        if (!globalTodoWidget) return;
+        if(globalNewTodoInput) globalNewTodoInput.disabled = false;
+        if(globalAddTodoBtn) globalAddTodoBtn.disabled = false;
+    }
+    
+    // Global Todo 위젯 비활성화
+    function disableGlobalTodoWidget(message = "학기를 선택하세요.") {
+        if (!globalTodoWidget) return;
+        if(globalNewTodoInput) { globalNewTodoInput.value = ''; globalNewTodoInput.disabled = true; }
+        if(globalAddTodoBtn) globalAddTodoBtn.disabled = true;
+        if(globalTodoList) globalTodoList.innerHTML = `<li class="todo-empty">${message}</li>`;
+        if(globalTodoWeekRangeEl) globalTodoWeekRangeEl.textContent = "";
+        currentGlobalTodos = [];
+        currentWeekStartDate = null;
+    }
+
+    // Global Todo 로드 및 렌더링 (학기 변경, 페이지 로드 시)
+    async function loadAndRenderGlobalTodos(date) {
+        if (!currentSemesterId) {
+            disableGlobalTodoWidget("학기를 선택하세요.");
+            return;
+        }
+        enableGlobalTodoWidget();
+        if(globalTodoList) globalTodoList.innerHTML = '<li class="todo-empty">Todo 로딩 중...</li>';
+
+        const weekRange = getWeekRange(date);
+        currentWeekStartDate = weekRange.start; // 현재 주의 월요일 저장
+        const startDateStr = formatDateYYYYMMDD(weekRange.start);
+        const endDateStr = formatDateYYYYMMDD(weekRange.end);
+
+        if(globalTodoWeekRangeEl) {
+             globalTodoWeekRangeEl.textContent = `${formatDateMMDD(weekRange.start)} ~ ${formatDateMMDD(weekRange.end)}`;
+        }
+        
+        try {
+            // [Req 4] 새 API 엔드포인트 호출
+            const response = await fetch(`/api/todos?semester_id=${currentSemesterId}&start_date=${startDateStr}&end_date=${endDateStr}`);
+            if (!response.ok) throw new Error('Todo 로드 실패');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                currentGlobalTodos = data.todos || [];
+                selectedTodoDay = new Date().getDay(); // 오늘 요일로 리셋
+                updateTodoDaySelection(selectedTodoDay);
+                renderGlobalTodoList();
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error("Failed to load global todos:", error);
+            if(globalTodoList) globalTodoList.innerHTML = `<li class="todo-empty">${error.message}</li>`;
+        }
+    }
+
+    // Global Todo 요일 선택 UI 업데이트
+    function updateTodoDaySelection(dayIndex) { // 0:일, 1:월, ...
+        document.querySelectorAll('.global-day-selector .day-circle').forEach(button => {
+            button.classList.toggle('active', parseInt(button.dataset.day, 10) === dayIndex);
+        });
+    }
+
+    // Global Todo 리스트 렌더링 (선택된 요일 기준)
+    function renderGlobalTodoList() {
+        if (!globalTodoList) return;
+        globalTodoList.innerHTML = '';
+
+        if (!currentSemesterId) {
+            globalTodoList.innerHTML = '<li class="todo-empty">학기를 선택하세요.</li>';
+            return;
+        }
+
+        // currentWeekStartDate(월요일) 기준으로 선택된 요일(selectedTodoDay)의 날짜 계산
+        const targetDate = new Date(currentWeekStartDate);
+        const dayOffset = (selectedTodoDay === 0) ? 6 : selectedTodoDay - 1; // 0(일) -> 6, 1(월) -> 0
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+        const targetDateStr = formatDateYYYYMMDD(targetDate);
+
+        // currentGlobalTodos에서 해당 날짜의 Todo 필터링
+        const todosToDisplay = currentGlobalTodos.filter(todo => todo.due_date === targetDateStr);
+
+        if (todosToDisplay.length === 0) {
+            globalTodoList.innerHTML = '<li class="todo-empty">할 일이 없습니다.</li>';
+            return;
+        }
+
+        todosToDisplay.forEach((todo) => {
+            const li = document.createElement('li');
+            li.className = todo.done ? 'todo-item done' : 'todo-item';
+            li.setAttribute('data-todo-id', todo.id);
+            const todoId = `global-todo-${todo.id}`;
+            
+            li.innerHTML = `
+                <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
+                <label for="${todoId}" class="todo-label">${todo.task}</label>
+                <span class="todo-delete-btn" title="삭제">&times;</span>
+            `;
+            
+            // 체크박스 변경 시: API 호출
+            li.querySelector('input[type="checkbox"]').addEventListener('change', async (e) => {
+                const isDone = e.target.checked;
+                li.classList.toggle('done', isDone);
+                todo.done = isDone; // 로컬 데이터 즉시 반영
+                try {
+                    // [Req 4] 새 API 호출
+                    await fetch(`/api/todos/${todo.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ done: isDone })
+                    });
+                } catch (error) {
+                    console.error("Todo 업데이트 실패:", error);
+                    e.target.checked = !isDone;
+                    li.classList.toggle('done', !isDone);
+                    todo.done = !isDone;
+                }
+            });
+            
+            // 삭제 버튼 클릭 시: API 호출
+            li.querySelector('.todo-delete-btn').addEventListener('click', async (e) => {
+                if (!confirm("이 Todo를 삭제하시겠습니까?")) return;
+                try {
+                    // [Req 4] 새 API 호출
+                    await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' });
+                    // 로컬 데이터에서 삭제
+                    currentGlobalTodos = currentGlobalTodos.filter(t => t.id !== todo.id);
+                    // UI 다시 렌더링
+                    renderGlobalTodoList();
+                } catch (error) {
+                    console.error("Todo 삭제 실패:", error);
+                    alert("삭제에 실패했습니다.");
+                }
+            });
+            globalTodoList.appendChild(li);
+        });
+    }
+
+    // Global Todo 항목 추가 (API 호출)
+    async function addGlobalTodo() {
+        if (!globalNewTodoInput || !currentSemesterId || !currentWeekStartDate) return;
+        const taskText = globalNewTodoInput.value.trim();
+        if (taskText === '') return;
+
+        // 선택된 요일(selectedTodoDay) 기준 날짜 계산
+        const targetDate = new Date(currentWeekStartDate);
+        const dayOffset = (selectedTodoDay === 0) ? 6 : selectedTodoDay - 1;
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+        const targetDateStr = formatDateYYYYMMDD(targetDate);
+
+        const newTodoData = {
+            task: taskText,
+            due_date: targetDateStr,
+            semester_id: currentSemesterId
+        };
+
+        globalAddTodoBtn.disabled = true;
+        globalNewTodoInput.disabled = true;
+
+        try {
+            // [Req 4] 새 API 호출
+            const response = await fetch('/api/todos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTodoData)
+            });
+            const result = await response.json();
+            if (result.status !== 'success') throw new Error(result.message);
+
+            // [Req 3] 버그 수정:
+            // 성공 시, 서버에서 반환된 *하나의* todo 객체만 로컬 배열에 추가
+            currentGlobalTodos.push(result.todo);
+            
+            renderGlobalTodoList(); // 리스트 다시 렌더링
+            globalNewTodoInput.value = ''; // 입력창 비우기
+
+        } catch (error) {
+            console.error("Todo 추가 실패:", error);
+            alert(`Todo 추가 실패: ${error.message}`);
+        } finally {
+            globalAddTodoBtn.disabled = false;
+            globalNewTodoInput.disabled = false;
+            globalNewTodoInput.focus();
+        }
+    }
+
+    // --- [Req 4] @ 태그 관련 함수 ---
+    function handleGlobalTodoInputTagging(event) {
+        const input = event.target;
+        const value = input.value;
+        const cursorPos = input.selectionStart;
+        // @ 문자 뒤의 단어(공백/특수문자 제외) 매칭
+        const atMatch = value.substring(0, cursorPos).match(/@([\wㄱ-ㅎㅏ-ㅣ가-힣]*)$/);
+
+        if (atMatch) {
+            const query = atMatch[1].toLowerCase();
+            const suggestions = currentSubjects.filter(subject =>
+                subject.name.toLowerCase().includes(query)
+            );
+            showGlobalTagSuggestions(suggestions, input);
+        } else {
+            hideGlobalTagSuggestions();
+        }
+    }
+
+    function showGlobalTagSuggestions(suggestions, inputElement) {
+        if (!globalTagSuggestionOverlay) return;
+        globalTagSuggestionOverlay.innerHTML = '';
+        if (suggestions.length === 0) {
+            hideGlobalTagSuggestions();
+            return;
+        }
+
+        suggestions.slice(0, 5).forEach(subject => { // 최대 5개 제안
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.textContent = subject.name;
+            item.addEventListener('mousedown', (e) => { // click 대신 mousedown
+                e.preventDefault();
+                selectGlobalTagSuggestion(subject.name);
+            });
+            globalTagSuggestionOverlay.appendChild(item);
+        });
+
+        // 위치 조정 (input 요소 *위*에 표시)
+        const inputRect = inputElement.getBoundingClientRect();
+        const widgetRect = globalTodoWidget.getBoundingClientRect();
+        
+        globalTagSuggestionOverlay.style.display = 'block';
+        // CSS에서 bottom: 100%로 처리
+        globalTagSuggestionOverlay.style.left = `${inputRect.left - widgetRect.left}px`;
+        globalTagSuggestionOverlay.style.width = `${inputRect.width}px`;
+    }
+
+    function hideGlobalTagSuggestions() {
+        if (globalTagSuggestionOverlay) globalTagSuggestionOverlay.style.display = 'none';
+    }
+
+    function selectGlobalTagSuggestion(subjectName) {
+        if (!globalNewTodoInput) return;
+        const value = globalNewTodoInput.value;
+        const cursorPos = globalNewTodoInput.selectionStart;
+        const beforeAt = value.substring(0, cursorPos).lastIndexOf('@');
+        if (beforeAt === -1) return;
+
+        const newValue = value.substring(0, beforeAt + 1) + subjectName + " " + value.substring(cursorPos);
+        globalNewTodoInput.value = newValue;
+        hideGlobalTagSuggestions();
+        globalNewTodoInput.focus();
+        // 커서 위치 이동 (@태그 뒤 + 공백 뒤)
+        const newCursorPos = beforeAt + 1 + subjectName.length + 1;
+        globalNewTodoInput.setSelectionRange(newCursorPos, newCursorPos);
+    }
 
     initializePage(); // 페이지 초기화 함수 실행
 });

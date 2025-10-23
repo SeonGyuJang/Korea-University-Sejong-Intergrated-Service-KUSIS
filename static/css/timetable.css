@@ -2,12 +2,14 @@
 
 .timetable-management-page {
     display: grid;
-    grid-template-columns: 320px 1fr 360px;
-    gap: 20px;
-    padding: 20px;
+    /* --- Req 1: 레이아웃 변경 (좌 280, 우 300) --- */
+    grid-template-columns: 280px 1fr 300px;
+    gap: 15px;
+    padding: 15px;
     width: 100%;
-    height: calc(100vh - 69px - 40px);
+    height: calc(100vh - 69px - 30px); /* 헤더/패딩 제외 높이 */
     overflow: hidden;
+    position: relative; /* Todo 위젯 위치 기준 */
 }
 
 .timetable-side-content,
@@ -15,10 +17,30 @@
 .timetable-details-side-content {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     height: 100%;
-    overflow-y: auto;
+    overflow-y: auto; /* 각 컬럼 내부 스크롤 */
+    /* --- 스크롤바 스타일링 --- */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg-primary);
 }
+.timetable-side-content::-webkit-scrollbar,
+.timetable-main-content::-webkit-scrollbar,
+.timetable-details-side-content::-webkit-scrollbar {
+    width: 6px;
+}
+.timetable-side-content::-webkit-scrollbar-track,
+.timetable-main-content::-webkit-scrollbar-track,
+.timetable-details-side-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+.timetable-side-content::-webkit-scrollbar-thumb,
+.timetable-main-content::-webkit-scrollbar-thumb,
+.timetable-details-side-content::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 3px;
+}
+
 
 .timetable-main-content .widget {
     flex-grow: 1;
@@ -26,7 +48,6 @@
     flex-direction: column;
 }
 
-/* [FIX #3] 시간표 헤더 레이아웃 개선 */
 .timetable-editor-widget .widget-header {
     display: flex;
     justify-content: space-between;
@@ -43,16 +64,11 @@
 }
 
 #semesterSelect {
-    min-width: 200px;
+    min-width: 180px;
     padding: 8px 12px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
     font-weight: 600;
-}
-
-/* [FIX #3] 새 과목 추가 버튼 */
-#addSubjectBtnContainer {
-    position: relative;
 }
 
 .btn-add-subject {
@@ -66,25 +82,23 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center; /* [수정] 가로 중앙 정렬 */
+    justify-content: center;
     gap: 8px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: 0 4px 12px rgba(165, 0, 52, 0.2);
 }
-
 .btn-add-subject:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(165, 0, 52, 0.3);
 }
-
 .btn-add-subject i {
-    color: white; /* [수정] 아이콘 색상 흰색으로 강제 */
+    color: white;
     transition: transform 0.3s;
 }
-
 .btn-add-subject:hover i {
     transform: rotate(90deg);
 }
+
 
 .timetable-container {
     flex-grow: 1;
@@ -101,13 +115,11 @@
     font-size: 12px;
     table-layout: fixed;
 }
-
 .timetable.editable th, .timetable.editable td {
     border: 1px solid var(--border-color);
     text-align: center;
     padding: 2px;
 }
-
 .timetable.editable th {
     background: var(--bg-primary);
     font-weight: 600;
@@ -117,15 +129,12 @@
     top: 0;
     z-index: 20;
 }
-
 .timetable.editable th:first-child { width: 8%; }
-
-.timetable.editable td { 
-    vertical-align: top; 
-    position: relative; 
-    height: 50px; 
+.timetable.editable td {
+    vertical-align: top;
+    position: relative;
+    height: 50px;
 }
-
 .timetable.editable td:first-child {
     font-weight: 600;
     font-size: 11px;
@@ -136,7 +145,7 @@
     left: 0;
     z-index: 10;
 }
-
+/* Req 4: 슬롯 클릭 가능하도록 */
 .subject-slot {
     position: absolute;
     left: 2px;
@@ -153,13 +162,11 @@
     flex-direction: column;
     justify-content: center;
 }
-
 .subject-slot:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 6;
     transform: scale(1.02);
 }
-
 .subject-slot .slot-subject {
     font-weight: 600;
     font-size: 12px;
@@ -169,505 +176,437 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-.subject-slot .slot-room { 
-    color: var(--text-primary); 
+.subject-slot .slot-room {
+    color: var(--text-primary);
     font-size: 10px;
 }
-
-/* [FIX #3] 탭 컨테이너 레이아웃 개선 */
-.widget-tabs-container { 
-    padding: 8px; 
-    background: var(--bg-primary); 
-    border-radius: 12px; 
-    margin-bottom: 16px; 
-    flex-shrink: 0; 
-    display: flex; /* [수정] 세로 중앙 정렬 */
-    align-items: center; /* [수정] 세로 중앙 정렬 */
+.todo-summary-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+    font-size: 14px;
 }
 
-.widget-tabs { 
-    display: flex; 
-    gap: 8px; 
-    justify-content: center; /* [FIX #3] 탭 중앙 정렬 */
-    width: 100%; /* [수정] 너비 100% */
-    margin-bottom: 0; /* [수정] main.css 충돌 방지 */
+/* --- 좌측 위젯 --- */
+.widget-tabs-container {
+    padding: 8px;
+    background: var(--bg-primary);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
 }
-
-.widget-tabs .tab {
-    flex: 1; 
-    padding: 10px 12px; 
-    font-size: 14px; 
-    font-weight: 500; 
-    border: none;
-    background: none; 
-    border-radius: 8px; 
-    display: flex; 
-    align-items: center; 
+.widget-tabs {
+    display: flex;
+    gap: 8px;
     justify-content: center;
-    gap: 6px; 
-    cursor: pointer; 
+    width: 100%;
+    margin-bottom: 0;
+}
+.widget-tabs .tab {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
     transition: all 0.2s;
 }
-
-.widget-tabs .tab.active { 
-    background: var(--bg-secondary); 
-    color: var(--korea-red); 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+.widget-tabs .tab.active {
+    background: var(--bg-secondary);
+    color: var(--korea-red);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.widget-tabs .tab:hover:not(.active) {
+    background: rgba(0,0,0,0.05);
+}
+.widget-tab-content {
+    display: none;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+.widget-tab-content.active {
+    display: flex;
+    flex-direction: column;
 }
 
-.widget-tabs .tab:hover:not(.active) { 
-    background: rgba(0,0,0,0.05); 
+/* 학점 위젯 */
+.credit-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding-top: 10px;
+}
+.credit-progress-circle {
+    position: relative;
+    width: 140px;
+    height: 140px;
+}
+.credit-progress-circle svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+.credit-progress-circle .progress-bg {
+    fill: none;
+    stroke: var(--bg-primary);
+    stroke-width: 10;
+}
+.credit-progress-circle .progress-bar {
+    fill: none;
+    stroke: var(--korea-red);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 283;
+    stroke-dashoffset: 283;
+    transition: stroke-dashoffset 1s ease-out;
+}
+.credit-progress-circle .credit-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+#creditPercentage {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--korea-red);
+}
+.credit-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+}
+.credit-details .stat-item {
+    background: var(--bg-primary);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+.credit-details .stat-label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+.credit-details .stat-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--korea-red);
+}
+.btn-edit-goal {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.btn-edit-goal:hover {
+    color: var(--korea-red);
+}
+.edit-goal-form {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 5px;
+}
+.edit-goal-form input {
+    width: 60px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.btn-small {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+.credit-remaining {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+    background: #fef5f7;
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+}
+.credit-remaining span {
+    font-weight: 700;
+    color: var(--korea-red);
 }
 
-.widget-tab-content { 
-    display: none; 
-    flex-grow: 1; 
-    overflow-y: auto; 
+/* 성적 위젯 */
+.gpa-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.gpa-chart-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+}
+.gpa-chart-container {
+    height: 250px;
+}
+/* --- Req 1: 기존 Todo 요약 리스트 제거 --- */
+/* .todo-summary-list, .todo-summary-item, ... */
+
+
+/* --- 우측 위젯 --- */
+.timetable-details-side-content .widget {
+    display: flex;
+    flex-direction: column;
+}
+.subject-details-widget {
+    flex-shrink: 0;
+}
+/* --- Req 4: 위젯 분리 --- */
+.memo-display-widget {
+    flex-grow: 1; /* 메모 위젯이 남은 공간 차지 */
+    min-height: 0;
+}
+.weekly-todo-widget {
+    flex-shrink: 0; /* 주차별 Todo 설정 위젯 */
 }
 
-.widget-tab-content.active { 
-    display: flex; 
-    flex-direction: column; 
+/* 과목 상세 목록 */
+.subject-details-list-container {
+    max-height: 200px; /* 높이 축소 */
+    overflow-y: auto;
+    margin: -10px 0;
+    padding: 10px 0;
 }
-
-.credit-summary { 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    gap: 15px; 
-    padding-top: 10px; 
+#subjectDetailsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
-
-.credit-progress-circle { 
-    position: relative; 
-    width: 140px; 
-    height: 140px; 
-}
-
-.credit-progress-circle svg { 
-    width: 100%; 
-    height: 100%; 
-    transform: rotate(-90deg); 
-}
-
-.credit-progress-circle .progress-bg { 
-    fill: none; 
-    stroke: var(--bg-primary); 
-    stroke-width: 10; 
-}
-
-.credit-progress-circle .progress-bar { 
-    fill: none; 
-    stroke: var(--korea-red); 
-    stroke-width: 10; 
-    stroke-linecap: round; 
-    stroke-dasharray: 283; 
-    stroke-dashoffset: 283; 
-    transition: stroke-dashoffset 1s ease-out; 
-}
-
-.credit-progress-circle .credit-text { 
-    position: absolute; 
-    top: 50%; 
-    left: 50%; 
-    transform: translate(-50%, -50%); 
-    text-align: center; 
-}
-
-#creditPercentage { 
-    font-size: 24px; 
-    font-weight: 700; 
-    color: var(--korea-red); 
-}
-
-.credit-details { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 12px; 
-    width: 100%; 
-}
-
-.credit-details .stat-item { 
-    background: var(--bg-primary); 
-    padding: 12px; 
-    border-radius: 8px; 
-    text-align: center; 
-}
-
-.credit-details .stat-label { 
-    display: block; 
-    font-size: 13px; 
-    color: var(--text-secondary); 
-    margin-bottom: 5px; 
-    font-weight: 500; 
-}
-
-.credit-details .stat-value { 
-    display: block; 
-    font-size: 20px; 
-    font-weight: 600; 
-    color: var(--korea-red); 
-}
-
-.btn-edit-goal { 
-    background: none; 
-    border: none; 
-    color: var(--text-secondary); 
-    cursor: pointer; 
-    padding: 2px 4px; 
-    border-radius: 4px; 
-    font-size: 12px; 
-}
-
-.btn-edit-goal:hover { 
-    color: var(--korea-red); 
-}
-
-.edit-goal-form { 
-    display: flex; 
-    gap: 5px; 
-    align-items: center; 
-    justify-content: center; 
-    margin-top: 5px; 
-}
-
-.edit-goal-form input { 
-    width: 60px; 
-    padding: 4px; 
-    border: 1px solid var(--border-color); 
-    border-radius: 4px; 
-}
-
-.btn-small { 
-    padding: 4px 8px; 
-    font-size: 12px; 
-    border-radius: 4px; 
-}
-
-.credit-remaining { 
-    font-size: 14px; 
-    color: var(--text-primary); 
-    font-weight: 500; 
-    background: #fef5f7; 
-    padding: 8px 12px; 
-    border-radius: 6px; 
-    width: 100%; 
-    text-align: center; 
-    margin-top: 10px; 
-}
-
-.credit-remaining span { 
-    font-weight: 700; 
-    color: var(--korea-red); 
-}
-
-.gpa-chart-header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 10px; 
-}
-
-.gpa-chart-header h4 { 
-    font-size: 14px; 
-    font-weight: 600; 
-}
-
-.gpa-chart-container { 
-    height: 250px; 
-}
-
-.todo-summary-list { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
-    max-height: 300px; 
-    overflow-y: auto; 
-    padding-right: 5px; 
-}
-
-.todo-summary-item { 
-    background: var(--bg-primary); 
-    border-radius: 8px; 
-    padding: 12px 16px; 
-    border-left: 4px solid var(--korea-red); 
-}
-
-.todo-summary-item.completed { 
-    border-left-color: var(--border-color); 
-}
-
-.todo-summary-item.completed .todo-subject { 
-    color: var(--text-secondary); 
-}
-
-.todo-subject { 
-    font-size: 14px; 
-    font-weight: 600; 
-    margin-bottom: 8px; 
-}
-
-.todo-list { 
-    list-style: none; 
-    padding-left: 10px; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 4px; 
-}
-
-.todo-list-item { 
-    font-size: 13px; 
-    color: var(--text-secondary); 
-}
-
-.todo-list-item.done { 
-    text-decoration: line-through; 
-}
-
-.todo-list-item i { 
-    font-size: 12px; 
-    margin-right: 6px; 
-    color: var(--color-success); 
-}
-
-.todo-list-item.pending i { 
-    color: var(--text-secondary); 
-}
-
-.todo-summary-empty { 
-    text-align: center; 
-    color: var(--text-secondary); 
-    padding: 20px; 
-    font-size: 14px; 
-}
-
-.timetable-details-side-content .widget { 
-    display: flex; 
-    flex-direction: column; 
-}
-
-.subject-details-widget { 
-    flex-shrink: 0; 
-}
-
-.weekly-details-widget { 
-    flex-grow: 1; 
-    min-height: 0; 
-}
-
-.subject-details-list-container { 
-    max-height: 250px; 
-    overflow-y: auto; 
-    margin: -10px 0; 
-    padding: 10px 0; 
-}
-
-#subjectDetailsList { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-}
-
 .subject-details-item {
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--border-color); 
-    cursor: pointer; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px; /* 패딩 축소 */
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
     transition: background-color 0.2s;
 }
-
-.subject-details-item:last-child { 
-    border-bottom: none; 
+.subject-details-item:last-child {
+    border-bottom: none;
 }
-
-.subject-details-item:hover { 
-    background-color: var(--bg-primary); 
+.subject-details-item:hover {
+    background-color: var(--bg-primary);
 }
-
-.subject-details-item.selected { 
-    background-color: #fef5f7; 
-    border-left: 3px solid var(--korea-red); 
-    padding-left: 12px; 
+/* Req 4: 과목 선택 시 */
+.subject-details-item.selected {
+    background-color: #fef5f7;
+    border-left: 3px solid var(--korea-red);
+    padding-left: 7px;
 }
-
-.subject-info { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 2px; 
+.subject-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
-
-.subject-name { 
-    font-weight: 600; 
-    font-size: 14px; 
+.subject-name {
+    font-weight: 600;
+    font-size: 13px; /* 폰트 축소 */
 }
-
-.subject-prof { 
-    font-size: 12px; 
-    color: var(--text-secondary); 
+.subject-prof {
+    font-size: 11px; /* 폰트 축소 */
+    color: var(--text-secondary);
 }
-
 .subject-grade select.grade-select {
-    padding: 4px 8px; 
-    border-radius: 6px; 
+    padding: 3px 6px; /* 패딩 축소 */
+    border-radius: 6px;
     border: 1px solid var(--border-color);
-    font-size: 12px; 
+    font-size: 11px; /* 폰트 축소 */
+    background: var(--bg-secondary);
+    margin-left: 5px;
+}
+.subject-details-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 15px;
+    font-size: 13px;
+}
+.btn-edit-subject {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 13px;
+    margin-left: 5px;
+}
+.btn-edit-subject:hover {
+    color: var(--korea-red);
+}
+
+/* --- Req 4: 메모 표시 위젯 --- */
+.memo-display-widget .widget-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+.memo-view-tabs {
+    justify-content: flex-start;
+    margin-bottom: 0;
+}
+.memo-view-tabs .tab {
+    flex: 0 1 auto; /* 탭 크기 자동 조정 */
+    padding: 8px 12px;
+}
+.memo-content-area {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-top: 10px;
+}
+.memo-view {
+    display: none;
+}
+.memo-view.active {
+    display: block;
+}
+.memo-subject-indicator {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+.memo-subject-indicator strong {
+    color: var(--text-primary);
+}
+#todayMemoText {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    transition: all 0.3s;
+    min-height: 100px;
+}
+#todayMemoText:focus {
+    border-color: var(--korea-red);
     background: var(--bg-secondary);
 }
-
-.subject-details-empty { 
-    text-align: center; 
-    color: var(--text-secondary); 
-    padding: 20px; 
-    font-size: 14px; 
+#todayMemoText:disabled {
+    background: #f8f9fa;
+    cursor: not-allowed;
+}
+.all-weeks-memo-container {
+    /* 주차별 메모 뷰 높이는 memo-content-area가 제어 */
+    /* max-height: 300px; */
+    overflow-y: auto;
+}
+.memo-empty-placeholder {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 15px;
 }
 
-.week-selector { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 15px; 
-    padding: 8px; 
-    background: var(--bg-primary); 
-    border-radius: 8px; 
+/* 주차별 Todo 설정 위젯 (Req 4: 분리됨) */
+.week-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 6px;
+    background: var(--bg-primary);
+    border-radius: 8px;
 }
-
-.week-selector button { 
-    background: none; 
-    border: none; 
-    font-size: 16px; 
-    color: var(--text-secondary); 
-    cursor: pointer; 
-    padding: 5px 8px; 
-    border-radius: 4px; 
+.week-selector button {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
 }
-
-.week-selector button:hover:not(:disabled) { 
-    background: var(--bg-secondary); 
-    color: var(--korea-red); 
+.week-selector button:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    color: var(--korea-red);
 }
-
-.week-selector button:disabled { 
-    opacity: 0.5; 
-    cursor: not-allowed; 
+.week-selector button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
-
-#currentWeekDisplay { 
-    font-weight: 600; 
+#currentWeekDisplay {
+    font-weight: 600;
+    font-size: 13px;
 }
-
-.weekly-content { 
-    flex-grow: 1; 
-    overflow-y: auto; 
-    padding-right: 5px; 
+.weekly-todo-content {
+    padding-top: 5px;
 }
-
-.weekly-content textarea { 
-    width: 100%; 
-    border: 1px solid var(--border-color); 
-    border-radius: 8px; 
-    padding: 10px; 
-    font-family: inherit; 
-    font-size: 13px; 
-    resize: vertical; 
-    outline: none; 
-    transition: all 0.3s; 
-    min-height: 80px; 
+.weekly-todo-content .memo-todo-list {
+    max-height: 120px; /* 높이 제한 */
 }
+/* --- Req 5: 저장 버튼 제거 --- */
+/* .save-button-container { ... } */
+/* .btn-save-weekly { ... } */
 
-.weekly-content textarea:focus { 
-    border-color: var(--korea-red); 
-    background: var(--bg-secondary); 
+
+/* --- 모달 공통 스타일 --- */
+.modal-content.large-modal {
+    max-width: 600px;
 }
-
-.weekly-content textarea:disabled { 
-    background: #f8f9fa; 
-    cursor: not-allowed; 
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
 }
-
-.weekly-content .memo-todo-list { 
-    max-height: 150px; 
+.form-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color);
 }
-
-.save-button-container { 
-    text-align: right; 
-    margin-top: 15px; 
+.form-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 20px 0;
 }
-
-.btn-save-weekly {
-    background: var(--bg-primary); 
-    color: var(--text-secondary); 
+.btn-secondary {
+    background: var(--bg-primary);
+    color: var(--text-primary);
     border: 1px solid var(--border-color);
-    padding: 8px 14px; 
-    border-radius: 8px; 
-    font-weight: 600; 
-    cursor: pointer; 
-    transition: all 0.3s;
-    display: inline-flex; 
-    align-items: center; 
-    gap: 6px;
-}
-
-.btn-save-weekly:not(:disabled):hover {
-    background: var(--korea-red); 
-    color: white; 
-    border-color: var(--korea-red);
-    box-shadow: 0 2px 8px rgba(165, 0, 52, 0.2);
-}
-
-.btn-save-weekly:disabled { 
-    background: #f8f9fa; 
-    cursor: not-allowed; 
-}
-
-.modal-content.large-modal { 
-    max-width: 600px; 
-}
-
-.form-grid { 
-    display: grid; 
-    grid-template-columns: repeat(2, 1fr); 
-    gap: 15px; 
-}
-
-.form-subtitle { 
-    font-size: 14px; 
-    font-weight: 600; 
-    color: var(--text-primary); 
-    margin-top: 20px; 
-    margin-bottom: 10px; 
-    padding-bottom: 5px; 
-    border-bottom: 1px solid var(--border-color); 
-}
-
-.form-divider { 
-    border: none; 
-    border-top: 1px solid var(--border-color); 
-    margin: 20px 0; 
-}
-
-/* [FIX #8] 버튼 스타일 개선 */
-.btn-secondary { 
-    background: var(--bg-primary); 
-    color: var(--text-primary); 
-    border: 1px solid var(--border-color); 
     padding: 8px 16px;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
 }
-
-.btn-secondary:hover { 
-    background: #e9ecef; 
+.btn-secondary:hover {
+    background: #e9ecef;
     border-color: #adb5bd;
 }
-
-.btn-danger { 
-    background: var(--color-danger); 
-    color: white; 
+.btn-danger {
+    background: var(--color-danger);
+    color: white;
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
@@ -675,14 +614,12 @@
     cursor: pointer;
     transition: all 0.3s;
 }
-
-.btn-danger:hover { 
-    background: #c0392b; 
+.btn-danger:hover {
+    background: #c0392b;
 }
-
-.btn-primary { 
-    background: var(--korea-red); 
-    color: white; 
+.btn-primary {
+    background: var(--korea-red);
+    color: white;
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
@@ -690,12 +627,9 @@
     cursor: pointer;
     transition: all 0.3s;
 }
-
-.btn-primary:hover { 
-    background: var(--korea-red-dark); 
+.btn-primary:hover {
+    background: var(--korea-red-dark);
 }
-
-/* [FIX #8] 모달 푸터 레이아웃 개선 */
 .modal-footer {
     padding: 16px 24px;
     border-top: 1px solid var(--border-color);
@@ -703,238 +637,338 @@
     justify-content: flex-end;
     gap: 12px;
 }
-
 .modal-footer.space-between {
     justify-content: space-between;
 }
-
-#addTimeSlotContainer, #editTimeSlotContainer { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-    margin-bottom: 10px; 
+#addTimeSlotContainer, #editTimeSlotContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.timeslot-entry {
+    display: grid;
+    /* 요일-시작-종료-강의실-삭제 버튼 */
+    grid-template-columns: auto 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+.timeslot-entry select, .timeslot-entry input {
+    padding: 8px;
+    font-size: 13px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.timeslot-delete-btn {
+    background: none;
+    border: none;
+    color: var(--color-danger);
+    cursor: pointer;
+    font-size: 16px;
 }
 
-.timeslot-entry { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr 1fr 1fr auto; 
-    gap: 8px; 
-    align-items: center; 
+/* --- Todo 리스트 공통 스타일 --- */
+.memo-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
-
-.timeslot-entry select, .timeslot-entry input { 
-    padding: 8px; 
-    font-size: 13px; 
-    border: 1px solid var(--border-color); 
-    border-radius: 6px; 
+.memo-subtitle i {
+    color: var(--korea-red);
 }
-
-.timeslot-delete-btn { 
-    background: none; 
-    border: none; 
-    color: var(--color-danger); 
-    cursor: pointer; 
-    font-size: 16px; 
+.memo-todo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    overflow-y: auto;
 }
-
-.memo-subtitle { 
-    font-size: 14px; 
-    font-weight: 600; 
-    color: var(--text-primary); 
-    margin-bottom: 8px; 
-    display: flex; 
-    align-items: center; 
-    gap: 6px; 
+.todo-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
 }
-
-.memo-subtitle i { 
-    color: var(--korea-red); 
+.todo-item:last-child {
+    border-bottom: none;
 }
-
-.memo-todo-list { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-    border: 1px solid var(--border-color); 
-    border-radius: 8px; 
-    background: var(--bg-primary); 
-    overflow-y: auto; 
+.todo-item.done .todo-label {
+    text-decoration: line-through;
+    color: var(--text-secondary);
 }
-
-.todo-item { 
-    display: flex; 
-    align-items: center; 
-    padding: 8px 12px; 
-    border-bottom: 1px solid var(--border-color); 
+.todo-item input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    accent-color: var(--korea-red);
+    cursor: pointer;
 }
-
-.todo-item:last-child { 
-    border-bottom: none; 
+.todo-label {
+    flex-grow: 1;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    line-height: 1.4;
+    word-break: break-all;
 }
-
-.todo-item.done .todo-label { 
-    text-decoration: line-through; 
-    color: var(--text-secondary); 
+.todo-delete-btn {
+    font-size: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 5px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-left: 5px;
+    flex-shrink: 0;
 }
-
-.todo-item input[type="checkbox"] { 
-    width: 15px; 
-    height: 15px; 
-    margin-right: 8px; 
-    flex-shrink: 0; 
-    accent-color: var(--korea-red); 
-    cursor: pointer; 
+.todo-delete-btn:hover {
+    color: var(--color-danger);
+    background: #f8d7da;
 }
-
-.todo-label { 
-    flex-grow: 1; 
-    font-size: 13px; 
-    color: var(--text-primary); 
-    cursor: pointer; 
+.todo-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 15px;
 }
-
-.todo-delete-btn { 
-    font-size: 16px; 
-    color: var(--text-secondary); 
-    cursor: pointer; 
-    padding: 0 5px; 
-    border-radius: 4px; 
-    font-weight: bold; 
+.memo-todo-add {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    position: relative; /* Req 3: 오버레이 기준 */
 }
-
-.todo-delete-btn:hover { 
-    color: var(--color-danger); 
-    background: #f8d7da; 
+.memo-todo-add input[type="text"] {
+    flex-grow: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    outline: none;
 }
-
-.todo-empty { 
-    text-align: center; 
-    color: var(--text-secondary); 
-    font-size: 13px; 
-    padding: 15px; 
+.memo-todo-add input[type="text"]:focus {
+    border-color: var(--korea-red);
 }
-
-.memo-todo-add { 
-    display: flex; 
-    gap: 8px; 
-    margin-top: 8px; 
+.memo-todo-add input[type="text"]:disabled {
+    background: #f8f9fa;
+    cursor: not-allowed;
 }
-
-.memo-todo-add input[type="text"] { 
-    flex-grow: 1; 
-    padding: 8px 12px; 
-    border: 1px solid var(--border-color); 
-    border-radius: 8px; 
-    outline: none; 
+.memo-todo-add button {
+    padding: 8px 12px; /* 버튼 크기 통일 */
 }
-
-.memo-todo-add input[type="text"]:focus { 
-    border-color: var(--korea-red); 
-}
-
-.memo-todo-add input[type="text"]:disabled { 
-    background: #f8f9fa; 
+.memo-todo-add button:disabled {
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-.memo-todo-add button:disabled { 
-    opacity: 0.6; 
-    cursor: not-allowed; 
-}
-
-/* [FIX #7] 모든 주차 모아보기 모달 스타일 (월별 헤더 추가) */
-.month-header {
-    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin: 20px 0 10px 0;
-}
-
-.month-header:first-child {
-    margin-top: 0;
-}
-
-.month-header h3 {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0;
+/* --- 아코디언 스타일 (Req 4: 주차별 메모 보기용) --- */
+.accordion {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 8px;
 }
-
-.accordion { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
+.accordion-item {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
 }
-
-.accordion-item { 
-    background: var(--bg-primary); 
-    border-radius: 8px; 
-    border: 1px solid var(--border-color); 
-}
-
 .accordion-header {
-    padding: 12px 16px; 
-    cursor: pointer; 
-    display: flex; 
-    justify-content: space-between; 
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     font-weight: 600;
 }
-
-.accordion-header .week-title { 
-    color: var(--korea-red); 
+.accordion-header .week-title {
+    color: var(--korea-red);
+    font-size: 13px;
 }
-
-.accordion-header i { 
-    transition: transform 0.3s; 
+.accordion-header i {
+    transition: transform 0.3s;
+    font-size: 12px;
 }
-
-.accordion-item.active .accordion-header i { 
-    transform: rotate(180deg); 
+.accordion-item.active .accordion-header i {
+    transform: rotate(180deg);
 }
-
 .accordion-content {
-    max-height: 0; 
-    overflow: hidden; 
-    transition: max-height 0.3s ease-out;
-    background: white; 
-    padding: 0 16px; 
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+    background: white;
+    padding: 0 14px;
     border-top: 1px solid var(--border-color);
 }
-
-.accordion-content h4 { 
-    margin-top: 10px; 
+.accordion-item.active .accordion-content {
+    padding: 10px 14px; /* 활성화 시 패딩 적용 */
+}
+.accordion-content p {
+    font-size: 13px;
+    color: var(--text-primary); /* 더 잘보이게 수정 */
+    line-height: 1.6;
+    white-space: pre-wrap;
+    margin-bottom: 0;
+}
+/* (모달용 월별 헤더는 주차별 메모 보기 탭에서는 불필요) */
+/* .month-header { ... } */
+.accordion-content .memo-todo-list {
+    max-height: none;
+}
+.accordion-content .todo-item {
+    background: none;
+    border: none;
+    padding-left: 0;
 }
 
-.accordion-content p { 
-    font-size: 13px; 
-    color: var(--text-secondary); 
-    line-height: 1.6; 
-    white-space: pre-wrap; 
-    margin-bottom: 10px; 
+
+/* --- Req 1 & 2: Floating Todo Widget --- */
+.floating-todo-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    max-height: 400px; /* 최대 높이 제한 */
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    display: flex; /* JS에서 active 클래스 대신 flex/none으로 직접 제어 */
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.3s ease-out, opacity 0.3s;
+    opacity: 1;
+    transform: translateY(0);
+}
+.floating-todo-widget:not(.active) {
+    /* JS에서 .active 클래스를 토글하는 대신, style.display로 제어하는 것을 가정 */
+    /* 만약 .active 클래스 기반이라면 아래 사용 */
+    /* opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none; */
 }
 
-.accordion-content .memo-todo-list { 
-    max-height: none; 
+.floating-todo-widget .widget-header {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.floating-todo-widget .widget-header h3 {
+    font-size: 15px;
+    margin: 0;
+}
+#closeTodoWidgetBtn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 5px;
+}
+#closeTodoWidgetBtn:hover {
+    color: var(--text-primary);
 }
 
-.accordion-content .todo-item { 
-    background: none; 
-    border: none; 
-    padding-left: 0; 
+.todo-day-selector {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 5px;
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
+.day-circle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background-color: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.day-circle:hover {
+    border-color: var(--korea-red-light);
+    color: var(--korea-red-light);
+}
+.day-circle.active {
+    background-color: var(--korea-red);
+    color: white;
+    border-color: var(--korea-red);
+    font-weight: 600;
+}
+
+.todo-widget-content {
+    padding: 10px 15px;
+    flex-grow: 1;
+    overflow-y: auto; /* 내용 많으면 스크롤 */
+    display: flex;
+    flex-direction: column;
+}
+.todo-widget-content .memo-subject-indicator {
+    margin-bottom: 5px;
+    flex-shrink: 0;
+}
+.todo-widget-content .memo-todo-list {
+    flex-grow: 1;
+    min-height: 100px;
+    margin-bottom: 10px;
+    border: none;
+    background: none; /* 위젯 배경색 사용 */
+}
+.todo-widget-content .todo-item {
+    border-bottom: 1px solid var(--border-color);
+}
+.todo-widget-add {
+    margin-top: auto; /* 하단에 고정 */
+    flex-shrink: 0;
+}
+
+/* --- Req 3: @ Tag Suggestion Overlay --- */
+.tag-suggestion-overlay {
+    position: absolute;
+    bottom: 100%; /* 입력 필드 *위에* 표시 */
+    left: 0;
+    width: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 -3px 8px rgba(0,0,0,0.1);
+    z-index: 110;
+    display: none;
+    box-sizing: border-box;
+}
+.suggestion-item {
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.suggestion-item:hover {
+    background-color: var(--bg-primary);
+}
+
 
 .loading-spinner-small {
-    border: 3px solid var(--bg-primary); 
+    border: 3px solid var(--bg-primary);
     border-top: 3px solid var(--korea-red);
-    border-radius: 50%; 
-    width: 30px; 
-    height: 30px; 
-    animation: spin 1s linear infinite; 
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
     margin: 20px auto;
 }
 
@@ -943,22 +977,47 @@
     100% { transform: rotate(360deg); }
 }
 
+/* 반응형 조정 */
 @media (max-width: 1200px) {
-    .timetable-management-page { 
-        grid-template-columns: 320px 1fr; 
+    .timetable-management-page {
+        grid-template-columns: 280px 1fr; /* 우측 컬럼 숨김 */
     }
-    .timetable-details-side-content { 
-        display: none; 
+    .timetable-details-side-content {
+        display: none;
+    }
+    .floating-todo-widget {
+        width: 300px; /* 약간 축소 */
     }
 }
 
 @media (max-width: 768px) {
-    .timetable-management-page { 
-        grid-template-columns: 1fr; 
-        height: auto; 
-        overflow-y: auto; 
+    .timetable-management-page {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow-y: auto;
+        padding-bottom: 80px; /* Todo 위젯 공간 확보 */
     }
-    .timetable-side-content { 
-        order: -1; 
+    .timetable-side-content {
+        order: -1;
+    }
+    .floating-todo-widget {
+        width: calc(100% - 30px);
+        left: 15px;
+        right: 15px;
+        bottom: 15px;
+        max-height: 300px;
+    }
+    .day-circle {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    .timeslot-entry {
+        /* 모바일에서는 세로 정렬이 나을 수 있으나, 일단 유지 */
+        grid-template-columns: auto 1fr 1fr auto;
+        gap: 5px;
+    }
+    .timeslot-entry input[name="room"] {
+        display: none; /* 모바일에서 강의실 입력 숨김 */
     }
 }

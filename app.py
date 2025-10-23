@@ -76,7 +76,8 @@ class User(db.Model):
     subjects = db.relationship('Subject', backref='user', lazy=True, cascade="all, delete-orphan")
     schedules = db.relationship('Schedule', backref='user', lazy=True, cascade="all, delete-orphan")
     study_logs = db.relationship('StudyLog', backref='user', lazy=True, cascade="all, delete-orphan")
-    # --- [제거됨] QuickLink 관계 제거 ---
+    # --- [Req 4] Todo 관계 추가 ---
+    todos = db.relationship('Todo', backref='user', lazy=True, cascade="all, delete-orphan")
 
 
 class Semester(db.Model):
@@ -89,6 +90,8 @@ class Semester(db.Model):
     season = db.Column(db.String(50), nullable=False) # 예: "1학기", "여름학기", "2학기"
     start_date = db.Column(db.Date) # 학기 시작일 추가
     subjects = db.relationship('Subject', backref='semester', lazy=True, cascade="all, delete-orphan")
+    # --- [Req 4] Todo 관계 추가 ---
+    todos = db.relationship('Todo', backref='semester', lazy=True, cascade="all, delete-orphan")
     __table_args__ = (db.UniqueConstraint('user_id', 'name', name='_user_semester_name_uc'),)
 
 
@@ -146,11 +149,30 @@ class StudyLog(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'date', name='_user_date_uc'),)
 
 
-# --- [제거됨] QuickLink 모델 제거 ---
+# ---------------------------------------------------------------------
+# [Req 4] 독립적인 Todo 관리를 위한 새 데이터베이스 모델 추가
+# ---------------------------------------------------------------------
+class Todo(db.Model):
+    __tablename__ = 'todos'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=False) # 학기별로 Todo를 관리
+    task = db.Column(db.String(500), nullable=False)
+    done = db.Column(db.Boolean, default=False, nullable=False)
+    due_date = db.Column(db.Date, nullable=False) # 년-월-일 (요일의 기준이 됨)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'task': self.task,
+            'done': self.done,
+            'due_date': self.due_date.isoformat(),
+            'semester_id': self.semester_id
+        }
 
 
 # --- 학사일정, 학기 시작일 관련 함수 (기존 유지) ---
-# ... (load_academic_calendar, get_semester_start_date_from_calendar, _get_semester_start_date_fallback, _create_semesters_for_user 함수들) ...
 def load_academic_calendar():
     calendar_data = {}
     try:
@@ -229,7 +251,6 @@ def _create_semesters_for_user(user_id):
 
 
 # --- 학기 자동 관리 스케줄 작업 (기존 유지) ---
-# ... (manage_semesters_job 함수) ...
 def manage_semesters_job():
     """
     매년 12월 1일에 실행되는 학기 관리 작업.
@@ -290,7 +311,7 @@ def manage_semesters_job():
             print(f"Error in semester management job: {e}")
 
 
-# --- DB 초기화 (수정됨: QuickLink 관련 샘플 데이터 제거) ---
+# --- DB 초기화 (기존 유지) ---
 def create_initial_data():
     db.create_all()
 
@@ -336,8 +357,6 @@ def create_initial_data():
             ))
             db.session.commit()
 
-        # --- [제거됨] 샘플 퀵링크 제거 ---
-
         # --- 샘플 Schedule 유지 ---
         Schedule.query.filter_by(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d')).delete()
         db.session.add(Schedule(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d'), time="15:00", title="팀 프로젝트 회의", location="스터디룸 3"))
@@ -348,7 +367,6 @@ def create_initial_data():
 
 
 # --- Authentication Decorators (기존 유지) ---
-# ... (login_required, admin_required 함수들) ...
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -376,8 +394,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- 데이터 로드 및 정제 함수 (QuickLink 관련 제거됨) ---
-# ... (load_bus_schedule, load_meal_data, get_today_meal_key, menu_to_string, format_meal_for_client, format_weekly_meal_for_client 함수들) ...
+# --- 데이터 로드 및 정제 함수 (기존 유지) ---
 def load_bus_schedule():
     schedule = []
     try:
@@ -473,7 +490,6 @@ MEAL_PLAN_DATA = load_meal_data()
 TODAY_MEAL_KEY = get_today_meal_key()
 
 # --- 페이지 엔드포인트 (기존 유지) ---
-# ... (index, timetable_management 라우트) ...
 @app.route('/')
 def index():
     user_info = None
@@ -509,7 +525,6 @@ def timetable_management():
     )
 
 # --- Authentication Routes (기존 유지) ---
-# ... (login, logout, register, admin_dashboard 라우트) ...
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -579,7 +594,6 @@ def admin_dashboard():
     return render_template('admin.html', member_count=member_count, member_list=member_list)
 
 # --- Public API Endpoints (기존 유지) ---
-# ... (get_shuttle, get_meal, get_weekly_meal 라우트) ...
 @app.route('/api/shuttle')
 def get_shuttle():
     return jsonify(SHUTTLE_SCHEDULE_DATA)
@@ -597,12 +611,10 @@ def get_weekly_meal():
     formatted_data = format_weekly_meal_for_client(MEAL_PLAN_DATA)
     return jsonify(formatted_data)
 
-# --- Secure API Endpoints (QuickLink 관련 제거됨) ---
-# ... (get_schedule, add_schedule, handle_semesters, get_timetable_data, create_subject, handle_subject, get_weekly_memo, update_weekly_memo, get_all_weekly_memos, get_gpa_stats, get_study_stats, save_study_time, update_credit_goal 라우트 유지) ...
+# --- Secure API Endpoints (기존 유지) ---
 @app.route('/api/schedule', methods=['GET'])
 @login_required
 def get_schedule():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']
     today = datetime.now()
     today_str = today.strftime('%Y-%m-%d')
@@ -642,7 +654,6 @@ def get_schedule():
 @app.route('/api/schedule/add', methods=['POST'])
 @login_required
 def add_schedule():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']
     data = request.json
     s_date, s_time, s_title, s_location = data.get('date'), data.get('time'), data.get('title'), data.get('location')
@@ -661,7 +672,6 @@ def add_schedule():
 @app.route('/api/semesters', methods=['GET'])
 @login_required
 def handle_semesters():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']
     semesters = Semester.query.filter_by(user_id=user_id).all()
     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
@@ -671,7 +681,6 @@ def handle_semesters():
 @app.route('/api/timetable-data', methods=['GET'])
 @login_required
 def get_timetable_data():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']
     semester_id_str = request.args.get('semester_id')
     semester = None
@@ -712,7 +721,6 @@ def get_timetable_data():
 @app.route('/api/subjects', methods=['POST'])
 @login_required
 def create_subject():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; data = request.json; semester_id = data.get('semester_id'); name = data.get('name')
     if not semester_id or not name: return jsonify({"status": "error", "message": "학기 ID와 과목명은 필수입니다."}), 400
     semester = db.session.get(Semester, semester_id)
@@ -733,7 +741,6 @@ def create_subject():
 @app.route('/api/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
 @login_required
 def handle_subject(subject_id):
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
     if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
     if request.method == 'PUT':
@@ -764,7 +771,6 @@ def handle_subject(subject_id):
 @app.route('/api/subjects/<int:subject_id>/week/<int:week_number>', methods=['GET'])
 @login_required
 def get_weekly_memo(subject_id, week_number):
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
     if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
     try:
@@ -785,7 +791,6 @@ def get_weekly_memo(subject_id, week_number):
 @app.route('/api/subjects/<int:subject_id>/week/<int:week_number>', methods=['PUT'])
 @login_required
 def update_weekly_memo(subject_id, week_number):
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
     if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
     data = request.json; note = data.get('note', ''); todos = data.get('todos', [])
@@ -805,7 +810,6 @@ def update_weekly_memo(subject_id, week_number):
 @app.route('/api/subjects/<int:subject_id>/all-weeks', methods=['GET'])
 @login_required
 def get_all_weekly_memos(subject_id):
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
     if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
     try:
@@ -830,7 +834,6 @@ def get_all_weekly_memos(subject_id):
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; semesters = Semester.query.filter_by(user_id=user_id).all()
     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}; semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)))
     stats = []; GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
@@ -851,7 +854,6 @@ def get_gpa_stats():
 @app.route('/api/study-stats', methods=['GET'])
 @login_required
 def get_study_stats():
-    # ... (기존 로직 유지) ...
     user_id = session['student_id']; today = datetime.now().date(); today_str = today.strftime('%Y-%m-%d')
     today_log = StudyLog.query.filter_by(user_id=user_id, date=today_str).first(); today_seconds = today_log.duration_seconds if today_log else 0
     seven_days_ago = today - timedelta(days=6); seven_days_ago_str = seven_days_ago.strftime('%Y-%m-%d')
@@ -862,7 +864,6 @@ def get_study_stats():
 @app.route('/api/study-time', methods=['POST'])
 @login_required
 def save_study_time():
-    # ... (기존 로직 유지) ...
     data = request.json; duration_to_add = data.get('duration_to_add'); date_str = data.get('date'); user_id = session['student_id']
     if not isinstance(duration_to_add, int) or duration_to_add < 0 or not date_str: return jsonify({"status": "error", "message": "잘못된 요청입니다."}), 400
     try:
@@ -876,13 +877,120 @@ def save_study_time():
     except Exception as e:
         db.session.rollback(); return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
 
-# --- [제거됨] QuickLink 관련 API 제거 ---
+
+# ---------------------------------------------------------------------
+# [Req 4] 독립적인 Todo 관리를 위한 새 API 엔드포인트
+# ---------------------------------------------------------------------
+
+@app.route('/api/todos', methods=['GET'])
+@login_required
+def get_todos():
+    """
+    이번 주 Todo 가져오기 (JS에서 계산된 주 시작/종료일 기준)
+    """
+    user_id = session['student_id']
+    semester_id = request.args.get('semester_id', type=int)
+    start_date_str = request.args.get('start_date') # YYYY-MM-DD
+    end_date_str = request.args.get('end_date')     # YYYY-MM-DD
+    
+    if not semester_id or not start_date_str or not end_date_str:
+        return jsonify({'status': 'error', 'message': '학기 ID와 날짜 범위가 필요합니다.'}), 400
+
+    try:
+        start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'status': 'error', 'message': '날짜 형식이 올바르지 않습니다.'}), 400
+
+    todos = Todo.query.filter(
+        Todo.user_id == user_id,
+        Todo.semester_id == semester_id,
+        Todo.due_date >= start_date_obj,
+        Todo.due_date <= end_date_obj
+    ).order_by(Todo.due_date, Todo.created_at).all()
+    
+    return jsonify({
+        'status': 'success',
+        'todos': [todo.to_dict() for todo in todos]
+    })
+
+
+@app.route('/api/todos', methods=['POST'])
+@login_required
+def create_todo():
+    """
+    새로운 Todo 생성
+    """
+    user_id = session['student_id']
+    data = request.get_json()
+    if not data or 'task' not in data or 'due_date' not in data or 'semester_id' not in data:
+        return jsonify({'status': 'error', 'message': '필수 데이터 누락'}), 400
+        
+    try:
+        due_date_obj = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+        semester_id = int(data['semester_id'])
+        task = data['task'].strip()
+
+        if not task:
+             return jsonify({'status': 'error', 'message': 'Todo 내용이 없습니다.'}), 400
+             
+        # 해당 학기가 유효한지 확인
+        semester = db.session.get(Semester, semester_id)
+        if not semester or semester.user_id != user_id:
+            return jsonify({'status': 'error', 'message': '유효하지 않은 학기입니다.'}), 404
+
+        new_todo = Todo(
+            user_id=user_id,
+            semester_id=semester_id,
+            task=task,
+            due_date=due_date_obj
+        )
+        db.session.add(new_todo)
+        db.session.commit()
+        
+        return jsonify({'status': 'success', 'todo': new_todo.to_dict()}), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/todos/<int:todo_id>', methods=['PUT', 'DELETE'])
+@login_required
+def manage_todo(todo_id):
+    """
+    Todo 수정(완료/미완료) 또는 삭제
+    """
+    user_id = session['student_id']
+    todo = db.session.get(Todo, todo_id)
+
+    # Todo가 존재하지 않거나, 현재 사용자의 Todo가 아닌 경우
+    if not todo or todo.user_id != user_id:
+        return jsonify({'status': 'error', 'message': 'Todo를 찾을 수 없습니다.'}), 404
+
+    try:
+        if request.method == 'PUT':
+            # 완료/미완료 토글
+            data = request.get_json()
+            if 'done' in data:
+                todo.done = bool(data['done'])
+            
+            db.session.commit()
+            return jsonify({'status': 'success', 'todo': todo.to_dict()})
+
+        elif request.method == 'DELETE':
+            db.session.delete(todo)
+            db.session.commit()
+            return jsonify({'status': 'success', 'message': 'Todo가 삭제되었습니다.'})
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/api/credits/goal', methods=['POST'])
 @login_required
 def update_credit_goal():
-    # ... (기존 로직 유지) ...
     data = request.json; new_goal = data.get('goal', type=int); user_id = session['student_id']
     if new_goal is None or new_goal <= 0: return jsonify({"status": "error", "message": "유효하지 않은 학점입니다."}), 400
     try:
