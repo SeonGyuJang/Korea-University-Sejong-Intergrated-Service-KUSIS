@@ -39,6 +39,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# --- 최대 업로드 파일 개수 설정 ---
+app.config['MAX_IMAGE_UPLOADS'] = 3 # 추가됨
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -206,7 +208,7 @@ class Todo(db.Model):
             'semester_id': self.semester_id
         }
 
-# --- Post 모델 수정 (요구사항 2, 3, 4, 5 반영) ---
+# --- Post 모델 수정 ---
 class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
@@ -216,12 +218,15 @@ class Post(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # UTC
     is_approved = db.Column(db.Boolean, default=False, nullable=False)
     is_notice = db.Column(db.Boolean, default=False, nullable=False)
-    image_filename = db.Column(db.String(255), nullable=True)
+    # --- image_filename -> image_filenames 로 변경, Text 타입 사용 ---
+    image_filenames = db.Column(db.Text, nullable=True) # 쉼표로 구분된 파일명 리스트 저장
     category = db.Column(db.String(50), nullable=True, default='일반')
     expires_at = db.Column(db.DateTime, nullable=True) # UTC
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
 
     def to_dict(self, include_content=False):
+        # --- image_filename -> image_filenames 로 변경 ---
+        image_list = self.image_filenames.split(',') if self.image_filenames else []
         data = {
             'id': self.id,
             'title': self.title,
@@ -229,7 +234,7 @@ class Post(db.Model):
             'created_at': self.created_at.isoformat(), # UTC ISO 형식
             'is_approved': self.is_approved,
             'is_notice': self.is_notice,
-            'image_filename': self.image_filename,
+            'image_filenames': image_list, # 리스트로 반환
             'category': self.category,
             'expires_at': self.expires_at.isoformat() if self.expires_at else None,
             'is_visible': self.is_visible
@@ -240,7 +245,6 @@ class Post(db.Model):
         return data
 
 # --- 학사일정, 학기 시작일 관련 함수 ---
-# ... (기존 코드 유지) ...
 def load_academic_calendar():
     calendar_data = {}
     try:
@@ -303,7 +307,6 @@ def _create_semesters_for_user(user_id):
         print(f"Error creating semesters for user {user_id}: {e}")
 
 # --- 학기 자동 관리 스케줄 작업 ---
-# ... (기존 코드 유지) ...
 def manage_semesters_job():
     with app.app_context():
         print(f"[{datetime.now()}] Starting semester management job...")
@@ -336,7 +339,6 @@ def manage_semesters_job():
             print(f"[{datetime.now()}] ERROR in semester management job: {e}")
 
 # --- DB 초기화 ---
-# ... (기존 코드 유지) ...
 def create_initial_data():
     db.create_all()
 
@@ -350,6 +352,19 @@ def create_initial_data():
             db.session.execute(text("ALTER TABLE users ADD COLUMN permission VARCHAR(20) NOT NULL DEFAULT 'general'"))
             db.session.execute(text("UPDATE users SET permission = 'general' WHERE permission IS NULL"))
             print("--- [MIGRATION] 'permission' column added and initialized. ---")
+        # User 테이블 마이그레이션 (total_credits_goal)
+        if 'total_credits_goal' not in user_columns:
+            print("--- [MIGRATION] 'total_credits_goal' column not found in 'users' table. Adding column... ---")
+            db.session.execute(text("ALTER TABLE users ADD COLUMN total_credits_goal INTEGER NOT NULL DEFAULT 130"))
+            print("--- [MIGRATION] 'total_credits_goal' column added with default 130. ---")
+
+        # Semester 테이블 마이그레이션 (start_date)
+        semester_columns = [col['name'] for col in inspector.get_columns('semesters')]
+        if 'start_date' not in semester_columns:
+            print("--- [MIGRATION] 'start_date' column not found in 'semesters' table. Adding column... ---")
+            db.session.execute(text("ALTER TABLE semesters ADD COLUMN start_date DATE NULL"))
+            print("--- [MIGRATION] 'start_date' column added. ---")
+
 
         # Subject 테이블 마이그레이션 (memo)
         subject_columns = [col['name'] for col in inspector.get_columns('subjects')]
@@ -359,13 +374,39 @@ def create_initial_data():
              db.session.execute(text("UPDATE subjects SET memo = '{\"note\": \"\", \"todos\": []}' WHERE memo IS NULL"))
              print("--- [MIGRATION] 'memo' column added and initialized. ---")
 
-        # --- Post 테이블 마이그레이션 (요구사항 2, 3, 4 관련 필드) ---
+        # --- Post 테이블 마이그레이션 수정 ---
         post_columns = [col['name'] for col in inspector.get_columns('posts')]
 
-        if 'image_filename' not in post_columns:
-             print("--- [MIGRATION] 'image_filename' column not found in 'posts' table. Adding column... ---")
-             db.session.execute(text("ALTER TABLE posts ADD COLUMN image_filename VARCHAR(255) NULL"))
-             print("--- [MIGRATION] 'image_filename' column added. ---")
+        # image_filename -> image_filenames 로 변경 및 Text 타입 확인/변경
+        if 'image_filename' in post_columns and 'image_filenames' not in post_columns:
+            print("--- [MIGRATION] Found 'image_filename' column in 'posts'. Renaming and changing type to TEXT... ---")
+            # PostgreSQL 기준: ALTER TABLE posts RENAME COLUMN image_filename TO image_filenames; ALTER TABLE posts ALTER COLUMN image_filenames TYPE TEXT;
+            # SQLite 기준: ALTER TABLE posts RENAME COLUMN image_filename TO image_filenames; -- 타입 변경 불가, 새 테이블 생성 후 데이터 복사 필요
+            # MySQL 기준: ALTER TABLE posts CHANGE COLUMN image_filename image_filenames TEXT NULL;
+            # 여기서는 PostgreSQL 기준으로 작성 (실제 DB에 맞게 수정 필요)
+            try:
+                db.session.execute(text("ALTER TABLE posts RENAME COLUMN image_filename TO image_filenames"))
+                db.session.execute(text("ALTER TABLE posts ALTER COLUMN image_filenames TYPE TEXT"))
+                print("--- [MIGRATION] 'image_filenames' column renamed and type changed to TEXT. ---")
+            except Exception as migrate_e:
+                print(f"--- [MIGRATION] ERROR renaming/altering 'image_filename': {migrate_e} ---")
+                print("--- [MIGRATION] Manual migration might be required. ---")
+        elif 'image_filenames' not in post_columns:
+             print("--- [MIGRATION] 'image_filenames' column not found in 'posts' table. Adding column (TEXT)... ---")
+             db.session.execute(text("ALTER TABLE posts ADD COLUMN image_filenames TEXT NULL"))
+             print("--- [MIGRATION] 'image_filenames' column added. ---")
+        else:
+             # 이미 image_filenames 컬럼이 존재할 경우, 타입 확인 (선택적)
+             col_info = next((col for col in inspector.get_columns('posts') if col['name'] == 'image_filenames'), None)
+             if col_info and not isinstance(col_info['type'], (db.Text, db.UnicodeText)):
+                 print(f"--- [MIGRATION] 'image_filenames' column exists but is not TEXT type ({col_info['type']}). Attempting to alter... ---")
+                 try:
+                    # PostgreSQL 기준
+                    db.session.execute(text("ALTER TABLE posts ALTER COLUMN image_filenames TYPE TEXT"))
+                    print("--- [MIGRATION] 'image_filenames' column type changed to TEXT. ---")
+                 except Exception as alter_e:
+                    print(f"--- [MIGRATION] ERROR altering 'image_filenames' type: {alter_e}. Manual check needed. ---")
+
 
         if 'category' not in post_columns:
             print("--- [MIGRATION] 'category' column not found in 'posts' table. Adding column... ---")
@@ -448,7 +489,6 @@ def create_initial_data():
 
 
 # --- Authentication Decorators ---
-# ... (기존 코드 유지) ...
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -504,7 +544,6 @@ def admin_required(f):
 
 
 # --- 데이터 로드 및 정제 함수 ---
-# ... (기존 코드 유지) ...
 def load_bus_schedule():
     schedule = []
     try:
@@ -700,7 +739,6 @@ def timetable_management():
     )
 
 # --- Authentication Routes ---
-# ... (기존 login, logout, register 코드 유지) ...
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -781,7 +819,6 @@ def register():
     return render_template('register.html', colleges=COLLEGES)
 
 # --- 관리자 대시보드 라우트 ---
-# ... (기존 코드 유지) ...
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -836,7 +873,6 @@ def admin_dashboard():
 
 
 # --- 관리자 기능 API 엔드포인트 ---
-# ... (기존 코드 유지) ...
 @app.route('/admin/users/<string:user_id>/permission', methods=['POST'])
 @admin_required
 def admin_update_permission(user_id):
@@ -878,15 +914,18 @@ def admin_delete_user(user_id):
         # 사용자가 작성한 게시물 및 관련 이미지 파일 먼저 삭제
         posts_to_delete = Post.query.filter_by(author_id=user_id).all()
         for post in posts_to_delete:
-            if post.image_filename:
+            # --- 수정: 여러 이미지 파일 삭제 ---
+            filenames_to_delete = post.image_filenames.split(',') if post.image_filenames else []
+            for filename in filenames_to_delete:
                 try:
-                    image_path = os.path.join(app.config['UPLOAD_FOLDER'], post.image_filename)
+                    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                     if os.path.exists(image_path):
                         os.remove(image_path)
                         print(f"Deleted image file: {image_path}")
                 except Exception as img_e:
                     # 이미지 삭제 실패 시 로그만 남기고 계속 진행
-                    print(f"Error deleting image file {post.image_filename} for user {user_id}: {img_e}")
+                    print(f"Error deleting image file {filename} for user {user_id}: {img_e}")
+            # --- 수정 끝 ---
 
         # 사용자 삭제 (관련 데이터는 cascade delete 설정에 따라 삭제됨)
         db.session.delete(user)
@@ -924,19 +963,20 @@ def post_management():
                            pending_posts=pending_posts,
                            approved_posts=approved_posts)
 
-# --- 게시물 생성 라우트 ---
+# --- 게시물 생성 라우트 수정 ---
 @app.route('/post/create', methods=['GET', 'POST'])
 @post_manager_required
 def create_post():
     from flask import g
     user = g.user
     post_categories = ['공지', '홍보', '안내', '업데이트', '일반'] # 카테고리 목록
+    MAX_UPLOADS = app.config['MAX_IMAGE_UPLOADS']
 
     if request.method == 'POST':
         title = request.form.get('title')
         content = request.form.get('content')
         is_notice = 'is_notice' in request.form
-        image_file = request.files.get('image')
+        image_files = request.files.getlist('images') # 여러 파일 받기
         category = request.form.get('category', '일반')
         expires_at_str = request.form.get('expires_at')
 
@@ -948,48 +988,61 @@ def create_post():
             flash('유효하지 않은 카테고리입니다.', 'warning')
             category = '일반' # 기본값으로 설정
 
-        image_filename = None
+        uploaded_filenames = []
         expires_at_dt = None
 
         try:
-            # 노출 기한 처리 (YYYY-MM-DDTHH:MM 형식, KST 입력 -> UTC 저장)
+            # 노출 기한 처리 (기존 유지)
             if expires_at_str:
-                try:
-                    # KST로 입력된 시간을 naive datetime으로 파싱
+                 try:
                     naive_dt = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M')
-                    # KST 시간대 정보 추가
                     kst_dt = KST.localize(naive_dt)
-                    # UTC로 변환하여 저장
                     expires_at_dt = kst_dt.astimezone(pytz.utc)
-                except ValueError:
+                 except ValueError:
                     flash('노출 기한 형식이 잘못되었습니다. 비워두거나 YYYY-MM-DDTHH:MM 형식으로 입력하세요.', 'warning')
                     return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
 
-            # 이미지 파일 처리
-            if image_file and image_file.filename != '':
-                if allowed_file(image_file.filename):
-                    filename = secure_filename(image_file.filename)
-                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                    unique_filename = f"{timestamp}_{user.id}_{filename}"
-                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            # --- 이미지 파일 처리 (여러 개, 최대 MAX_UPLOADS개) ---
+            valid_files = [f for f in image_files if f and f.filename != '' and allowed_file(f.filename)]
+
+            if len(valid_files) > MAX_UPLOADS:
+                flash(f'이미지는 최대 {MAX_UPLOADS}개까지 첨부할 수 있습니다.', 'warning')
+                return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
+
+            if len(image_files) > len(valid_files) and len(valid_files) < len(image_files):
+                 flash('허용되지 않는 파일 형식(png, jpg, jpeg, gif)이 포함되어 제외되었습니다.', 'warning')
+
+
+            for image_file in valid_files:
+                filename = secure_filename(image_file.filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                # 파일명 중복 가능성 줄이기 (랜덤 문자 추가 등 고려 가능)
+                unique_filename = f"{timestamp}_{user.id}_{filename}"
+                save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                try:
                     image_file.save(save_path)
-                    image_filename = unique_filename
-                else:
-                    flash('허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif)', 'warning')
-                    return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
+                    uploaded_filenames.append(unique_filename)
+                except Exception as save_e:
+                     # 개별 파일 저장 실패 시 로그 남기고 계속 진행 (선택적)
+                     print(f"Error saving file {filename}: {save_e}")
+                     flash(f"파일 '{filename}' 저장 중 오류 발생.", "danger")
+                     # 저장 실패 시 롤백 로직 필요
+
+            # --- 이미지 파일명 리스트를 문자열로 변환 (쉼표 구분) ---
+            image_filenames_str = ",".join(uploaded_filenames) if uploaded_filenames else None
 
             # 관리자는 즉시 승인
             is_approved = user.is_admin
 
             new_post = Post(
                 title=title,
-                content=content.replace('\n', '<br>'), # 줄바꿈을 <br>로 치환
+                content=content.replace('\n', '<br>'),
                 author_id=user.id,
                 is_approved=is_approved,
                 is_notice=is_notice,
-                image_filename=image_filename,
+                image_filenames=image_filenames_str, # 수정됨
                 category=category,
-                expires_at=expires_at_dt, # UTC 시간 저장
+                expires_at=expires_at_dt,
                 is_visible=True
             )
             db.session.add(new_post)
@@ -1000,11 +1053,15 @@ def create_post():
 
         except Exception as e:
             db.session.rollback()
-            if image_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], image_filename)):
-                try:
-                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
-                except Exception as img_e:
-                    print(f"Error rolling back image file {image_filename}: {img_e}")
+            # 롤백 시 저장된 이미지 파일 삭제
+            for filename in uploaded_filenames:
+                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                 if os.path.exists(filepath):
+                     try:
+                         os.remove(filepath)
+                     except Exception as img_e:
+                         print(f"Error rolling back image file {filename}: {img_e}")
+
             flash(f'게시물 작성 중 오류 발생: {e}', 'danger')
             print(f"Error creating post: {e}")
 
@@ -1012,7 +1069,7 @@ def create_post():
     return render_template('create_post.html', user=user, categories=post_categories)
 
 
-# --- 게시물 보기 라우트 ---
+# --- 게시물 보기 라우트 수정 ---
 @app.route('/post/<int:post_id>')
 @login_required
 def view_post(post_id):
@@ -1037,9 +1094,13 @@ def view_post(post_id):
             else:
                 return redirect(url_for('index'))
 
-    return render_template('view_post.html', post=post, user=user)
+    # --- 이미지 파일명 리스트 준비 ---
+    image_filenames_list = post.image_filenames.split(',') if post.image_filenames else []
 
-# --- 게시물 수정 라우트 (신규 추가) ---
+    return render_template('view_post.html', post=post, user=user, image_filenames=image_filenames_list) # 리스트 전달
+
+
+# --- 게시물 수정 라우트 (대폭 수정) ---
 @app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_post(post_id):
@@ -1047,6 +1108,7 @@ def edit_post(post_id):
     user = g.user
     post = db.session.get(Post, post_id)
     post_categories = ['공지', '홍보', '안내', '업데이트', '일반']
+    MAX_UPLOADS = app.config['MAX_IMAGE_UPLOADS']
 
     if not post:
         abort(404)
@@ -1063,15 +1125,19 @@ def edit_post(post_id):
         category = request.form.get('category', post.category)
         is_notice = 'is_notice' in request.form
         expires_at_str = request.form.get('expires_at')
-        delete_image = 'delete_image' in request.form
-        image_file = request.files.get('image')
+        # 삭제할 기존 이미지 파일명 리스트
+        images_to_delete = request.form.getlist('delete_images')
+        # 새로 업로드된 이미지 파일 리스트
+        new_image_files = request.files.getlist('images')
 
         if not title or not content:
             flash('제목과 내용은 필수입니다.', 'danger')
-            # 오류 시 현재 입력값 유지하여 템플릿 렌더링
+            # 오류 시 현재 입력값 유지 (기존 이미지 포함)
+            existing_images = post.image_filenames.split(',') if post.image_filenames else []
             return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                    title=title, content=content.replace('<br>', '\n'), category=category,
-                                   is_notice=is_notice, expires_at=expires_at_str)
+                                   is_notice=is_notice, expires_at=expires_at_str,
+                                   existing_images=existing_images) # 기존 이미지 리스트 전달
 
         if category not in post_categories:
             flash('유효하지 않은 카테고리입니다.', 'warning')
@@ -1079,45 +1145,71 @@ def edit_post(post_id):
 
         expires_at_dt = post.expires_at # 기존 값 유지
 
+        # 기존 이미지 파일명 리스트 (처리 전)
+        current_filenames = post.image_filenames.split(',') if post.image_filenames else []
+        filenames_to_keep = []
+        files_actually_deleted = [] # 실제 삭제된 파일 추적
+        newly_uploaded_filenames = [] # 새로 업로드 성공한 파일 추적
+
         try:
-            # 노출 기한 처리 (KST 입력 -> UTC 저장)
+            # 노출 기한 처리 (기존 유지)
             if expires_at_str:
-                try:
+                 try:
                     naive_dt = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M')
                     kst_dt = KST.localize(naive_dt)
                     expires_at_dt = kst_dt.astimezone(pytz.utc)
-                except ValueError:
+                 except ValueError:
                     flash('노출 기한 형식이 잘못되었습니다.', 'warning')
+                    existing_images = post.image_filenames.split(',') if post.image_filenames else []
                     return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                            title=title, content=content.replace('<br>', '\n'), category=category,
-                                           is_notice=is_notice, expires_at=expires_at_str)
+                                           is_notice=is_notice, expires_at=expires_at_str,
+                                           existing_images=existing_images)
             else:
                  expires_at_dt = None # 빈 문자열이면 None으로 설정
 
-            # 이미지 처리
-            image_filename_to_update = post.image_filename
-            old_image_filename = post.image_filename
+            # --- 이미지 처리 ---
+            # 1. 삭제될 기존 이미지 처리
+            filenames_to_keep = [f for f in current_filenames if f not in images_to_delete]
+            files_to_delete_physically = [f for f in current_filenames if f in images_to_delete]
 
-            # 1. 기존 이미지 삭제 체크
-            if delete_image and old_image_filename:
-                image_filename_to_update = None
-                # 실제 파일 삭제는 DB 업데이트 성공 후
+            # 2. 새로 업로드된 유효한 파일 필터링
+            valid_new_files = [f for f in new_image_files if f and f.filename != '' and allowed_file(f.filename)]
 
-            # 2. 새 이미지 업로드
-            if image_file and image_file.filename != '':
-                if allowed_file(image_file.filename):
-                    filename = secure_filename(image_file.filename)
-                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                    unique_filename = f"{timestamp}_{user.id}_{filename}"
-                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            if len(new_image_files) > len(valid_new_files) and len(valid_new_files) < len(new_image_files):
+                 flash('허용되지 않는 파일 형식(png, jpg, jpeg, gif)이 포함되어 제외되었습니다.', 'warning')
+
+            # 3. 총 이미지 개수 확인 (유지될 기존 이미지 + 새 이미지)
+            total_images_after_upload = len(filenames_to_keep) + len(valid_new_files)
+            if total_images_after_upload > MAX_UPLOADS:
+                flash(f'이미지는 최대 {MAX_UPLOADS}개까지 첨부할 수 있습니다. (현재 {len(filenames_to_keep)}개 유지, {len(valid_new_files)}개 추가 시도)', 'warning')
+                existing_images = post.image_filenames.split(',') if post.image_filenames else []
+                return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                                       title=title, content=content.replace('<br>', '\n'), category=category,
+                                       is_notice=is_notice, expires_at=expires_at_str,
+                                       existing_images=existing_images)
+
+            # 4. 새 이미지 저장 및 파일명 추가
+            for image_file in valid_new_files:
+                filename = secure_filename(image_file.filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{timestamp}_{user.id}_{filename}"
+                save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                try:
                     image_file.save(save_path)
-                    image_filename_to_update = unique_filename
-                    # 이전 이미지 파일 삭제는 DB 업데이트 성공 후
-                else:
-                    flash('허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif)', 'warning')
-                    return render_template('edit_post.html', post=post, user=user, categories=post_categories,
-                                           title=title, content=content.replace('<br>', '\n'), category=category,
-                                           is_notice=is_notice, expires_at=expires_at_str)
+                    newly_uploaded_filenames.append(unique_filename)
+                except Exception as save_e:
+                     print(f"Error saving new file {filename}: {save_e}")
+                     flash(f"새 이미지 '{filename}' 저장 중 오류 발생.", "danger")
+                     # 롤백 처리 필요 (이미 저장된 새 파일 삭제)
+                     for fname in newly_uploaded_filenames:
+                         fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+                         if os.path.exists(fpath): os.remove(fpath)
+                     raise save_e # 오류 발생시켜 롤백 유도
+
+            # 5. 최종 파일명 리스트 생성 및 문자열 변환
+            final_filenames = filenames_to_keep + newly_uploaded_filenames
+            image_filenames_str = ",".join(final_filenames) if final_filenames else None
 
             # 게시물 업데이트
             post.title = title
@@ -1125,48 +1217,64 @@ def edit_post(post_id):
             post.category = category
             post.is_notice = is_notice
             post.expires_at = expires_at_dt
-            post.image_filename = image_filename_to_update
+            post.image_filenames = image_filenames_str # 업데이트된 파일명 문자열
 
-            # 협력직원이 수정하면 승인 상태 해제 (관리자는 유지)
+            # 협력직원이 수정하면 승인 상태 해제 (기존 유지)
             if not user.is_admin:
                 post.is_approved = False
 
             db.session.commit()
 
-            # DB 업데이트 성공 후 기존 이미지 파일 삭제 (필요한 경우)
-            if (delete_image or (image_file and image_file.filename != '')) and old_image_filename:
-                 if old_image_filename != image_filename_to_update: # 새 파일로 교체되었거나 삭제된 경우
-                    try:
-                        old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], old_image_filename)
-                        if os.path.exists(old_image_path):
-                            os.remove(old_image_path)
-                            print(f"Deleted old image file: {old_image_path}")
-                    except Exception as img_e:
-                        print(f"Error deleting old image file {old_image_filename}: {img_e}")
+            # --- DB 업데이트 성공 후, 삭제하기로 한 기존 이미지 파일 물리적 삭제 ---
+            for filename_to_delete in files_to_delete_physically:
+                 try:
+                     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename_to_delete)
+                     if os.path.exists(file_path):
+                         os.remove(file_path)
+                         files_actually_deleted.append(filename_to_delete)
+                         print(f"Deleted old image file: {file_path}")
+                 except Exception as img_del_e:
+                     print(f"Error deleting old image file {filename_to_delete}: {img_del_e}")
+                     # 파일 삭제 실패 시 로그만 남김 (DB는 이미 업데이트됨)
 
             flash('게시물이 성공적으로 수정되었습니다.' + (' 관리자 재승인 후 게시됩니다.' if not post.is_approved and not user.is_admin else ''), 'success')
             return redirect(url_for('view_post', post_id=post.id))
 
         except Exception as e:
             db.session.rollback()
+            # 롤백 시 새로 저장했던 파일 삭제
+            for fname in newly_uploaded_filenames:
+                 fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+                 if os.path.exists(fpath):
+                     try: os.remove(fpath)
+                     except: pass
             flash(f'게시물 수정 중 오류 발생: {e}', 'danger')
             print(f"Error editing post {post_id}: {e}")
+            existing_images = post.image_filenames.split(',') if post.image_filenames else []
+            # 오류 발생 시 다시 폼을 보여주되, 사용자가 입력한 값 유지
+            return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                                   title=title, content=content.replace('<br>', '\n'), category=category,
+                                   is_notice=is_notice, expires_at=expires_at_str,
+                                   existing_images=existing_images)
+
 
     # GET 요청 시: 폼에 기존 데이터 채워서 렌더링
-    # DB에 저장된 UTC 시간을 KST로 변환하여 datetime-local input 형식(YYYY-MM-DDTHH:MM)으로 전달
     expires_at_kst_str = ""
     if post.expires_at:
         kst_expires = post.expires_at.replace(tzinfo=pytz.utc).astimezone(KST)
         expires_at_kst_str = kst_expires.strftime('%Y-%m-%dT%H:%M')
 
+    # --- 기존 이미지 파일명 리스트 전달 ---
+    existing_images = post.image_filenames.split(',') if post.image_filenames else []
+
     return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                            title=post.title, content=post.content.replace('<br>', '\n'), # textarea는 \n 사용
                            category=post.category, is_notice=post.is_notice,
-                           expires_at=expires_at_kst_str)
+                           expires_at=expires_at_kst_str,
+                           existing_images=existing_images) # 리스트 전달
 
 
 # --- 업로드된 파일 제공 라우트 ---
-# ... (기존 코드 유지) ...
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     # ../ 등의 경로 탐색 방지
@@ -1176,7 +1284,6 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], safe_filename)
 
 # --- 게시물 승인/삭제/표시여부 토글 API ---
-# ... (기존 코드 유지) ...
 @app.route('/post/<int:post_id>/approve', methods=['POST'])
 @admin_required
 def approve_post(post_id):
@@ -1207,15 +1314,16 @@ def delete_post(post_id):
         return jsonify({"status": "error", "message": "삭제 권한이 없습니다."}), 403
 
     try:
-        image_filename_to_delete = post.image_filename
+        # --- 삭제할 이미지 파일명 리스트 가져오기 ---
+        filenames_to_delete = post.image_filenames.split(',') if post.image_filenames else []
 
         db.session.delete(post)
         db.session.commit()
 
-        # DB 삭제 성공 후 이미지 파일 삭제
-        if image_filename_to_delete:
+        # --- DB 삭제 성공 후 이미지 파일들 삭제 ---
+        for filename in filenames_to_delete:
             try:
-                image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename_to_delete)
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 if os.path.exists(image_path):
                     os.remove(image_path)
                     print(f"Deleted image file: {image_path}")
@@ -1223,7 +1331,7 @@ def delete_post(post_id):
                     print(f"Image file not found (already deleted?): {image_path}")
             except Exception as img_e:
                 # 이미지 삭제 실패는 로그만 남김 (DB는 이미 삭제됨)
-                print(f"Error deleting image file {image_filename_to_delete}: {img_e}")
+                print(f"Error deleting image file {filename}: {img_e}")
 
         return jsonify({"status": "success", "message": "게시물이 삭제되었습니다."})
     except Exception as e:
@@ -1284,7 +1392,6 @@ def get_notifications():
         return jsonify({"status": "error", "message": "알림 조회 중 오류 발생", "notifications": [], "count": 0}), 500
 
 # --- Public API Endpoints ---
-# ... (기존 코드 유지) ...
 @app.route('/api/shuttle')
 def get_shuttle():
     return jsonify(SHUTTLE_SCHEDULE_DATA)
@@ -1303,7 +1410,6 @@ def get_weekly_meal():
     return jsonify(formatted_data)
 
 # --- Secure API Endpoints ---
-# ... (기존 코드 유지: /api/schedule, /api/schedule/add, /api/semesters, /api/timetable-data, /api/subjects, /api/gpa-stats, /api/study-stats, /api/study-time, /api/credits/goal, /api/todos) ...
 @app.route('/api/schedule', methods=['GET'])
 @login_required
 def get_schedule():
@@ -1663,6 +1769,159 @@ def handle_subject(subject_id):
 
     return jsonify({"status": "error", "message": "허용되지 않는 메소드입니다."}), 405
 
+# --- [신규] 과목별 메모/Todo API ---
+# 과목의 특정 날짜 메모 조회
+@app.route('/api/subjects/<int:subject_id>/memo/<string:date_str>', methods=['GET'])
+@login_required
+def get_daily_memo(subject_id, date_str):
+    from flask import g
+    user_id = g.user.id
+    subject = db.session.get(Subject, subject_id)
+    if not subject or subject.user_id != user_id:
+        return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
+
+    try:
+        # DB의 memo 필드 (JSON 문자열) 가져오기
+        memo_json_str = subject.memo
+        memo_data = {}
+        if memo_json_str:
+            try:
+                memo_data = json.loads(memo_json_str)
+            except json.JSONDecodeError:
+                # 파싱 실패 시, 이전 문자열 형태 데이터 처리
+                if isinstance(memo_json_str, str):
+                    memo_data = {"note": memo_json_str, "todos": []}
+                else:
+                    memo_data = {"note": "", "todos": []}
+        else:
+             memo_data = {"note": "", "todos": []}
+
+        # daily_memos 필드가 없을 경우 초기화
+        if "daily_memos" not in memo_data or not isinstance(memo_data["daily_memos"], dict):
+            memo_data["daily_memos"] = {}
+
+        # 해당 날짜의 메모 반환
+        daily_note = memo_data["daily_memos"].get(date_str, "")
+
+        return jsonify({"status": "success", "note": daily_note})
+
+    except Exception as e:
+        print(f"Error fetching daily memo for subject {subject_id} on {date_str}: {e}")
+        return jsonify({"status": "error", "message": "메모 조회 중 오류 발생"}), 500
+
+# 과목의 특정 날짜 메모 업데이트
+@app.route('/api/subjects/<int:subject_id>/memo/<string:date_str>', methods=['PUT'])
+@login_required
+def update_daily_memo(subject_id, date_str):
+    from flask import g
+    user_id = g.user.id
+    subject = db.session.get(Subject, subject_id)
+    if not subject or subject.user_id != user_id:
+        return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
+
+    data = request.json
+    new_note = data.get('note', '')
+
+    try:
+        # DB의 memo 필드 (JSON 문자열) 가져오기 및 파싱
+        memo_json_str = subject.memo
+        memo_data = {}
+        if memo_json_str:
+            try:
+                memo_data = json.loads(memo_json_str)
+            except json.JSONDecodeError:
+                 if isinstance(memo_json_str, str):
+                    memo_data = {"note": memo_json_str, "todos": []} # 기존 메모 유지
+                 else:
+                     memo_data = {"note": "", "todos": []}
+        else:
+             memo_data = {"note": "", "todos": []}
+
+        # daily_memos 필드 초기화
+        if "daily_memos" not in memo_data or not isinstance(memo_data["daily_memos"], dict):
+            memo_data["daily_memos"] = {}
+
+        # 해당 날짜 메모 업데이트
+        memo_data["daily_memos"][date_str] = new_note.strip()
+
+        # 업데이트된 memo 데이터를 다시 JSON 문자열로 변환하여 저장
+        subject.memo = json.dumps(memo_data, ensure_ascii=False)
+        db.session.commit()
+
+        return jsonify({"status": "success", "message": "메모가 저장되었습니다."})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating daily memo for subject {subject_id} on {date_str}: {e}")
+        return jsonify({"status": "error", "message": "메모 저장 중 오류 발생"}), 500
+
+# --- [신규] 학기별 주차 메모 API ---
+@app.route('/api/semesters/<int:semester_id>/all-memos-by-week', methods=['GET'])
+@login_required
+def get_all_memos_by_week(semester_id):
+    from flask import g
+    user_id = g.user.id
+    semester = db.session.get(Semester, semester_id)
+    if not semester or semester.user_id != user_id:
+        return jsonify({"status": "error", "message": "학기를 찾을 수 없거나 권한이 없습니다."}), 404
+
+    try:
+        start_date = semester.start_date if semester.start_date else _get_semester_start_date_fallback(semester.year, semester.season)
+        subjects_in_semester = Subject.query.filter_by(semester_id=semester.id).all()
+
+        weekly_memos_data = []
+
+        # 16주차 반복
+        for week_num in range(1, 17):
+            week_start_date = start_date + timedelta(weeks=week_num - 1)
+            week_end_date = week_start_date + timedelta(days=6)
+            week_subjects_data = []
+
+            for subject in subjects_in_semester:
+                subject_memos_this_week = []
+                memo_json_str = subject.memo
+                memo_data = {}
+                try:
+                    memo_data = json.loads(memo_json_str or '{}')
+                except:
+                     memo_data = {} # 파싱 실패 시 빈 객체
+
+                daily_memos = memo_data.get("daily_memos", {})
+
+                # 해당 주차의 날짜 확인
+                current_date = week_start_date
+                while current_date <= week_end_date:
+                    date_str = current_date.strftime('%Y-%m-%d')
+                    if date_str in daily_memos and daily_memos[date_str].strip():
+                        subject_memos_this_week.append({
+                            "date": date_str,
+                            "note": daily_memos[date_str].strip()
+                        })
+                    current_date += timedelta(days=1)
+
+                if subject_memos_this_week:
+                     subject_memos_this_week.sort(key=lambda x: x['date']) # 날짜순 정렬
+                     week_subjects_data.append({
+                         "subject_id": subject.id,
+                         "subject_name": subject.name,
+                         "memos": subject_memos_this_week
+                     })
+
+            # 해당 주차에 메모가 있는 과목이 있을 경우에만 추가
+            if week_subjects_data:
+                 weekly_memos_data.append({
+                     "week_number": week_num,
+                     "date_range": f"{week_start_date.strftime('%m.%d')}~{week_end_date.strftime('%m.%d')}",
+                     "subjects": week_subjects_data
+                 })
+
+        return jsonify({"status": "success", "data": weekly_memos_data})
+
+    except Exception as e:
+        print(f"Error fetching all weekly memos for semester {semester_id}: {e}")
+        return jsonify({"status": "error", "message": "주차별 메모 조회 중 오류 발생"}), 500
+
+# --- 기타 API (GPA, 스터디 통계 등) ---
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
@@ -1894,7 +2153,6 @@ def manage_todo(todo_id):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # --- 앱 실행 부분 ---
-# ... (기존 코드 유지) ...
 if __name__ == '__main__':
     with app.app_context():
         try:
