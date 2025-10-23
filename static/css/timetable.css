@@ -1,3 +1,4 @@
+/* static/css/timetable.css */
 /* 시간표 관리 페이지 전용 (timetable.css) */
 
 .timetable-management-page {
@@ -286,7 +287,8 @@
 }
 .credit-details {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* --- 수정 (Req 1): '현재 학기 학점' 제거로 2열로 변경 --- */
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     width: 100%;
 }
@@ -370,7 +372,7 @@
     height: 250px; /* 차트 높이 고정 */
 }
 
-/* --- [Req 2 수정] 좌측 사이드바: 이번 주 Todo 위젯 --- */
+/* --- 좌측 사이드바: 이번 주 Todo 위젯 --- */
 .global-todo-widget {
     /* flex-grow: 1; 내용이 많아지면 늘어나도록 */
     display: flex;
@@ -443,11 +445,11 @@
 .global-todo-add { /* Todo 추가 영역 */
     margin-top: auto; /* 하단에 고정 */
     flex-shrink: 0;
-    position: relative; /* @ 태그 오버레이 기준점 */
+    /* --- 수정 (Req 2): position: relative 제거 --- */
 }
 
 
-/* --- 우측 위젯 (Req 2 수정) --- */
+/* --- 우측 위젯 --- */
 .timetable-details-side-content .widget {
     display: flex;
     flex-direction: column;
@@ -455,7 +457,7 @@
 .subject-details-widget { /* 과목 정보 위젯 */
     flex-shrink: 0; /* 높이 고정 */
 }
-.weekly-details-widget { /* 주차별 정보 위젯 */
+.daily-memo-widget { /* 일일 메모 위젯 (Req 1) */
     flex-grow: 1; /* 남은 공간 차지 */
     min-height: 0; /* 넘칠 경우 줄어들도록 */
     display: flex; /* 내부 요소 정렬 위해 flex */
@@ -535,52 +537,21 @@
     color: var(--korea-red);
 }
 
-/* 주차별 정보 위젯 (Req 2 수정) */
-.weekly-details-widget .widget-header {
-    display: flex; /* 기본값 유지 */
-    justify-content: space-between;
-    align-items: center;
-}
-.week-selector { /* 주차 이동 버튼 컨테이너 */
+/* 일일 메모 위젯 (Req 1, 2) */
+.daily-memo-widget .widget-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding: 6px;
-    background: var(--bg-primary);
-    border-radius: 8px;
-    flex-shrink: 0; /* 높이 고정 */
 }
-.week-selector button { /* 이전/다음 주 버튼 */
-    background: none;
-    border: none;
-    font-size: 14px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-}
-.week-selector button:hover:not(:disabled) {
-    background: var(--bg-secondary);
-    color: var(--korea-red);
-}
-.week-selector button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-#currentWeekDisplay { /* 현재 주차 표시 */
-    font-weight: 600;
-    font-size: 13px;
-}
-.weekly-content { /* 메모 및 Todo 컨텐츠 영역 */
+.daily-memo-content { /* 메모 컨텐츠 영역 */
     padding-top: 5px;
     flex-grow: 1; /* 남은 공간 차지 */
     overflow-y: auto; /* 내용 길어지면 스크롤 */
-    min-height: 0; /* flex 아이템 넘칠 때 줄어들도록 */
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
-#weeklyMemoText { /* 주차별 메모 textarea */
+#dailyMemoText { /* 일일 메모 textarea */
     width: 100%;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -590,32 +561,27 @@
     resize: vertical;
     outline: none;
     transition: all 0.3s;
-    min-height: 80px; /* 최소 높이 */
-    margin-bottom: 15px; /* Todo와의 간격 */
-    flex-shrink: 0; /* 높이 고정 */
+    min-height: 120px; /* 최소 높이 조정 */
+    flex-grow: 1; /* 남은 공간 모두 차지하도록 */
+    margin-bottom: 15px; /* 저장 버튼과의 간격 */
 }
-#weeklyMemoText:focus {
+#dailyMemoText:focus {
     border-color: var(--korea-red);
     background: var(--bg-secondary);
 }
-#weeklyMemoText:disabled {
+#dailyMemoText:disabled {
     background: #f8f9fa;
     cursor: not-allowed;
 }
-.weekly-content .memo-todo-list { /* 주차별 Todo 목록 UL */
-    max-height: 150px; /* 최대 높이 제한 (스크롤) */
-    flex-shrink: 0; /* 높이 고정 */
-}
-.weekly-content .memo-todo-add { /* 주차별 Todo 추가 영역 */
-    margin-top: 8px;
-    flex-shrink: 0; /* 높이 고정 */
-}
+
+/* Todo 관련 UI 제거 (Req 2) */
+
 .save-button-container { /* 저장 버튼 컨테이너 */
-    margin-top: 15px;
+    margin-top: auto; /* 하단에 고정 */
     text-align: right;
     flex-shrink: 0; /* 높이 고정 */
 }
-.btn-save-weekly { /* 주차 정보 저장 버튼 */
+.btn-save-daily { /* 메모 저장 버튼 */
     background: var(--korea-red);
     color: white;
     border: none;
@@ -626,14 +592,14 @@
     cursor: pointer;
     transition: all 0.3s;
 }
-.btn-save-weekly:hover:not(:disabled) {
+.btn-save-daily:hover:not(:disabled) {
     background: var(--korea-red-dark);
 }
-.btn-save-weekly:disabled {
+.btn-save-daily:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
-.btn-save-weekly i {
+.btn-save-daily i {
     margin-right: 5px;
 }
 
@@ -838,7 +804,7 @@
 }
 
 
-/* --- 아코디언 스타일 (모든 주차 모아보기 모달) --- */
+/* --- 아코디언 스타일 (주차별 메모 모아보기 모달 - Req 3) --- */
 .accordion {
     display: flex;
     flex-direction: column;
@@ -879,66 +845,89 @@
 .accordion-item.active .accordion-content { /* 활성화 시 패딩 적용 */
     padding: 10px 14px;
 }
-.accordion-content p { /* 메모 내용 */
+.accordion-content .daily-memo-entry { /* 각 날짜별 메모 항목 */
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #eee;
+}
+.accordion-content .daily-memo-entry:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.accordion-content .memo-date { /* 메모 날짜 */
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.accordion-content .memo-note { /* 메모 내용 */
     font-size: 13px;
     color: var(--text-primary);
     line-height: 1.6;
     white-space: pre-wrap; /* 줄바꿈 유지 */
-    margin-bottom: 0;
+    margin: 0;
 }
-.accordion-content .memo-todo-list { /* 모달 내 Todo 목록 */
-    max-height: none; /* 높이 제한 없음 */
-}
-.accordion-content .todo-item { /* 모달 내 Todo 항목 */
-    background: none;
-    border: none;
-    padding-left: 0;
-    align-items: flex-start; /* 아이콘과 텍스트 상단 정렬 */
-}
-.accordion-content .todo-item i { /* Todo 아이콘 (체크/빈칸) */
-    margin-top: 2px;
-    margin-right: 8px;
-}
-.accordion-content .todo-label {
-    line-height: 1.4;
-}
+/* Todo 관련 스타일 제거 */
 
 
-/* --- [Req 1] @ Tag Suggestion Overlay --- */
-.tag-suggestion-overlay {
+/* --- @ Tagging UI (Req 2: 디자인 개선) --- */
+
+.global-todo-input-wrapper { /* 입력 필드 + 제안 창 래퍼 */
+    position: relative;
+    flex-grow: 1;
+}
+
+.tag-suggestion-overlay { /* 제안 창 스타일 */
     position: absolute;
-    bottom: calc(100% + 5px); /* 입력 필드 *위*에 5px 간격 */
+    bottom: calc(100% + 4px); /* 입력 필드 위에 4px 간격 */
     left: 0;
-    width: 100%;
-    max-height: 150px;
+    right: 0; /* 너비를 래퍼에 맞춤 */
+    max-height: 160px;
     overflow-y: auto;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-secondary); /* 흰색 배경 */
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 -3px 8px rgba(0,0,0,0.1); /* 위쪽 그림자 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 부드러운 그림자 */
     z-index: 110;
     display: none;
     box-sizing: border-box;
 }
 .suggestion-item { /* 개별 과목 제안 */
-    padding: 8px 12px;
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px; /* 패딩 증가 */
+    font-size: 14px; /* 폰트 크기 증가 */
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background-color 0.2s; /* 호버 효과 */
 }
 .suggestion-item:hover {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-primary); /* 호버 시 배경색 */
+}
+.suggestion-item:first-child {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+.suggestion-item:last-child {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
-/* --- [Req 1] @ Tagged Subject Style --- */
-.tagged-subject {
-    background-color: rgba(165, 0, 52, 0.1); /* 연한 빨강 배경 */
-    color: var(--korea-red-dark); /* 진한 빨강 텍스트 */
-    padding: 1px 4px;
-    border-radius: 4px;
+/* 렌더링된 태그 스타일 */
+.tagged-subject-global {
+    /* JS 인라인 스타일 (background-color, border-color) */
+    color: var(--korea-red-dark);
+    padding: 2px 6px; /* 패딩 살짝 증가 */
+    border-radius: 6px; /* 좀 더 둥글게 */
     font-weight: 500;
+    font-size: 13px; /* 폰트 크기 고정 */
+    margin: 0 2px;
+    border: 1px solid; /* JS에서 border-color를 설정 */
 }
 
 
@@ -983,7 +972,14 @@
         font-size: 12px;
     }
     .timeslot-entry { /* 시간 입력 슬롯 모바일 조정 */
-        grid-template-columns: auto 1fr 1fr auto; /* 강의실 입력 숨김 가정 (JS에서 처리 필요) */
+        grid-template-columns: auto 1fr 1fr auto;
         gap: 5px;
+    }
+     /* --- 수정 (Req 1): 2열로 변경 --- */
+     .credit-details {
+        grid-template-columns: repeat(2, 1fr); /* 2열 유지 */
+    }
+     .credit-details .stat-value {
+        font-size: 18px; /* 값 폰트 크기 조정 */
     }
 }
