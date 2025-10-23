@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 도서관 검색 기능 ---
     const librarySearchInput = document.getElementById('librarySearchInput');
-    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingOverlay = document.getElementById('loadingOverlay'); // loadingOverlay 변수 정의
     const loadingText = document.getElementById('loadingText');
 
     if (librarySearchInput) {
@@ -113,4 +113,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     // --- 도서관 검색 기능 종료 ---
+
+    // [--- (추가된 부분) ---]
+    // --- 네비게이션 메뉴 클릭 (외부 링크 애니메이션) ---
+    // (loadingOverlay 변수는 '도서관 검색 기능' 섹션에서 이미 정의됨)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const linkUrl = e.currentTarget.getAttribute('href');
+            const dataUrl = e.currentTarget.dataset.url; // 외부 링크 URL
+
+            // 1. href 속성만 있고 data-url이 없는 경우 (내부 페이지 이동)
+            if (linkUrl && linkUrl !== '#' && !dataUrl) {
+                // 기본 링크 이동 동작을 막지 않고 그대로 둡니다.
+                // (선택사항) 로딩 애니메이션을 내부 페이지 이동 시에도 표시하려면 여기에 코드 추가
+                return;
+            }
+
+            // 2. data-url 속성이 있는 경우 (외부 링크 이동) 또는 href="#" 인 경우
+            e.preventDefault(); // 기본 동작(링크 이동 또는 페이지 상단 이동)을 막습니다.
+
+            // 3. data-url 속성이 있을 때만 로딩 애니메이션 표시 및 새 탭 열기
+            if (dataUrl) {
+                // 로딩 오버레이 텍스트를 기본값으로 설정
+                if (loadingText) {
+                    loadingText.textContent = '이동 중입니다... 새로운 탭에서 열립니다.';
+                }
+
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('active'); // 로딩 오버레이 표시
+                } else {
+                    console.warn('Loading overlay element not found.'); // 오버레이 없으면 경고
+                }
+                
+                // 일정 시간 후 새 탭에서 링크 열고 오버레이 숨김
+                setTimeout(() => {
+                    window.open(dataUrl, '_blank'); // 새 탭에서 외부 링크 열기
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.remove('active'); // 로딩 오버레이 숨김
+                    }
+                }, 1500); // 1.5초 지연
+            }
+            // 4. href="#" 인 경우는 아무 동작도 하지 않습니다.
+        });
+    });
+    // [--- (추가된 부분 끝) ---]
 });

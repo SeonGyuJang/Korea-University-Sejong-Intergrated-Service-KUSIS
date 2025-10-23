@@ -11,7 +11,7 @@
             <i class="fas fa-home"></i>
             <span class="nav-text">홈</span>
         </a>
-        
+
         {% if session.student_id %}
         <a href="{{ url_for('timetable_management') }}" class="nav-item {% if request.path == '/timetable-management' %}active{% endif %}" data-page="timetable">
             <i class="fas fa-calendar-alt"></i>
@@ -29,17 +29,19 @@
             <i class="fas fa-users"></i>
             <span class="nav-text">친구</span>
         </a>
-        
-        {% if is_admin %}
+
+        {# --- 수정된 부분 --- #}
+        {% if user and user.permission == 'admin' %}
         <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.path == '/admin' %}active{% endif %}" data-page="admin">
             <i class="fas fa-user-cog"></i>
             <span class="nav-text">관리자 페이지</span>
         </a>
         {% endif %}
-        
+        {# --- 수정 끝 --- #}
+
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 10px 0;">
         {% endif %}
-        
+
         <a href="https://auth.worksmobile.com/login/login?" class="nav-item" data-page="mail" data-url="https://auth.worksmobile.com/login/login?">
             <i class="fas fa-envelope"></i>
             <span class="nav-text">메일</span>
@@ -52,7 +54,7 @@
             <i class="fas fa-id-card"></i>
             <span class="nav-text">KUPID</span>
         </a>
-        <a href="https://kuseum.korea.ac.kr/common/user/loginKulms.do?rtnUrl=21306aa07dd2f16c34d6c553b2e842ba014b25b816e5523c22ff3f6c59ab3da5" class="nav-item" data-page="kuseum" data-url="https://kuseum.korea.ac.kr/common/user/loginKulms.do?rtnUrl=21306aa07dd2f16c34d6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5523c22ff3f6c553b2e842ba014b25b816e5F6c553b2e842ba014b25b816e5523c22ff3f6c59ab3da5">
+        <a href="https://kuseum.korea.ac.kr/common/user/loginKulms.do?rtnUrl=21306aa07dd2f16c34d6c553b2e842ba014b25b816e5523c22ff3f6c59ab3da5" class="nav-item" data-page="kuseum" data-url="https://kuseum.korea.ac.kr/common/user/loginKulms.do?rtnUrl=21306aa07dd2f16c34d6c553b2e842ba014b25b816e5523c22ff3f6c59ab3da5">
             <i class="fas fa-building"></i>
             <span class="nav-text">KUSEUM</span>
         </a>
@@ -80,7 +82,7 @@
             <span class="nav-text">Gemini</span>
         </a>
 
-        
+
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 10px 0;">
         {% if session.student_id %}
         <a href="{{ url_for('logout') }}" class="nav-item" data-page="logout">

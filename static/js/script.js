@@ -144,36 +144,10 @@ function setupEventListeners() {
         });
     });
 
-    // 네비게이션 메뉴 클릭
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            const linkUrl = e.currentTarget.getAttribute('href');
-            const dataUrl = e.currentTarget.dataset.url;
-
-            if (linkUrl && linkUrl !== '#' && !dataUrl) {
-                // 일반 페이지 이동 (href가 있고 data-url이 없을 때)
-                return; // 기본 동작 수행
-            }
-            e.preventDefault(); // 외부 링크 또는 # 링크일 때 기본 동작 막기
-
-            // #이 아닌 내부 링크 클릭 시 활성 상태 변경 (외부 링크는 활성 상태 변경 안 함)
-            if (linkUrl && linkUrl !== '#' && !dataUrl) {
-                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                 e.currentTarget.classList.add('active');
-                 // 페이지 이동은 기본 동작에 맡김
-            }
-
-            // 외부 링크(data-url) 클릭 시 로딩 오버레이 후 새 탭
-            if (dataUrl) {
-                if (loadingOverlay) loadingOverlay.classList.add('active');
-                setTimeout(() => {
-                    window.open(dataUrl, '_blank');
-                    if (loadingOverlay) loadingOverlay.classList.remove('active');
-                }, 1500); // 1.5초 후 새 탭 열기
-            }
-        });
-    });
+    // [--- (제거된 부분) ---]
+    // --- 네비게이션 메뉴 클릭 로직 ---
+    // 이 로직은 static/js/layout.js 파일로 이동되었습니다.
+    // [--- (제거된 부분 끝) ---]
 }
 
 
