@@ -86,6 +86,7 @@ class User(db.Model):
     def is_admin(self):
         return self.permission == 'admin'
 
+
 # Semester, Subject, TimeSlot, DailyMemo, Schedule, StudyLog, Todo 모델은 기존 유지
 class Semester(db.Model):
     __tablename__ = 'semesters'
@@ -318,7 +319,7 @@ def create_initial_data():
     try:
         inspector = inspect(db.engine)
         columns = [col['name'] for col in inspector.get_columns('users')]
-        
+
         has_permission_col = 'permission' in columns
         has_is_admin_col = 'is_admin' in columns # 이전 'is_admin' 컬럼 존재 여부 확인
 
@@ -329,14 +330,14 @@ def create_initial_data():
             # 기본값이 적용되도록 커밋
             db.session.commit()
             print("--- [MIGRATION] 'permission' column added with default 'general'. ---")
-            
+
             # 2. 기존 is_admin 데이터가 있다면 permission 컬럼으로 마이그레이션
             if has_is_admin_col:
                 print("--- [MIGRATION] Old 'is_admin' column found. Migrating data to 'permission'... ---")
                 db.session.execute(text("UPDATE users SET permission = 'admin' WHERE is_admin = TRUE"))
                 db.session.commit()
                 print("--- [MIGRATION] Data migration complete. ---")
-                
+
                 # 3. (선택적) 더 이상 필요 없는 is_admin 컬럼 삭제 (주석 처리)
                 # print("--- [MIGRATION] Dropping old 'is_admin' column... ---")
                 # db.session.execute(text("ALTER TABLE users DROP COLUMN is_admin"))
@@ -344,7 +345,7 @@ def create_initial_data():
                 # print("--- [MIGRATION] Old 'is_admin' column dropped. ---")
             else:
                  print("--- [MIGRATION] 'is_admin' column not found, skipping data migration. ---")
-        
+
         # 'general' 기본값이 잘 적용되었는지 확인 (NULL 값이 남아있다면 업데이트)
         # PostgreSQL은 DEFAULT 'general' NOT NULL이 잘 동작하지만, 만약을 위해
         db.session.execute(text("UPDATE users SET permission = 'general' WHERE permission IS NULL"))
@@ -355,11 +356,11 @@ def create_initial_data():
         print(f"--- [MIGRATION] CRITICAL: Error during schema migration: {e} ---")
         # 마이그레이션 실패 시, 앱 실행을 계속하면 안 될 수 있으므로 오류 발생
         raise e
-    
+
     # ★★★★★ 마이그레이션 로직 끝 ★★★★★
 
     # --- 마이그레이션 완료 후, 기존 데이터 생성/확인 로직 수행 ---
-    
+
     admin_id = "9999999999"
     sample_user_id = "2023390822"
 
@@ -575,7 +576,10 @@ def index():
         user_info = db.session.get(User, session['student_id']) # 이 부분에서 오류 발생했었음
         if not user_info:
             session.clear() # DB에 없는 사용자면 세션 클리어
-    return render_template('index.html', user=user_info) # is_admin 전달 제거
+    # is_admin=user_info.is_admin if user_info else False -> is_admin 전달 로직 삭제
+    # base.html 템플릿 렌더링 시 user 객체만 전달하면, base.html에서 include하는 _sidebar_left.html 에서 user 객체의 is_admin 속성 사용 가능
+    return render_template('index.html', user=user_info)
+
 
 @app.route('/timetable-management')
 @login_required
@@ -600,7 +604,7 @@ def timetable_management():
     remaining_credits = max(0, current_goal - total_earned_credits)
 
     return render_template(
-        'timetable_management.html', user=user, # is_admin 제거
+        'timetable_management.html', user=user, # is_admin 전달 제거
         current_credits=total_earned_credits,
         goal_credits=current_goal,
         remaining_credits=remaining_credits,
@@ -721,7 +725,7 @@ def admin_dashboard():
         'admin.html',
         member_count=member_count,
         member_list=member_list_data,
-        colleges=COLLEGES, # 사용자 생성 폼용
+        colleges=COLLEGES, # 사용자 생성 폼용 (템플릿에서 주석처리 되었지만 데이터는 유지)
         departments=departments, # 정렬용
         permission_map=permission_map, # 권한 표시 및 선택용
         current_sort_by=sort_by,
@@ -730,47 +734,11 @@ def admin_dashboard():
 
 # --- 관리자 기능 API 엔드포인트 ---
 
-@app.route('/admin/users', methods=['POST'])
-@admin_required
-def admin_create_user():
-    """ 관리자가 새 사용자 계정 생성 """
-    data = request.form
-    name = data.get('name')
-    student_id = data.get('student_id')
-    password = data.get('password')
-    dob = data.get('dob')
-    college = data.get('college')
-    department = data.get('department')
-    permission = data.get('permission', 'general') # 기본값 general
-
-    if not all([name, student_id, password, dob, college, department]):
-        flash("모든 필수 필드를 입력해주세요.", "danger")
-        return redirect(url_for('admin_dashboard'))
-
-    if db.session.get(User, student_id):
-        flash("이미 존재하는 학번입니다.", "danger")
-        return redirect(url_for('admin_dashboard'))
-
-    if permission not in ['general', 'associate', 'admin']:
-        flash("유효하지 않은 권한입니다.", "danger")
-        return redirect(url_for('admin_dashboard'))
-
-    try:
-        hashed_password = generate_password_hash(password)
-        new_user = User(
-            id=student_id, name=name, dob=dob, college=college, department=department,
-            password_hash=hashed_password, permission=permission, total_credits_goal=130
-        )
-        db.session.add(new_user)
-        db.session.commit()
-        _create_semesters_for_user(new_user.id) # 새 사용자의 학기 생성
-        flash(f"사용자 '{name}'({student_id}) 계정이 생성되었습니다.", "success")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error creating user via admin: {e}")
-        flash(f"사용자 생성 중 오류 발생: {e}", "danger")
-
-    return redirect(url_for('admin_dashboard'))
+# [수정됨] /admin/users POST 라우트 (admin_create_user 함수) 삭제
+# @app.route('/admin/users', methods=['POST'])
+# @admin_required
+# def admin_create_user():
+#     ... (삭제됨) ...
 
 
 @app.route('/admin/users/<string:user_id>/permission', methods=['POST'])
@@ -1303,7 +1271,7 @@ if __name__ == '__main__':
         try:
             print("--- [KUSIS] Checking database and initial data... ---")
             # ★★★★★ 수정된 함수 호출 ★★★★★
-            create_initial_data() 
+            create_initial_data()
             print("--- [KUSIS] Database check and migration complete. System ready. ---")
         except Exception as e:
             print(f"--- [KUSIS] CRITICAL: Error during DB check/initialization: {e} ---")

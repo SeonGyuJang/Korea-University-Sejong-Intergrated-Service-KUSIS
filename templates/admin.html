@@ -59,58 +59,7 @@
             {% endif %}
         {% endwith %}
 
-        {# --- 새 사용자 생성 폼 --- #}
-        <div class="form-section">
-            <h4><i class="fas fa-user-plus"></i> 새 사용자 생성</h4>
-            <form id="createUserForm" method="POST" action="{{ url_for('admin_create_user') }}">
-                <div class="form-grid-admin">
-                    <div class="input-group">
-                        <label for="create_name">이름 <span style="color:red;">*</span></label>
-                        <input type="text" id="create_name" name="name" required placeholder="이름">
-                    </div>
-                    <div class="input-group">
-                        <label for="create_student_id">학번 <span style="color:red;">*</span></label>
-                        <input type="text" id="create_student_id" name="student_id" pattern="\d{10}" maxlength="10" required placeholder="10자리 학번">
-                    </div>
-                     <div class="input-group">
-                        <label for="create_password">비밀번호 <span style="color:red;">*</span></label>
-                        <input type="password" id="create_password" name="password" required placeholder="초기 비밀번호">
-                    </div>
-                    <div class="input-group">
-                        <label for="create_dob">생년월일 <span style="color:red;">*</span></label>
-                        <input type="date" id="create_dob" name="dob" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="create_college">단과대학 <span style="color:red;">*</span></label>
-                        <select id="create_college" name="college" required onchange="updateDepartments('create_')">
-                            <option value="" disabled selected>단과대학 선택</option>
-                            {% for college in colleges.keys() %}
-                                <option value="{{ college }}">{{ college }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label for="create_department">학과 <span style="color:red;">*</span></label>
-                        <select id="create_department" name="department" required>
-                            <option value="" disabled selected>학과 선택</option>
-                        </select>
-                    </div>
-                     <div class="input-group">
-                        <label for="create_permission">권한</label>
-                        <select id="create_permission" name="permission">
-                            {% for key, value in permission_map.items() %}
-                                <option value="{{ key }}" {% if key == 'general' %}selected{% endif %}>{{ value }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-save" style="margin-top: 15px;"><i class="fas fa-plus-circle"></i> 사용자 추가</button>
-            </form>
-            {# 단과대/학과 데이터 (JS용) #}
-            <textarea id="college-data-json" style="display:none;">{{ colleges | tojson | safe }}</textarea>
-        </div>
-
-
+        {# --- 새 사용자 생성 폼 (주석 처리) --- #}
         {# --- 사용자 목록 --- #}
         <div class="form-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
