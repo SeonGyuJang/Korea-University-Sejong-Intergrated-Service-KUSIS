@@ -4,6 +4,14 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/view_post.css') }}">
+<style>
+    /* 카테고리 아이콘 스타일 */
+    .post-category-icon {
+        font-size: 1.1em; /* 제목 크기에 비례 */
+        color: var(--korea-red-light);
+        margin-right: 8px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -12,7 +20,14 @@
         {# 제목과 목록 버튼 #}
         <header class="post-header">
             <div class="header-left">
-                {% if post.is_notice %}<span class="notice-badge-view">[공지]</span>{% endif %}
+                {# --- 요구사항 2: 카테고리 아이콘 표시 --- #}
+                {% set category_icons = {'공지': 'fas fa-bullhorn', '홍보': 'fas fa-ad', '안내': 'fas fa-info-circle', '업데이트': 'fas fa-sync-alt', '일반': 'fas fa-comment-alt'} %}
+                {% set icon_class = category_icons.get(post.category, category_icons['일반']) %}
+                <i class="{{ icon_class }} post-category-icon" title="{{ post.category }}"></i>
+                {# ------------------------------------ #}
+
+                {# 공지 뱃지 제거 또는 유지 선택 (아이콘으로 대체 가능) #}
+                {# {% if post.is_notice %}<span class="notice-badge-view">[공지]</span>{% endif %} #}
                 <h1 class="post-title">{{ post.title }}</h1>
             </div>
             <a href="{{ url_for('post_management') }}" class="btn btn-outline">
@@ -20,30 +35,32 @@
             </a>
         </header>
 
-        {# 승인 상태 표시 (관리자 또는 본인에게만) #}
+        {# 승인 상태 표시 (기존 유지) #}
         {% if (not post.is_approved) and (current_user.is_admin or post.author_id == current_user.id) %}
         <div class="alert alert-warning post-approval-notice" role="alert">
             <i class="fas fa-clock"></i> 이 게시물은 현재 관리자 승인 대기 중입니다.
         </div>
         {% endif %}
 
-        {# 메타 정보 (작성자, 작성일) #}
+        {# 메타 정보 (작성자, 작성일) - 기존 유지 #}
         <div class="post-meta">
             <span class="meta-item"><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
-            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></span>
+            {# 요구사항 5 관련: post.created_at은 UTC 기준. KST로 변환하려면 필터 필요 #}
+            {# 예: {{ (post.created_at + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M') }} #}
+            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong> (UTC)</span>
+             {# 노출 기한 표시 (선택 사항) #}
+            {% if post.expires_at %}
+                <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감: <strong>{{ post.expires_at.strftime('%Y-%m-%d %H:%M') }}</strong> (UTC)</span>
+            {% endif %}
         </div>
 
-        {# 본문 컨텐츠 영역 #}
+        {# 본문 컨텐츠 영역 (기존 유지) #}
         <article class="post-body">
-            {# 이미지 표시 #}
             {% if post.image_filename %}
             <div class="post-image-container">
-                {# app.py의 UPLOAD_FOLDER ('static/uploads') 경로와 일치 #}
                 <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
             </div>
             {% endif %}
-
-            {# 내용 표시 (|safe 필터 사용) #}
             <div class="post-content">
                 {{ post.content | safe }}
             </div>

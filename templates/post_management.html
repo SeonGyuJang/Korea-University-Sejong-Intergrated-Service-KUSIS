@@ -3,22 +3,63 @@
 {% block title %}KUSIS - 게시물 관리{% endblock %}
 
 {% block styles %}
-{# 수정된 post_management.css 로드 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
+{# 토글 스위치 CSS 추가 #}
+<style>
+    .visibility-toggle-label {
+        position: relative;
+        display: inline-block;
+        width: 40px; /* 너비 조정 */
+        height: 20px; /* 높이 조정 */
+        cursor: pointer;
+    }
+    .visibility-toggle-label input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .visibility-toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 20px; /* 높이에 맞게 조정 */
+    }
+    .visibility-toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px; /* 높이 조정 */
+        width: 16px; /* 너비 조정 */
+        left: 2px; /* 위치 조정 */
+        bottom: 2px; /* 위치 조정 */
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .visibility-toggle-slider {
+        background-color: var(--color-success);
+    }
+    input:checked + .visibility-toggle-slider:before {
+        transform: translateX(20px); /* 이동 거리 조정 */
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-{# 위젯 클래스 제거, content-area 바로 아래에 내용 배치 #}
 <div class="content-area post-management-page">
-    {# 위젯 클래스 제거 -> <div class="post-management-container"> #}
     <div class="post-management-container">
-        <div class="page-header"> {# 위젯 헤더 -> 페이지 헤더로 변경 #}
+        <div class="page-header">
             <h3><i class="fas fa-clipboard-list"></i> 게시물 관리</h3>
             <a href="{{ url_for('create_post') }}" class="btn btn-primary btn-create-post">
                 <i class="fas fa-plus"></i> 새 게시물 작성
             </a>
         </div>
 
+        {# 플래시 메시지 (기존 유지) #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -29,7 +70,7 @@
             {% endif %}
         {% endwith %}
 
-        {# 관리자만 승인 대기 목록 표시 #}
+        {# 관리자만 승인 대기 목록 표시 (기존 유지) #}
         {% if user.is_admin and pending_posts %}
         <div class="post-section">
             <h4><i class="fas fa-clock pending-icon"></i> 승인 대기 중</h4>
@@ -49,7 +90,7 @@
                         <tr data-post-id="{{ post.id }}">
                             <td><a href="{{ url_for('view_post', post_id=post.id) }}" class="post-title-link" title="미리보기">{{ post.title }}</a></td>
                             <td>{{ post.author.name }}</td>
-                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }} (UTC)</td>
                             <td class="notice-cell">{% if post.is_notice %}<span class="notice-badge">공지</span>{% else %}-{% endif %}</td>
                             <td class="actions-cell">
                                 <button class="btn btn-sm btn-approve" data-post-id="{{ post.id }}"><i class="fas fa-check"></i> 승인</button>
@@ -65,7 +106,7 @@
 
         {# 승인된 게시물 목록 #}
         <div class="post-section">
-            <h4><i class="fas fa-check-circle approved-icon"></i> 게시된 글 {% if user.is_associate %}(내가 작성한 글 포함){% endif %}</h4>
+            <h4><i class="fas fa-check-circle approved-icon"></i> 게시된 글 {% if user.is_associate %}(숨김 처리된 글 제외){% endif %}</h4>
             <div class="post-list-container">
                 <table class="post-table">
                     <thead>
@@ -74,38 +115,51 @@
                             <th class="col-author">작성자</th>
                             <th class="col-date">작성일</th>
                             <th class="col-notice">공지</th>
+                            {# --- 요구사항 4: 표시 여부 컬럼 추가 (관리자에게만) --- #}
+                            {% if user.is_admin %}
+                                <th style="width: 10%; text-align: center;">표시 여부</th>
+                            {% endif %}
+                            {# ------------------------------------------------ #}
                             <th class="col-actions">작업</th>
                         </tr>
                     </thead>
                     <tbody id="approvedPostList">
                         {% for post in approved_posts %}
+                        {# 협력 직원은 숨김 처리된 글을 보지 못함 (백엔드에서 필터링) #}
                         <tr data-post-id="{{ post.id }}">
                             <td><a href="{{ url_for('view_post', post_id=post.id) }}" class="post-title-link">{{ post.title }}</a></td>
                             <td>{{ post.author.name }}</td>
-                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }} (UTC)</td>
                             <td class="notice-cell">{% if post.is_notice %}<span class="notice-badge">공지</span>{% else %}-{% endif %}</td>
+                            {# --- 요구사항 4: 표시 여부 토글 스위치 (관리자에게만) --- #}
+                            {% if user.is_admin %}
+                                <td style="text-align: center;">
+                                    <label class="visibility-toggle-label" title="클릭하여 표시/숨김 전환">
+                                        <input type="checkbox" class="visibility-toggle" data-post-id="{{ post.id }}" {% if post.is_visible %}checked{% endif %}>
+                                        <span class="visibility-toggle-slider"></span>
+                                    </label>
+                                </td>
+                            {% endif %}
+                            {# ---------------------------------------------------- #}
                             <td class="actions-cell">
-                                {# 관리자 또는 본인만 삭제 가능 #}
                                 {% if user.is_admin or post.author_id == user.id %}
                                 <button class="btn btn-sm btn-danger btn-delete" data-post-id="{{ post.id }}"><i class="fas fa-trash-alt"></i> 삭제</button>
                                 {% endif %}
-                                {# 보기 버튼 제거 (제목 클릭으로 대체) #}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="no-posts-message">게시된 글이 없습니다.</td>
+                            <td colspan="{% if user.is_admin %}6{% else %}5{% endif %}" class="no-posts-message">게시된 글이 없습니다.</td> {# colspan 조정 #}
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-    </div> {# post-management-container 닫기 #}
-</div> {# content-area 닫기 #}
+    </div>
+</div>
 {% endblock %}
 
 {% block page_scripts %}
-{# post_management.js는 변경 없음 #}
 <script src="{{ url_for('static', filename='js/post_management.js') }}"></script>
 {% endblock %}

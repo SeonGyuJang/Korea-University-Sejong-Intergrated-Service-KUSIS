@@ -4,34 +4,27 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}">
-{# 미리보기 이미지 스타일 추가 #}
+{# 미리보기 이미지 스타일 (기존 유지) #}
 <style>
-    .image-preview-container {
-        margin-top: 15px;
-        text-align: center;
-    }
-    #imagePreview {
-        max-width: 100%;
-        max-height: 200px;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        display: none; /* 초기에는 숨김 */
-        margin-top: 10px;
-        background-color: #f8f9fa; /* 이미지 없을 때 배경 */
-    }
-    #imagePreview.visible {
-        display: block;
-    }
-    #previewContent .preview-image-text {
-        color: var(--text-secondary);
-        font-style: italic;
-        font-size: 14px;
-        margin-top: 10px;
-        display: none; /* JS로 제어 */
-    }
-     #previewContent.has-image .preview-image-text {
-        display: block; /* 이미지가 있으면 표시 */
-    }
+    .image-preview-container { margin-top: 15px; text-align: center; }
+    #imagePreview { max-width: 100%; max-height: 200px; border: 1px solid var(--border-color); border-radius: 8px; display: none; margin-top: 10px; background-color: #f8f9fa; }
+    #imagePreview.visible { display: block; }
+    #previewContent .preview-image-text { color: var(--text-secondary); font-style: italic; font-size: 14px; margin-top: 10px; display: none; }
+     #previewContent.has-image .preview-image-text { display: block; }
+
+     /* 추가: 노출 기한 입력 필드 스타일 */
+     #expires_at {
+         font-family: inherit; /* 폰트 통일 */
+         color: var(--text-primary);
+         background-color: #fdfdfd;
+         padding: 9px 14px; /* 패딩 조정 */
+     }
+     /* Firefox에서 기본 아이콘 숨기기 */
+     #expires_at::-webkit-calendar-picker-indicator {
+        opacity: 0.5;
+        cursor: pointer;
+     }
+
 </style>
 {% endblock %}
 
@@ -45,6 +38,7 @@
             </a>
         </div>
 
+        {# 플래시 메시지 (기존 유지) #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -60,39 +54,56 @@
                 {# --- 좌측: 입력 폼 --- #}
                 <div class="form-left-column">
                     <div class="input-group">
-                        <label for="title">제목</label>
+                        <label for="title"><i class="fas fa-heading"></i> 제목</label>
                         <input type="text" id="title" name="title" required placeholder="게시물 제목을 입력하세요" value="{{ title or '' }}">
                     </div>
 
+                    {# --- 요구사항 2: 카테고리 선택 추가 --- #}
                     <div class="input-group">
-                        <label for="content">내용</label>
-                        <textarea id="content" name="content" rows="15" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
+                        <label for="category"><i class="fas fa-tags"></i> 카테고리</label>
+                        <select id="category" name="category" required>
+                            {% for cat in categories %}
+                                <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {# ----------------------------------- #}
+
+                    <div class="input-group">
+                        <label for="content"><i class="fas fa-paragraph"></i> 내용</label>
+                        <textarea id="content" name="content" rows="10" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea> {# 행 수 조정 #}
                     </div>
 
                     <div class="input-group">
                         <label for="imageUpload"><i class="fas fa-image"></i> 이미지 첨부 (선택)</label>
                         <input type="file" id="imageUpload" name="image" accept="image/*">
                         <small class="form-text">이미지 파일(jpg, png, gif 등)을 선택하세요.</small>
-                        {# 이미지 미리보기 컨테이너 추가 #}
                         <div class="image-preview-container">
                             <img id="imagePreview" src="#" alt="이미지 미리보기">
                         </div>
                     </div>
 
+                    {# --- 요구사항 3: 노출 기한 설정 추가 --- #}
+                    <div class="input-group">
+                        <label for="expires_at"><i class="far fa-calendar-times"></i> 알림 노출 기한 (선택)</label>
+                        <input type="datetime-local" id="expires_at" name="expires_at" value="{{ expires_at or '' }}">
+                        <small class="form-text">설정하지 않으면 계속 노출됩니다. 설정된 시간 이후에는 알림 목록에서 자동으로 제거됩니다.</small>
+                    </div>
+                    {# ----------------------------------- #}
+
                     <div class="input-group checkbox-group">
                         <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
-                        <label for="is_notice">공지사항으로 표시 (관리자 승인 필요)</label>
+                        <label for="is_notice">상단 알림 위젯에 공지사항으로 표시 (관리자 승인 필요)</label>
                     </div>
                 </div>
 
-                {# --- 우측: 미리보기 --- #}
+                {# --- 우측: 미리보기 (기존 유지) --- #}
                 <div class="form-right-column">
                     <h4><i class="fas fa-eye"></i> 미리보기</h4>
                     <div class="preview-container">
                         <h1 id="previewTitle" class="preview-title">제목이 여기에 표시됩니다</h1>
                         <div id="previewContent" class="preview-content">
                             <p>내용이 여기에 표시됩니다.</p>
-                            {# 이미지 미리보기 안내 문구 추가 #}
                             <p class="preview-image-text">(첨부된 이미지는 실제 게시물 보기 페이지에서 표시됩니다.)</p>
                         </div>
                     </div>
@@ -112,50 +123,45 @@
 {% block page_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // 미리보기 업데이트 로직 (기존 유지)
     const titleInput = document.getElementById('title');
     const contentInput = document.getElementById('content');
     const imageInput = document.getElementById('imageUpload');
     const previewTitle = document.getElementById('previewTitle');
     const previewContent = document.getElementById('previewContent');
-    const imagePreview = document.getElementById('imagePreview'); // 미리보기 이미지 태그
-    const previewImageText = previewContent.querySelector('.preview-image-text'); // 이미지 안내 문구
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImageText = previewContent.querySelector('.preview-image-text');
 
     function updatePreview() {
-        if (previewTitle) {
-            previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
-        }
+        if (previewTitle) previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
         if (previewContent) {
-            // textarea의 줄바꿈(\n)을 <br>로 치환하여 표시
             const contentHtml = contentInput.value.replace(/\n/g, '<br>');
-            // 기존 내용을 유지하면서 이미지 안내 문구 추가/제거
             const existingImageText = previewImageText ? previewImageText.outerHTML : '';
             previewContent.innerHTML = (contentHtml || '<p>내용이 여기에 표시됩니다.</p>') + existingImageText;
         }
     }
 
-    // 이미지 파일 선택 시 미리보기 처리
     function handleImagePreview(event) {
         const file = event.target.files[0];
         if (file && imagePreview && previewContent && previewImageText) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 imagePreview.src = e.target.result;
-                imagePreview.classList.add('visible'); // 이미지 표시
-                previewContent.classList.add('has-image'); // 안내 문구 표시용 클래스
+                imagePreview.classList.add('visible');
+                previewContent.classList.add('has-image');
             }
             reader.readAsDataURL(file);
         } else if (imagePreview && previewContent && previewImageText) {
             imagePreview.src = '#';
-            imagePreview.classList.remove('visible'); // 이미지 숨김
-            previewContent.classList.remove('has-image'); // 안내 문구 숨김용 클래스
+            imagePreview.classList.remove('visible');
+            previewContent.classList.remove('has-image');
         }
     }
 
     if (titleInput) titleInput.addEventListener('input', updatePreview);
     if (contentInput) contentInput.addEventListener('input', updatePreview);
-    if (imageInput) imageInput.addEventListener('change', handleImagePreview); // 이미지 변경 감지
+    if (imageInput) imageInput.addEventListener('change', handleImagePreview);
 
-    // 초기 미리보기 설정
     updatePreview();
 });
 </script>
