@@ -137,8 +137,11 @@ class Subject(db.Model):
     professor = db.Column(db.String(50))
     credits = db.Column(db.Integer, default=3, nullable=False)
     grade = db.Column(db.String(10), default='Not Set')
+    # *** 수정: memo 컬럼 추가 (Subject 모델 내) ***
+    memo = db.Column(db.Text, default='{"note": "", "todos": []}') # JSON 문자열로 저장
     timeslots = db.relationship('TimeSlot', backref='subject', lazy=True, cascade="all, delete-orphan")
-    daily_memos = db.relationship('DailyMemo', backref='subject', lazy=True, cascade="all, delete-orphan")
+    # *** 수정: DailyMemo 관계 제거 ***
+    # daily_memos = db.relationship('DailyMemo', backref='subject', lazy=True, cascade="all, delete-orphan")
 
 class TimeSlot(db.Model):
     __tablename__ = 'timeslots'
@@ -149,13 +152,14 @@ class TimeSlot(db.Model):
     end_time = db.Column(db.String(5), nullable=False) # 예: "10:15"
     room = db.Column(db.String(50))
 
-class DailyMemo(db.Model):
-    __tablename__ = 'daily_memos'
-    id = db.Column(db.Integer, primary_key=True)
-    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    memo_date = db.Column(db.Date, nullable=False) # 메모 날짜 (YYYY-MM-DD)
-    note = db.Column(db.Text, default="") # 해당 날짜의 메모 내용
-    __table_args__ = (db.UniqueConstraint('subject_id', 'memo_date', name='_subject_date_uc'),)
+# *** 수정: DailyMemo 모델 제거 ***
+# class DailyMemo(db.Model):
+#     __tablename__ = 'daily_memos'
+#     id = db.Column(db.Integer, primary_key=True)
+#     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+#     memo_date = db.Column(db.Date, nullable=False) # 메모 날짜 (YYYY-MM-DD)
+#     note = db.Column(db.Text, default="") # 해당 날짜의 메모 내용
+#     __table_args__ = (db.UniqueConstraint('subject_id', 'memo_date', name='_subject_date_uc'),)
 
 
 class Schedule(db.Model):
@@ -365,42 +369,49 @@ def manage_semesters_job():
 def create_initial_data():
     db.create_all() # Post 테이블 포함 모든 테이블 생성/확인
 
-    # --- 스키마 마이그레이션 로직 (Post 모델 image_filename 컬럼 추가) ---
+    # --- 스키마 마이그레이션 로직 ---
     try:
         inspector = inspect(db.engine)
-        
+
         # User 테이블 마이그레이션 (기존 유지)
         user_columns = [col['name'] for col in inspector.get_columns('users')]
-        has_permission_col = 'permission' in user_columns
-        has_is_admin_col = 'is_admin' in user_columns 
-        if not has_permission_col:
+        if 'permission' not in user_columns:
             print("--- [MIGRATION] 'permission' column not found in 'users' table. Adding column... ---")
             db.session.execute(text("ALTER TABLE users ADD COLUMN permission VARCHAR(20) NOT NULL DEFAULT 'general'"))
             db.session.commit()
             print("--- [MIGRATION] 'permission' column added with default 'general'. ---")
-            if has_is_admin_col:
-                print("--- [MIGRATION] Old 'is_admin' column found. Migrating data to 'permission'... ---")
-                db.session.execute(text("UPDATE users SET permission = 'admin' WHERE is_admin = TRUE"))
-                db.session.commit()
-                print("--- [MIGRATION] Data migration complete. ---")
-            else:
-                 print("--- [MIGRATION] 'is_admin' column not found, skipping data migration. ---")
-        db.session.execute(text("UPDATE users SET permission = 'general' WHERE permission IS NULL"))
-        db.session.commit()
-        
-        # --- [수정] Post 테이블 마이그레이션 (image_filename 추가) ---
+            if 'is_admin' in user_columns:
+                 print("--- [MIGRATION] Old 'is_admin' column found. Migrating data to 'permission'... ---")
+                 db.session.execute(text("UPDATE users SET permission = 'admin' WHERE is_admin = TRUE"))
+                 db.session.commit()
+                 print("--- [MIGRATION] Data migration complete. ---")
+
+        # Subject 테이블 마이그레이션 (memo 컬럼 추가)
+        subject_columns = [col['name'] for col in inspector.get_columns('subjects')]
+        if 'memo' not in subject_columns:
+             print("--- [MIGRATION] 'memo' column not found in 'subjects' table. Adding column... ---")
+             db.session.execute(text("ALTER TABLE subjects ADD COLUMN memo TEXT DEFAULT '{\"note\": \"\", \"todos\": []}'"))
+             db.session.commit()
+             print("--- [MIGRATION] 'memo' column added. ---")
+
+        # Post 테이블 마이그레이션 (image_filename 추가)
         post_columns = [col['name'] for col in inspector.get_columns('posts')]
         if 'image_filename' not in post_columns:
             print("--- [MIGRATION] 'image_filename' column not found in 'posts' table. Adding column... ---")
             db.session.execute(text("ALTER TABLE posts ADD COLUMN image_filename VARCHAR(255) NULL"))
             db.session.commit()
             print("--- [MIGRATION] 'image_filename' column added. ---")
-        # --- [수정] 끝 ---
+
+        # DailyMemo 테이블 삭제 (선택적)
+        if inspector.has_table('daily_memos'):
+             print("--- [MIGRATION] 'daily_memos' table is no longer needed. Dropping table... ---")
+             db.session.execute(text("DROP TABLE daily_memos"))
+             db.session.commit()
+             print("--- [MIGRATION] 'daily_memos' table dropped. ---")
 
     except Exception as e:
         db.session.rollback()
         print(f"--- [MIGRATION] CRITICAL: Error during schema migration: {e} ---")
-        # raise e # raise를 주석 처리하여 마이그레이션 실패 시에도 일단 실행은 되도록 할 수 있으나, 권장하지 않음
 
     # --- 초기 데이터 생성 로직 (기존 유지) ---
     admin_id = "9999999999"
@@ -425,8 +436,6 @@ def create_initial_data():
              admin_user.permission = 'admin'
              db.session.commit()
              print(f"Updated existing admin user {admin_id} permission to 'admin'.")
-        else:
-            print(f"Admin user {admin_id} already exists or permission is correct. Skipping.")
 
     sample_user = db.session.get(User, sample_user_id)
     if not sample_user:
@@ -444,32 +453,22 @@ def create_initial_data():
 
         sample_semester = Semester.query.filter_by(user_id=sample_user_id, name="2025년 2학기").first()
         if sample_semester:
-            s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3)
-            s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3)
+            initial_memo_s1 = json.dumps({"note": "웹 프로그래밍 과목 메모 예시", "todos": [{"task": "Flask 라우팅 복습", "done": False}]})
+            initial_memo_s2 = json.dumps({"note": "데이터베이스 과목 메모 예시", "todos": []})
+            s1 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="웹프로그래밍", professor="최교수", credits=3, memo=initial_memo_s1)
+            s2 = Subject(user_id=sample_user_id, semester_id=sample_semester.id, name="데이터베이스", professor="김교수", credits=3, memo=initial_memo_s2)
             db.session.add_all([s1, s2])
             db.session.commit()
             db.session.add(TimeSlot(subject_id=s1.id, day_of_week=1, start_time="10:00", end_time="11:15", room="창의관 101"))
             db.session.add(TimeSlot(subject_id=s1.id, day_of_week=3, start_time="10:00", end_time="11:15", room="창의관 101"))
             db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
             db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
-            today_date = date.today(); yesterday_date = today_date - timedelta(days=1); next_week_date = today_date + timedelta(days=7)
-            db.session.add(DailyMemo(subject_id=s1.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 오늘 수업 내용: Flask 라우팅 기초"))
-            db.session.add(DailyMemo(subject_id=s1.id, memo_date=yesterday_date, note=f"[{yesterday_date.strftime('%Y-%m-%d')}] 어제 복습 내용 정리"))
-            db.session.add(DailyMemo(subject_id=s2.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 데이터베이스 정규화 복습 필요"))
-            db.session.add(DailyMemo(subject_id=s1.id, memo_date=next_week_date, note=f"[{next_week_date.strftime('%Y-%m-%d')}] 다음 주 발표 준비 시작"))
             db.session.commit()
 
         Schedule.query.filter_by(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d')).delete()
         db.session.add(Schedule(user_id=sample_user_id, date=datetime.now().strftime('%Y-%m-%d'), time="15:00", title="팀 프로젝트 회의", location="스터디룸 3"))
         db.session.commit()
         print(f"Sample data for user {sample_user_id} created.")
-    else:
-        if sample_user.permission not in ['general', 'associate', 'admin']:
-            sample_user.permission = 'general'
-            db.session.commit()
-            print(f"Updated existing user {sample_user_id} permission to 'general'.")
-        else:
-            print(f"Sample user {sample_user_id} already exists or permission is correct. Skipping sample data creation.")
 
 
 # --- Authentication Decorators (is_admin 대신 permission 확인) ---
@@ -631,8 +630,6 @@ def index():
 def timetable_management():
     user_id = session['student_id']
     user = db.session.get(User, user_id)
-    # 아래 계산 로직은 /api/gpa-stats 에서 처리하므로 여기서는 제거해도 무방
-    # 또는 유지하여 초기 페이지 로딩 시 보여줄 수도 있음
     all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
     total_earned_credits = sum(subject.credits for subject in all_user_subjects)
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
@@ -769,7 +766,7 @@ def admin_delete_user(user_id):
             # db.session.delete(post) # User 모델의 cascade 설정으로 자동 삭제됨
 
         # 4. 사용자 삭제 (관련 데이터(Post 포함)가 cascade로 삭제됨)
-        db.session.delete(user); 
+        db.session.delete(user);
         db.session.commit()
         # --- [수정] 끝 ---
         return jsonify({"status": "success", "message": f"사용자 '{user.name}'({user_id}) 계정 및 관련 데이터(게시물 포함)가 삭제되었습니다."})
@@ -817,7 +814,7 @@ def create_post():
             return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice)
 
         image_filename = None # 이미지 파일명 초기화
-        
+
         try:
             # --- 이미지 파일 처리 로직 ---
             if image_file and image_file.filename != '':
@@ -827,7 +824,7 @@ def create_post():
                     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                     unique_filename = f"{timestamp}_{user.id}_{filename}"
                     save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                    
+
                     image_file.save(save_path)
                     image_filename = unique_filename # 저장된 파일명 저장
                 else:
@@ -840,7 +837,7 @@ def create_post():
             is_approved = user.is_admin
             new_post = Post(
                 title=title,
-                content=content,
+                content=content.replace('\n', '<br>'), # 줄바꿈을 <br>로 저장
                 author_id=user.id,
                 is_approved=is_approved,
                 is_notice=is_notice,
@@ -855,7 +852,7 @@ def create_post():
             # 파일 저장 중 오류 발생 시 저장된 파일 삭제 로직 (선택 사항)
             if image_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], image_filename)):
                 os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
-            
+
             flash(f'게시물 작성 중 오류 발생: {e}', 'danger')
             print(f"Error creating post: {e}") # 로그 출력
 
@@ -869,21 +866,26 @@ def view_post(post_id):
     from flask import g
     user = g.user # 데코레이터에서 설정한 사용자 정보
     post = db.session.get(Post, post_id)
-    
+
     # 승인되지 않은 게시물 접근 제어
     if not post:
         abort(404)
-        
+
     # 승인되지 않았고, 관리자도 아니고, 작성자 본인도 아니면 접근 불가
     if not post.is_approved and (not user or (not user.is_admin and user.id != post.author_id)):
          flash("승인되지 않은 게시물입니다.", "warning")
          return redirect(url_for('index')) # 혹은 다른 적절한 페이지
-         
+
     return render_template('view_post.html', post=post, user=user)
 
 # --- [수정] 업로드된 파일 제공 라우트 ---
+# 이 라우트는 static 폴더 아래의 uploads 폴더 파일을 직접 제공하므로,
+# Flask 라우트 대신 웹 서버(예: Nginx) 설정을 통해 직접 서빙하는 것이 더 효율적일 수 있습니다.
+# 개발 환경에서는 아래 Flask 라우트를 사용해도 무방합니다.
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
+    # send_from_directory는 보안상 상위 디렉토리 접근을 막습니다.
+    # UPLOAD_FOLDER가 static 폴더 하위에 있으므로 안전합니다.
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 # --- [수정] 끝 ---
 
@@ -977,12 +979,9 @@ def get_weekly_meal():
     formatted_data = format_weekly_meal_for_client(MEAL_PLAN_DATA)
     return jsonify(formatted_data)
 
-# --- Secure API Endpoints (기존 유지) ---
-# ... (get_schedule, add_schedule, handle_semesters, get_timetable_data, create_subject, handle_subject) ...
-# ... (get_daily_memo, update_daily_memo, get_all_memos_by_week) ...
-# ... (get_gpa_stats, get_study_stats, save_study_time) ...
-# ... (get_todos, create_todo, manage_todo) ...
-# ... (update_credit_goal) ...
+# --- Secure API Endpoints ---
+
+# ... (get_schedule, add_schedule 등 기존 일정 관련 API 유지) ...
 @app.route('/api/schedule', methods=['GET'])
 @login_required
 def get_schedule():
@@ -1029,6 +1028,8 @@ def add_schedule():
         return jsonify({"status": "success", "message": "일정이 추가되었습니다.", "schedule": {"id": new_schedule.entry_id, "type": "schedule", "date": new_schedule.date, "time": new_schedule.time, "title": new_schedule.title, "location": new_schedule.location}}), 201
     except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"일정 추가 중 오류 발생: {e}"}), 500
 
+
+# --- 시간표/메모 관련 API (Subject.memo 사용하도록 수정) ---
 @app.route('/api/semesters', methods=['GET'])
 @login_required
 def handle_semesters():
@@ -1036,10 +1037,12 @@ def handle_semesters():
     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}; semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
     return jsonify([{"id": s.id, "name": s.name} for s in semesters])
 
+# 과목 데이터 로드 API (Subject.memo 포함)
 @app.route('/api/timetable-data', methods=['GET'])
 @login_required
 def get_timetable_data():
     user_id = session['student_id']; semester_id_str = request.args.get('semester_id'); semester = None
+    # ... (학기 찾는 로직은 기존 유지) ...
     if semester_id_str:
         try: semester = db.session.get(Semester, int(semester_id_str));
         except ValueError: semester = None
@@ -1053,15 +1056,35 @@ def get_timetable_data():
                 if start and start <= today and today <= start + timedelta(weeks=16): semester = s; current_found = True; break
             if not current_found and all_semesters:
                 season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}; all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True); semester = all_semesters[0]
+
     if not semester:
         all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
         if all_semesters: season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}; all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True); semester = all_semesters[0]
         else: return jsonify({"semester": None, "subjects": []}), 404
+
     subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all(); result = []
-    for s in subjects: timeslots_data = [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in s.timeslots]; result.append({"id": s.id, "name": s.name, "professor": s.professor, "credits": s.credits, "grade": s.grade, "timeslots": timeslots_data})
+    for s in subjects:
+        timeslots_data = [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in s.timeslots]
+        # memo 필드 파싱 (JSON 문자열 -> 파이썬 객체)
+        memo_data = {}
+        if s.memo:
+            try:
+                memo_data = json.loads(s.memo)
+            except (json.JSONDecodeError, TypeError):
+                memo_data = {"note": s.memo if isinstance(s.memo, str) else "", "todos": []} # 파싱 실패 시 처리
+        else:
+             memo_data = {"note": "", "todos": []}
+
+        result.append({
+            "id": s.id, "name": s.name, "professor": s.professor,
+            "credits": s.credits, "grade": s.grade,
+            "timeslots": timeslots_data,
+            "memo": memo_data # 파싱된 메모/Todo 객체 포함
+        })
     semester_info = {"id": semester.id, "name": semester.name, "year": semester.year, "season": semester.season, "start_date": semester.start_date.isoformat() if semester.start_date else None}
     return jsonify({"semester": semester_info, "subjects": result})
 
+# 과목 생성 API (Subject.memo 초기화)
 @app.route('/api/subjects', methods=['POST'])
 @login_required
 def create_subject():
@@ -1070,15 +1093,25 @@ def create_subject():
     semester = db.session.get(Semester, semester_id);
     if not semester or semester.user_id != user_id: return jsonify({"status": "error", "message": "유효하지 않은 학기입니다."}), 404
     try:
-        new_subject = Subject(user_id=user_id, semester_id=semester_id, name=name, professor=data.get('professor'), credits=data.get('credits', 3), grade='Not Set')
+        initial_memo = json.dumps({"note": "", "todos": []}) # 초기 메모/Todo 구조
+        new_subject = Subject(user_id=user_id, semester_id=semester_id, name=name, professor=data.get('professor'), credits=data.get('credits', 3), grade='Not Set', memo=initial_memo)
         db.session.add(new_subject); db.session.flush()
         for ts_data in data.get('timeslots', []):
              if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'): db.session.add(TimeSlot(subject_id=new_subject.id, day_of_week=ts_data.get('day'), start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')))
         db.session.commit(); all_user_subjects = Subject.query.filter_by(user_id=user_id).all(); total_earned_credits = sum(s.credits for s in all_user_subjects)
-        created_subject_data = {"id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor, "credits": new_subject.credits, "grade": new_subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in new_subject.timeslots]}
+
+        # 응답 데이터에 memo 포함 (파싱된 상태로)
+        memo_data = json.loads(new_subject.memo)
+        created_subject_data = {
+            "id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor,
+            "credits": new_subject.credits, "grade": new_subject.grade,
+            "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in new_subject.timeslots],
+            "memo": memo_data
+        }
         return jsonify({"status": "success", "message": "과목이 추가되었습니다.", "subject": created_subject_data, "total_earned_credits": total_earned_credits}), 201
     except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"과목 추가 중 오류 발생: {e}"}), 500
 
+# 과목 수정/삭제 API (Subject.memo 업데이트)
 @app.route('/api/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
 @login_required
 def handle_subject(subject_id):
@@ -1088,75 +1121,49 @@ def handle_subject(subject_id):
         data = request.json
         try:
             subject.name = data.get('name', subject.name); subject.professor = data.get('professor', subject.professor); subject.credits = data.get('credits', subject.credits); subject.grade = data.get('grade', subject.grade)
+
+            # --- 메모/Todo 업데이트 ---
+            memo_data = data.get('memo')
+            if isinstance(memo_data, dict) and ('note' in memo_data or 'todos' in memo_data):
+                # 클라이언트에서 받은 memo 객체를 JSON 문자열로 변환하여 저장
+                subject.memo = json.dumps({
+                    "note": memo_data.get('note', ''),
+                    "todos": memo_data.get('todos', [])
+                })
+            elif isinstance(memo_data, str): # 이전 버전 호환 (문자열만 올 경우)
+                 subject.memo = json.dumps({"note": memo_data, "todos": []})
+            # --- 메모/Todo 업데이트 끝 ---
+
             TimeSlot.query.filter_by(subject_id=subject.id).delete()
             for ts_data in data.get('timeslots', []):
                  if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'): db.session.add(TimeSlot(subject_id=subject.id, day_of_week=ts_data.get('day'), start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')))
+
             db.session.commit(); all_user_subjects = Subject.query.filter_by(user_id=user_id).all(); total_earned_credits = sum(s.credits for s in all_user_subjects)
-            updated_subject_data = {"id": subject.id, "name": subject.name, "professor": subject.professor, "credits": subject.credits, "grade": subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in subject.timeslots]}
+
+            # 응답 데이터에 memo 포함 (파싱된 상태로)
+            memo_data_resp = json.loads(subject.memo)
+            updated_subject_data = {
+                "id": subject.id, "name": subject.name, "professor": subject.professor,
+                "credits": subject.credits, "grade": subject.grade,
+                "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in subject.timeslots],
+                "memo": memo_data_resp
+            }
             return jsonify({"status": "success", "message": "과목이 수정되었습니다.", "subject": updated_subject_data, "total_earned_credits": total_earned_credits})
         except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"과목 수정 중 오류 발생: {e}"}), 500
     if request.method == 'DELETE':
         try:
-            DailyMemo.query.filter_by(subject_id=subject.id).delete(); TimeSlot.query.filter_by(subject_id=subject.id).delete()
+            # DailyMemo 삭제 로직 제거
+            TimeSlot.query.filter_by(subject_id=subject.id).delete()
             db.session.delete(subject); db.session.commit(); all_user_subjects = Subject.query.filter_by(user_id=user_id).all(); total_earned_credits = sum(s.credits for s in all_user_subjects)
             return jsonify({"status": "success", "message": "과목 및 관련 데이터가 삭제되었습니다.", "total_earned_credits": total_earned_credits})
         except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"과목 삭제 중 오류 발생: {e}"}), 500
 
-@app.route('/api/subjects/<int:subject_id>/memo/<memo_date_str>', methods=['GET'])
-@login_required
-def get_daily_memo(subject_id, memo_date_str):
-    user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
-    if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
-    try: memo_date = datetime.strptime(memo_date_str, '%Y-%m-%d').date()
-    except ValueError: return jsonify({"status": "error", "message": "날짜 형식이 잘못되었습니다 (YYYY-MM-DD)."}), 400
-    daily_memo = DailyMemo.query.filter_by(subject_id=subject.id, memo_date=memo_date).first(); note = daily_memo.note if daily_memo else ""
-    return jsonify({"status": "success", "date": memo_date_str, "note": note})
+# *** 수정: DailyMemo 관련 API 엔드포인트 제거 ***
+# @app.route('/api/subjects/<int:subject_id>/memo/<memo_date_str>', methods=['GET']) ... 제거
+# @app.route('/api/subjects/<int:subject_id>/memo/<memo_date_str>', methods=['PUT']) ... 제거
+# @app.route('/api/semesters/<int:semester_id>/all-memos-by-week', methods=['GET']) ... 제거
 
-@app.route('/api/subjects/<int:subject_id>/memo/<memo_date_str>', methods=['PUT'])
-@login_required
-def update_daily_memo(subject_id, memo_date_str):
-    user_id = session['student_id']; subject = db.session.get(Subject, subject_id)
-    if not subject or subject.user_id != user_id: return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
-    try: memo_date = datetime.strptime(memo_date_str, '%Y-%m-%d').date()
-    except ValueError: return jsonify({"status": "error", "message": "날짜 형식이 잘못되었습니다 (YYYY-MM-DD)."}), 400
-    data = request.json; note = data.get('note', '').strip()
-    try:
-        daily_memo = DailyMemo.query.filter_by(subject_id=subject.id, memo_date=memo_date).first()
-        if not daily_memo:
-            if note: daily_memo = DailyMemo(subject_id=subject.id, memo_date=memo_date, note=note); db.session.add(daily_memo)
-            else: return jsonify({"status": "success", "message": "저장할 내용이 없습니다."})
-        else: daily_memo.note = note
-        db.session.commit()
-        return jsonify({"status": "success", "message": f"{memo_date_str} 메모가 저장되었습니다.", "data": {"date": memo_date_str, "note": daily_memo.note}})
-    except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"메모 저장 중 오류 발생: {e}"}), 500
-
-@app.route('/api/semesters/<int:semester_id>/all-memos-by-week', methods=['GET'])
-@login_required
-def get_all_memos_by_week(semester_id):
-    user_id = session['student_id']; semester = db.session.get(Semester, semester_id)
-    if not semester or semester.user_id != user_id: return jsonify({"status": "error", "message": "학기를 찾을 수 없거나 권한이 없습니다."}), 404
-    try:
-        semester_start_date = semester.start_date if semester.start_date else get_semester_start_date_from_calendar(semester.year, semester.season)
-        if not semester_start_date: return jsonify({"status": "error", "message": "학기 시작일을 계산할 수 없습니다."}), 500
-        subjects_in_semester = Subject.query.filter_by(semester_id=semester.id).all(); subject_ids = [s.id for s in subjects_in_semester]; subject_name_map = {s.id: s.name for s in subjects_in_semester}
-        all_memos = DailyMemo.query.filter(DailyMemo.subject_id.in_(subject_ids)).order_by(DailyMemo.memo_date).all(); memos_by_week = defaultdict(lambda: defaultdict(list))
-        for memo in all_memos:
-            if memo.memo_date >= semester_start_date: days_diff = (memo.memo_date - semester_start_date).days; week_num = (days_diff // 7) + 1
-            else: week_num = 0
-            if 1 <= week_num <= 16: memos_by_week[week_num][memo.subject_id].append({"date": memo.memo_date.isoformat(), "note": memo.note})
-        result_data = []
-        for week_num in range(1, 17):
-            date_range = f"{week_num}주차"
-            try: week_start = semester_start_date + timedelta(weeks=(week_num - 1)); week_end = week_start + timedelta(days=6); date_range = f"{week_start.strftime('%m.%d')} ~ {week_end.strftime('%m.%d')}"
-            except OverflowError: pass
-            subjects_data = []
-            if week_num in memos_by_week:
-                sorted_subject_ids = sorted(memos_by_week[week_num].keys())
-                for subj_id in sorted_subject_ids: subjects_data.append({"subject_id": subj_id, "subject_name": subject_name_map.get(subj_id, "Unknown Subject"), "memos": memos_by_week[week_num][subj_id]})
-            result_data.append({"week_number": week_num, "date_range": date_range, "subjects": subjects_data})
-        return jsonify({"status": "success", "semester_name": semester.name, "data": result_data})
-    except Exception as e: print(f"Error in get_all_memos_by_week (semester): {e}"); return jsonify({"status": "error", "message": f"전체 메모 로드 중 오류: {e}"}), 500
-
+# --- GPA, 공부 통계, 학점 목표 API (기존 유지) ---
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
@@ -1200,6 +1207,20 @@ def save_study_time():
     except ValueError: return jsonify({"status": "error", "message": "잘못된 날짜 형식입니다."}), 400
     except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
 
+@app.route('/api/credits/goal', methods=['POST'])
+@login_required
+def update_credit_goal():
+    data = request.json; new_goal = data.get('goal', type=int); user_id = session['student_id']
+    if new_goal is None or new_goal <= 0: return jsonify({"status": "error", "message": "유효하지 않은 학점입니다."}), 400
+    try:
+        user = db.session.get(User, user_id)
+        if not user: return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
+        user.total_credits_goal = new_goal; db.session.commit()
+        return jsonify({"status": "success", "message": "목표 학점이 업데이트되었습니다.", "new_goal": new_goal})
+    except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
+
+
+# --- Todo API (기존 유지) ---
 @app.route('/api/todos', methods=['GET'])
 @login_required
 def get_todos():
@@ -1236,17 +1257,6 @@ def manage_todo(todo_id):
         elif request.method == 'DELETE': db.session.delete(todo); db.session.commit(); return jsonify({'status': 'success', 'message': 'Todo가 삭제되었습니다.'})
     except Exception as e: db.session.rollback(); return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/credits/goal', methods=['POST'])
-@login_required
-def update_credit_goal():
-    data = request.json; new_goal = data.get('goal', type=int); user_id = session['student_id']
-    if new_goal is None or new_goal <= 0: return jsonify({"status": "error", "message": "유효하지 않은 학점입니다."}), 400
-    try:
-        user = db.session.get(User, user_id)
-        if not user: return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
-        user.total_credits_goal = new_goal; db.session.commit()
-        return jsonify({"status": "success", "message": "목표 학점이 업데이트되었습니다.", "new_goal": new_goal})
-    except Exception as e: db.session.rollback(); return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
 # --- 앱 실행 부분 (기존 유지) ---
 if __name__ == '__main__':
@@ -1260,7 +1270,8 @@ if __name__ == '__main__':
             print("--- [KUSIS] Please check your .env file and ensure the database server is running. ---")
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3, id='semester_management_job')
+    # scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3, id='semester_management_job')
+    scheduler.add_job(manage_semesters_job, 'interval', minutes=60, id='semester_management_job') # 테스트용: 1분마다 실행
     scheduler.start()
     print("Scheduler started... Press Ctrl+C to exit")
     atexit.register(lambda: scheduler.shutdown())

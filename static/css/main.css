@@ -1738,12 +1738,12 @@
 }
 
 
-/* (신규) Request 4: 알림 드롭다운 스타일 */
+/* --- [수정 시작] Requirement 3: 알림 드롭다운 UI 개선 --- */
 .notification-dropdown {
     position: absolute;
     top: 60px; /* 헤더 높이(69px)보다 약간 아래 */
     right: 60px; /* 오른쪽 아이콘 근처 */
-    width: 320px;
+    width: 350px; /* 너비 조정 */
     background: var(--bg-secondary);
     border-radius: 12px;
     box-shadow: var(--shadow-hover);
@@ -1753,6 +1753,7 @@
     visibility: hidden;
     transform: translateY(10px);
     transition: all 0.3s ease;
+    overflow: hidden; /* 내부 요소가 넘치지 않도록 */
 }
 
 .notification-dropdown.active {
@@ -1762,42 +1763,51 @@
 }
 
 .notification-header {
-    padding: 16px;
+    padding: 16px 20px; /* 패딩 조정 */
     border-bottom: 1px solid var(--border-color);
 }
 .notification-header h4 {
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
+    margin: 0; /* 기본 마진 제거 */
 }
 
 .notification-tabs {
     display: flex;
-    padding: 8px 16px;
-    background: var(--bg-primary);
+    /* padding: 8px 16px; 제거 */
+    background: var(--bg-primary); /* 탭 배경색 */
+    border-bottom: 1px solid var(--border-color); /* 탭 아래 구분선 */
 }
 .notification-tabs .tab {
     flex: 1;
     margin-bottom: 0;
-    padding: 8px 12px;
+    padding: 12px 15px; /* 탭 패딩 조정 */
     font-size: 14px;
     font-weight: 500;
     border: none;
     background: none;
+    color: var(--text-secondary); /* 기본 탭 색상 */
+    text-align: center;
+    border-radius: 0; /* 탭 자체 radius 제거 */
+    border-bottom: 2px solid transparent; /* 비활성 탭 하단선 */
+    transition: all 0.2s;
 }
 .notification-tabs .tab:hover {
     color: var(--korea-red);
+    background-color: rgba(0,0,0,0.03); /* 약한 호버 효과 */
 }
 .notification-tabs .tab.active {
-    background: var(--bg-secondary);
-    color: var(--korea-red);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border-radius: 6px;
-    border-color: transparent;
+    background: none; /* 활성 탭 배경 제거 */
+    color: var(--korea-red); /* 활성 탭 색상 */
+    font-weight: 600; /* 활성 탭 굵게 */
+    box-shadow: none; /* 그림자 제거 */
+    border-bottom-color: var(--korea-red); /* 활성 탭 하단선 강조 */
+    border-radius: 0;
 }
 
 .notification-content {
-    padding: 16px;
+    padding: 0; /* 내부 패딩 제거 (ul에서 처리) */
     max-height: 300px;
     overflow-y: auto;
 }
@@ -1808,19 +1818,49 @@
     display: block;
 }
 
+/* 알림 목록 스타일 (Req 3) */
 .notification-content ul {
     list-style: none;
     padding: 0;
     margin: 0;
 }
 .notification-content li {
-    font-size: 13px;
+    font-size: 14px; /* 폰트 크기 조정 */
     color: var(--text-primary);
-    padding: 10px 0;
     border-bottom: 1px solid var(--border-color);
+    margin: 0; /* li 기본 마진 제거 */
 }
 .notification-content li:last-child {
     border-bottom: none;
+}
+/* 알림 링크 스타일 (Req 3) */
+.notification-link {
+    display: block; /* 전체 영역 클릭 가능하게 */
+    padding: 12px 20px; /* 내부 여백 */
+    color: inherit; /* li의 색상 상속 */
+    text-decoration: none;
+    transition: background-color 0.2s;
+    white-space: nowrap; /* 줄바꿈 방지 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* 내용 길면 ... 처리 */
+}
+.notification-link:hover {
+    background-color: var(--bg-primary); /* 호버 배경색 */
+    color: var(--korea-red); /* 호버 텍스트 색상 */
+}
+/* 공지사항 없음 메시지 */
+.notification-content li.no-notifications {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    border-bottom: none;
+}
+
+
+/* 사용법 탭 내용 스타일 */
+.notification-content .tab-content#guides {
+    padding: 15px 20px; /* 사용법 탭 패딩 */
 }
 .notification-content p {
     font-size: 13px;
@@ -1828,9 +1868,14 @@
     line-height: 1.6;
     margin-bottom: 10px;
 }
+.notification-content p:last-child {
+    margin-bottom: 0;
+}
 .notification-content p strong {
     color: var(--text-primary);
+    font-weight: 600;
 }
+/* --- [수정 끝] --- */
 
 
 /* 반응형 */
@@ -1897,7 +1942,8 @@
     /* (신규) 반응형 알림 드롭다운 위치 */
     .notification-dropdown {
         right: 16px;
-        width: calc(100vw - 32px);
+        width: calc(100vw - 32px); /* 화면 너비에 맞게 조정 */
+        max-width: 400px; /* 최대 너비 제한 */
     }
 
      /* [수정] 식단표 반응형 - 768px 이하 */

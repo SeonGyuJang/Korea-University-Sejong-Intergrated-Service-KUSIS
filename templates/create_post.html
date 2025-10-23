@@ -3,16 +3,42 @@
 {% block title %}KUSIS - 새 게시물 작성{% endblock %}
 
 {% block styles %}
-{# 수정된 create_post.css 로드 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}">
+{# 미리보기 이미지 스타일 추가 #}
+<style>
+    .image-preview-container {
+        margin-top: 15px;
+        text-align: center;
+    }
+    #imagePreview {
+        max-width: 100%;
+        max-height: 200px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: none; /* 초기에는 숨김 */
+        margin-top: 10px;
+        background-color: #f8f9fa; /* 이미지 없을 때 배경 */
+    }
+    #imagePreview.visible {
+        display: block;
+    }
+    #previewContent .preview-image-text {
+        color: var(--text-secondary);
+        font-style: italic;
+        font-size: 14px;
+        margin-top: 10px;
+        display: none; /* JS로 제어 */
+    }
+     #previewContent.has-image .preview-image-text {
+        display: block; /* 이미지가 있으면 표시 */
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-{# 위젯 클래스 제거, content-area 바로 아래에 내용 배치 #}
 <div class="content-area create-post-page">
-    {# 위젯 클래스 제거 -> <div class="create-post-container"> #}
     <div class="create-post-container">
-        <div class="page-header"> {# 위젯 헤더 -> 페이지 헤더로 변경 #}
+        <div class="page-header">
             <h3><i class="fas fa-pencil-alt"></i> 새 게시물 작성</h3>
             <a href="{{ url_for('post_management') }}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> 목록으로
@@ -29,7 +55,6 @@
             {% endif %}
         {% endwith %}
 
-        {# --- 수정: form method 수정 및 enctype 추가 --- #}
         <form method="POST" action="{{ url_for('create_post') }}" id="createPostForm" enctype="multipart/form-data">
             <div class="form-grid">
                 {# --- 좌측: 입력 폼 --- #}
@@ -44,13 +69,15 @@
                         <textarea id="content" name="content" rows="15" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
                     </div>
 
-                    {# --- 수정: 파일 업로드 추가 --- #}
                     <div class="input-group">
                         <label for="imageUpload"><i class="fas fa-image"></i> 이미지 첨부 (선택)</label>
                         <input type="file" id="imageUpload" name="image" accept="image/*">
                         <small class="form-text">이미지 파일(jpg, png, gif 등)을 선택하세요.</small>
+                        {# 이미지 미리보기 컨테이너 추가 #}
+                        <div class="image-preview-container">
+                            <img id="imagePreview" src="#" alt="이미지 미리보기">
+                        </div>
                     </div>
-                    {# --- 수정 끝 --- #}
 
                     <div class="input-group checkbox-group">
                         <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
@@ -65,7 +92,8 @@
                         <h1 id="previewTitle" class="preview-title">제목이 여기에 표시됩니다</h1>
                         <div id="previewContent" class="preview-content">
                             <p>내용이 여기에 표시됩니다.</p>
-                            <p>사진 첨부 시 미리보기는 지원되지 않습니다.</p>
+                            {# 이미지 미리보기 안내 문구 추가 #}
+                            <p class="preview-image-text">(첨부된 이미지는 실제 게시물 보기 페이지에서 표시됩니다.)</p>
                         </div>
                     </div>
                 </div>
@@ -77,18 +105,20 @@
                 </button>
             </div>
         </form>
-    </div> {# create-post-container 닫기 #}
-</div> {# content-area 닫기 #}
+    </div>
+</div>
 {% endblock %}
 
 {% block page_scripts %}
-{# 미리보기 업데이트를 위한 JS 추가 #}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const titleInput = document.getElementById('title');
     const contentInput = document.getElementById('content');
+    const imageInput = document.getElementById('imageUpload');
     const previewTitle = document.getElementById('previewTitle');
     const previewContent = document.getElementById('previewContent');
+    const imagePreview = document.getElementById('imagePreview'); // 미리보기 이미지 태그
+    const previewImageText = previewContent.querySelector('.preview-image-text'); // 이미지 안내 문구
 
     function updatePreview() {
         if (previewTitle) {
@@ -97,12 +127,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previewContent) {
             // textarea의 줄바꿈(\n)을 <br>로 치환하여 표시
             const contentHtml = contentInput.value.replace(/\n/g, '<br>');
-            previewContent.innerHTML = contentHtml || '<p>내용이 여기에 표시됩니다.</p><p>사진 첨부 시 미리보기는 지원되지 않습니다.</p>';
+            // 기존 내용을 유지하면서 이미지 안내 문구 추가/제거
+            const existingImageText = previewImageText ? previewImageText.outerHTML : '';
+            previewContent.innerHTML = (contentHtml || '<p>내용이 여기에 표시됩니다.</p>') + existingImageText;
+        }
+    }
+
+    // 이미지 파일 선택 시 미리보기 처리
+    function handleImagePreview(event) {
+        const file = event.target.files[0];
+        if (file && imagePreview && previewContent && previewImageText) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.add('visible'); // 이미지 표시
+                previewContent.classList.add('has-image'); // 안내 문구 표시용 클래스
+            }
+            reader.readAsDataURL(file);
+        } else if (imagePreview && previewContent && previewImageText) {
+            imagePreview.src = '#';
+            imagePreview.classList.remove('visible'); // 이미지 숨김
+            previewContent.classList.remove('has-image'); // 안내 문구 숨김용 클래스
         }
     }
 
     if (titleInput) titleInput.addEventListener('input', updatePreview);
     if (contentInput) contentInput.addEventListener('input', updatePreview);
+    if (imageInput) imageInput.addEventListener('change', handleImagePreview); // 이미지 변경 감지
 
     // 초기 미리보기 설정
     updatePreview();

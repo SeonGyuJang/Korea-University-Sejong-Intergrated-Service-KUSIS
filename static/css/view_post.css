@@ -1,142 +1,178 @@
 /* static/css/view_post.css */
 
-/* [수정]
-  .content-area.view-post-page 요소에 적용됩니다.
-  main.css의 'display: grid'를 'display: block'으로 덮어쓰고,
-  'padding: 0' 선언을 제거하여 main.css의 'padding: 20px'가 적용되도록 합니다.
-*/
+/* 페이지 기본 레이아웃 (기존 그리드 덮어쓰기) */
 .view-post-page {
-    display: block; /* 'display: grid' 덮어쓰기 */
-    grid-template-columns: none; /* 그리드 설정 초기화 */
-    gap: 0; /* 그리드 설정 초기화 */
-    /* padding: 0; <- 이 줄을 제거했습니다! */
+    display: block;
+    grid-template-columns: none;
+    gap: 0;
+    /* main.css의 padding: 20px 적용됨 */
 }
 
-/* [수정]
-  .view-post-widget -> .view-post-container
-  max-width와 margin 제거
-*/
+/* 게시물 컨테이너 */
 .view-post-container {
     background: var(--bg-secondary);
-    border-radius: 16px;
-    padding: 25px 35px;
+    border-radius: 12px; /* 약간 줄임 */
+    padding: 30px 40px; /* 내부 여백 조정 */
     box-shadow: var(--shadow);
-    width: 100%; /* 전체 너비 사용 */
+    width: 100%;
+    
+    /* --- [수정] 아래 2줄을 제거하여 전체 너비를 사용 --- */
+    /* max-width: 900px; */ /* 최대 너비 설정 (제거) */
+    /* margin: 0 auto; */ /* 가운데 정렬 (제거) */
 }
 
-/* [수정] .widget-header -> .page-header */
-.page-header {
+/* 게시물 헤더 (제목 + 목록 버튼) */
+.post-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 15px;
+    align-items: flex-start; /* 제목 길어질 경우 대비 */
+    border-bottom: 2px solid var(--korea-red); /* 강조선 */
+    padding-bottom: 20px;
     margin-bottom: 20px;
+    gap: 20px; /* 제목과 버튼 사이 간격 */
 }
 
-.page-header h3 {
-    font-size: 22px;
-    color: var(--text-primary);
-    font-weight: 600;
-    margin: 0;
+.post-header .header-left {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-grow: 1; /* 제목 영역이 남는 공간 차지 */
 }
 
-.page-header h3 i {
-    color: var(--korea-red);
-}
-
-/* 공지 뱃지 (제목용) */
 .notice-badge-view {
     color: var(--korea-red);
-    font-size: 18px;
+    font-size: 1.1em; /* 제목 크기에 비례 */
     font-weight: 700;
+    flex-shrink: 0; /* 줄어들지 않음 */
 }
 
-/* 목록으로 버튼 (create_post.css와 동일 스타일) */
-.btn-secondary {
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+.post-title {
+    font-size: 26px; /* 제목 크기 키움 */
+    color: var(--text-primary);
+    font-weight: 700; /* 더 굵게 */
+    margin: 0;
+    line-height: 1.4;
+    word-break: keep-all; /* 단어 단위 줄바꿈 */
+}
+
+/* 목록으로 버튼 (테두리 스타일) */
+.btn-outline {
+    background: none;
+    color: var(--korea-red);
+    border: 1px solid var(--korea-red);
     padding: 8px 16px;
     border-radius: 20px;
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
+    flex-shrink: 0; /* 버튼 크기 유지 */
+    white-space: nowrap; /* 버튼 텍스트 줄바꿈 방지 */
 }
-.btn-secondary:hover {
-    background: #e9ecef;
-    color: var(--text-primary);
+.btn-outline:hover {
+    background: var(--korea-red);
+    color: white;
 }
-.btn-secondary i {
+.btn-outline i {
     margin-right: 5px;
 }
 
-/* 게시물 메타 정보 (작성자, 작성일) */
+/* 승인 대기 알림 */
+.post-approval-notice {
+    margin-bottom: 20px;
+    padding: 12px 15px;
+    font-size: 14px;
+}
+.post-approval-notice i {
+    margin-right: 8px;
+}
+
+/* 게시물 메타 정보 */
 .post-meta {
     display: flex;
-    gap: 20px;
+    gap: 25px; /* 간격 늘림 */
     font-size: 14px;
     color: var(--text-secondary);
-    margin-bottom: 25px;
+    margin-bottom: 30px; /* 본문과의 간격 */
     padding-bottom: 15px;
     border-bottom: 1px solid var(--border-color);
+}
+.post-meta .meta-item {
+    display: flex;
+    align-items: center;
 }
 .post-meta i {
     margin-right: 6px;
     color: var(--korea-red-light);
+    font-size: 1.1em; /* 아이콘 살짝 키움 */
+}
+.post-meta strong {
+    color: var(--text-primary); /* 강조 */
+    font-weight: 500;
 }
 
-/* --- [추가] 이미지 스타일 --- */
+/* 게시물 본문 영역 */
+.post-body {
+    /* 특별한 스타일 불필요 */
+}
+
+/* 이미지 컨테이너 */
 .post-image-container {
     width: 100%;
-    margin-bottom: 25px;
-    text-align: center; /* 이미지 가운데 정렬 */
+    margin-bottom: 30px; /* 이미지와 내용 간격 */
+    text-align: center;
 }
 
 .post-image {
-    max-width: 100%; /* 컨테이너 너비 초과 방지 */
-    height: auto; /* 비율 유지 */
-    border-radius: 12px; /* 이미지 모서리 둥글게 */
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px; /* 모서리 약간 둥글게 */
     border: 1px solid var(--border-color);
-    background: white; /* 이미지 로딩 전 배경 */
+    background: #f8f9fa; /* 로딩 배경 */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* 부드러운 그림자 */
 }
-/* --- [추가 끝] --- */
 
-
-/* 게시물 본문 */
+/* 게시물 내용 */
 .post-content {
     font-size: 16px;
     color: var(--text-primary);
-    line-height: 1.8;
-    min-height: 200px;
+    line-height: 1.8; /* 줄간격 조정 */
+    min-height: 150px; /* 최소 높이 */
     padding: 10px 0;
-    /* app.py에서 <br>로 저장하므로 white-space: pre-wrap; 불필요.
-      <br> 태그가 |safe 필터에 의해 렌더링됨.
-    */
-    word-break: break-word; /* 긴 단어 줄바꿈 */
+    word-break: break-word;
+    white-space: normal; /* <br> 태그가 있으므로 pre-wrap 불필요 */
 }
 
-/* 반응형 */
+/* 내용 안의 단락 스타일 (선택 사항) */
+.post-content p {
+    margin-bottom: 1.2em;
+}
+.post-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* --- 반응형 --- */
 @media (max-width: 768px) {
     .view-post-container {
-        padding: 20px;
+        padding: 20px; /* 모바일 패딩 줄임 */
+        border-radius: 0; /* 모바일에서는 화면 꽉 차게 */
+        box-shadow: none;
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
     }
-    .page-header {
-        flex-direction: column;
-        align-items: flex-start;
+    .post-header {
+        flex-direction: column; /* 세로 배치 */
+        align-items: flex-start; /* 왼쪽 정렬 */
         gap: 15px;
     }
-    .page-header h3 {
-        font-size: 20px;
+    .post-title {
+        font-size: 22px; /* 모바일 제목 크기 조정 */
     }
     .post-meta {
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: column; /* 세로 배치 */
+        gap: 10px; /* 간격 줄임 */
         font-size: 13px;
+        margin-bottom: 25px;
     }
     .post-content {
         font-size: 15px;

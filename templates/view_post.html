@@ -3,51 +3,51 @@
 {% block title %}KUSIS - {{ post.title }}{% endblock %}
 
 {% block styles %}
-{# 수정된 view_post.css 로드 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/view_post.css') }}">
 {% endblock %}
 
 {% block content %}
-{# .content-area에 .view-post-page 클래스 추가 #}
 <div class="content-area view-post-page">
-    {# 위젯 래퍼 대신 .view-post-container 사용 #}
     <div class="view-post-container">
-        {# .widget-header 대신 .page-header 사용 #}
-        <div class="page-header">
-            <h3>
+        {# 제목과 목록 버튼 #}
+        <header class="post-header">
+            <div class="header-left">
                 {% if post.is_notice %}<span class="notice-badge-view">[공지]</span>{% endif %}
-                <i class="fas fa-file-alt"></i> {{ post.title }}
-            </h3>
-            <a href="{{ url_for('post_management') }}" class="btn btn-secondary">
+                <h1 class="post-title">{{ post.title }}</h1>
+            </div>
+            <a href="{{ url_for('post_management') }}" class="btn btn-outline">
                 <i class="fas fa-list"></i> 목록으로
             </a>
-        </div>
+        </header>
 
         {# 승인 상태 표시 (관리자 또는 본인에게만) #}
         {% if (not post.is_approved) and (current_user.is_admin or post.author_id == current_user.id) %}
-        <div class="alert alert-warning" role="alert">
+        <div class="alert alert-warning post-approval-notice" role="alert">
             <i class="fas fa-clock"></i> 이 게시물은 현재 관리자 승인 대기 중입니다.
         </div>
         {% endif %}
 
+        {# 메타 정보 (작성자, 작성일) #}
         <div class="post-meta">
-            <span><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
-            <span><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></span>
+            <span class="meta-item"><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
+            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></span>
         </div>
 
-        {# --- [추가] 이미지 표시 --- #}
-        {% if post.image_filename %}
-        <div class="post-image-container">
-            {# app.py의 UPLOAD_FOLDER ('static/uploads') 경로와 일치시킴 #}
-            <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
-        </div>
-        {% endif %}
-        {# --- [추가 끝] --- #}
+        {# 본문 컨텐츠 영역 #}
+        <article class="post-body">
+            {# 이미지 표시 #}
+            {% if post.image_filename %}
+            <div class="post-image-container">
+                {# app.py의 UPLOAD_FOLDER ('static/uploads') 경로와 일치 #}
+                <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
+            </div>
+            {% endif %}
 
-        <div class="post-content">
-            {# app.py에서 <br>로 저장했으므로 |safe 필터 사용 #}
-            {{ post.content | safe }}
-        </div>
+            {# 내용 표시 (|safe 필터 사용) #}
+            <div class="post-content">
+                {{ post.content | safe }}
+            </div>
+        </article>
     </div>
 </div>
 {% endblock %}
