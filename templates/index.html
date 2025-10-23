@@ -113,11 +113,14 @@
                     <div id="currentTimeDisplay" class="current-time"></div>
                 </div>
             </div>
-            <div class="widget-tabs">
+            <div class="shuttle-day-tabs">
+                <button class="day-tab active" data-day="weekday">평일</button>
+                <button class="day-tab" data-day="weekend">주말</button>
+            </div>
+            <div class="widget-tabs shuttle-route-tabs">
                 <button class="tab active" data-tab="all">전체</button>
-                <button class="tab" data-tab="school_to_station">학교→조치원역</button>
-                <button class="tab" data-tab="station_to_school">조치원역→학교</button>
-                <button class="tab" data-tab="osong">오송역 노선</button>
+                <button class="tab" data-tab="to_station">학교 → 역</button>
+                <button class="tab" data-tab="to_school">역 → 학교</button>
             </div>
             <div class="shuttle-list" id="shuttleList">
                  <p style="text-align: center; color: var(--text-secondary); padding: 20px;">셔틀 정보 로딩 중...</p>
