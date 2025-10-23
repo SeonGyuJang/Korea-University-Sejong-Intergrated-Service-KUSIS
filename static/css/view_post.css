@@ -1,104 +1,144 @@
 /* static/css/view_post.css */
 
-.post-view-widget {
-    max-width: 900px;
-    margin: 20px auto;
+/* [수정]
+  .content-area.view-post-page 요소에 적용됩니다.
+  main.css의 'display: grid'를 'display: block'으로 덮어쓰고,
+  'padding: 0' 선언을 제거하여 main.css의 'padding: 20px'가 적용되도록 합니다.
+*/
+.view-post-page {
+    display: block; /* 'display: grid' 덮어쓰기 */
+    grid-template-columns: none; /* 그리드 설정 초기화 */
+    gap: 0; /* 그리드 설정 초기화 */
+    /* padding: 0; <- 이 줄을 제거했습니다! */
+}
+
+/* [수정]
+  .view-post-widget -> .view-post-container
+  max-width와 margin 제거
+*/
+.view-post-container {
     background: var(--bg-secondary);
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    overflow: hidden; /* for clean edges */
+    border-radius: 16px;
+    padding: 25px 35px;
+    box-shadow: var(--shadow);
+    width: 100%; /* 전체 너비 사용 */
 }
 
-.post-header {
-    padding: 30px 40px;
-    border-bottom: 2px solid var(--border-color);
-    background: #fdfafb; /* Slight tint for header */
-}
-
-.post-header h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1.4;
-    margin: 0;
-}
-
-.post-meta {
-    margin-top: 15px;
-    font-size: 14px;
-    color: var(--text-secondary);
+/* [수정] .widget-header -> .page-header */
+.page-header {
     display: flex;
-    flex-wrap: wrap; /* 모바일에서 줄바꿈 */
-    gap: 15px 20px; /* 세로, 가로 갭 */
-}
-
-.post-meta span {
-    display: inline-flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 6px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
 }
 
-.post-meta .author-name {
+.page-header h3 {
+    font-size: 22px;
+    color: var(--text-primary);
     font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header h3 i {
     color: var(--korea-red);
 }
 
-.post-content {
-    padding: 40px;
-    font-size: 17px;
-    line-height: 1.8; /* 가독성 향상 */
-    color: #333;
-    
-    /* DB에 저장된 텍스트(textarea)의 줄바꿈(\n)을 
-      HTML <br> 태그처럼 보이게 처리합니다.
-    */
-    white-space: pre-wrap;
-    word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
+/* 공지 뱃지 (제목용) */
+.notice-badge-view {
+    color: var(--korea-red);
+    font-size: 18px;
+    font-weight: 700;
 }
 
-/* Request 3: 향후 리치 에디터 등을 통해 이미지가 본문에 포함될 경우
-  이미지가 부모 요소를 벗어나지 않도록 처리합니다.
-*/
-.post-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 20px 0;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* 본문 내 h 태그 등 (리치 에디터 사용 대비) 
-*/
-.post-content h2,
-.post-content h3 {
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 5px;
-    margin: 25px 0 15px;
-}
-
-.post-actions {
-    padding: 20px 40px;
-    text-align: right;
-    border-top: 1px solid var(--border-color);
+/* 목록으로 버튼 (create_post.css와 동일 스타일) */
+.btn-secondary {
     background: var(--bg-primary);
-}
-
-.btn-list {
-    background: var(--korea-red);
-    color: white;
-    padding: 10px 20px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
     border-radius: 20px;
     text-decoration: none;
+    font-size: 14px;
     font-weight: 500;
-    transition: all 0.3s;
+    transition: all 0.2s;
 }
-
-.btn-list:hover {
-    background: var(--korea-red-light);
-    box-shadow: 0 4px 10px rgba(165, 0, 52, 0.2);
+.btn-secondary:hover {
+    background: #e9ecef;
+    color: var(--text-primary);
 }
-
-.btn-list i {
+.btn-secondary i {
     margin-right: 5px;
+}
+
+/* 게시물 메타 정보 (작성자, 작성일) */
+.post-meta {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+.post-meta i {
+    margin-right: 6px;
+    color: var(--korea-red-light);
+}
+
+/* --- [추가] 이미지 스타일 --- */
+.post-image-container {
+    width: 100%;
+    margin-bottom: 25px;
+    text-align: center; /* 이미지 가운데 정렬 */
+}
+
+.post-image {
+    max-width: 100%; /* 컨테이너 너비 초과 방지 */
+    height: auto; /* 비율 유지 */
+    border-radius: 12px; /* 이미지 모서리 둥글게 */
+    border: 1px solid var(--border-color);
+    background: white; /* 이미지 로딩 전 배경 */
+}
+/* --- [추가 끝] --- */
+
+
+/* 게시물 본문 */
+.post-content {
+    font-size: 16px;
+    color: var(--text-primary);
+    line-height: 1.8;
+    min-height: 200px;
+    padding: 10px 0;
+    /* app.py에서 <br>로 저장하므로 white-space: pre-wrap; 불필요.
+      <br> 태그가 |safe 필터에 의해 렌더링됨.
+    */
+    word-break: break-word; /* 긴 단어 줄바꿈 */
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+    .view-post-container {
+        padding: 20px;
+    }
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    .page-header h3 {
+        font-size: 20px;
+    }
+    .post-meta {
+        flex-direction: column;
+        gap: 10px;
+        font-size: 13px;
+    }
+    .post-content {
+        font-size: 15px;
+    }
 }

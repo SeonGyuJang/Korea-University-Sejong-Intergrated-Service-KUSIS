@@ -1,20 +1,32 @@
 /* static/css/post_management.css */
 
-.post-management-page .content-area {
-    grid-template-columns: 1fr; /* 전체 너비 사용 */
-    padding: 20px;
+/* [수정]
+  .content-area.post-management-page 요소에 적용됩니다.
+  main.css의 'display: grid'를 'display: block'으로 덮어쓰고,
+  'padding: 0' 선언을 제거하여 main.css의 'padding: 20px'가 적용되도록 합니다.
+*/
+.post-management-page {
+    display: block; /* 'display: grid' 덮어쓰기 */
+    grid-template-columns: none; /* 그리드 설정 초기화 */
+    gap: 0; /* 그리드 설정 초기화 */
+    /* padding: 0; <- 이 줄을 제거했습니다! */
 }
 
-.post-management-widget {
+/* [수정]
+  .post-management-container가 .content-area의 자식 요소입니다.
+  이 컨테이너가 전체 너비를 사용하도록 합니다.
+*/
+.post-management-container {
     background: var(--bg-secondary);
-    border-radius: 16px;
-    padding: 25px 30px;
-    box-shadow: var(--shadow);
-    max-width: 1100px; /* 최대 너비 설정 */
-    margin: 0 auto; /* 중앙 정렬 */
+    border-radius: 16px; /* 모서리 둥글게 유지 (선택 사항) */
+    padding: 25px 30px; /* 내부 여백 유지 */
+    box-shadow: var(--shadow); /* 그림자 유지 (선택 사항) */
+    width: 100%; /* 부모 요소(content-area) 너비만큼 차지 */
+    /* max-width 및 margin: 0 auto 제거됨 */
 }
 
-.post-management-widget .widget-header {
+/* 위젯 헤더 -> 페이지 헤더 스타일 */
+.page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -23,14 +35,14 @@
     margin-bottom: 25px;
 }
 
-.post-management-widget .widget-header h3 {
+.page-header h3 {
     font-size: 20px;
     color: var(--text-primary);
     font-weight: 600;
     margin: 0;
 }
 
-.post-management-widget .widget-header h3 i {
+.page-header h3 i {
     color: var(--korea-red);
     margin-right: 8px;
 }
@@ -187,18 +199,6 @@
     border-color: #229954;
 }
 
-/* 보기 버튼 (제거됨 - 제목 링크로 대체) */
-/*.btn-view {
-    background-color: #3498db;
-    color: white;
-    border-color: #3498db;
-    text-decoration: none;
-}
-.btn-view:hover {
-    background-color: #2980b9;
-    border-color: #2980b9;
-}*/
-
 /* 삭제 버튼 */
 .btn-danger {
     background-color: #e74c3c;
@@ -226,7 +226,7 @@
 
 /* --- 반응형 --- */
 @media (max-width: 768px) {
-    .post-management-widget {
+    .post-management-container { /* 컨테이너 패딩 조정 */
         padding: 20px;
     }
     .post-table th, .post-table td {

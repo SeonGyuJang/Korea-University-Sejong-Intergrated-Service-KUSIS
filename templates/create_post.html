@@ -8,9 +8,11 @@
 {% endblock %}
 
 {% block content %}
+{# 위젯 클래스 제거, content-area 바로 아래에 내용 배치 #}
 <div class="content-area create-post-page">
-    <div class="widget create-post-widget">
-        <div class="widget-header">
+    {# 위젯 클래스 제거 -> <div class="create-post-container"> #}
+    <div class="create-post-container">
+        <div class="page-header"> {# 위젯 헤더 -> 페이지 헤더로 변경 #}
             <h3><i class="fas fa-pencil-alt"></i> 새 게시물 작성</h3>
             <a href="{{ url_for('post_management') }}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> 목록으로
@@ -75,8 +77,8 @@
                 </button>
             </div>
         </form>
-    </div>
-</div>
+    </div> {# create-post-container 닫기 #}
+</div> {# content-area 닫기 #}
 {% endblock %}
 
 {% block page_scripts %}

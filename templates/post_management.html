@@ -8,9 +8,11 @@
 {% endblock %}
 
 {% block content %}
+{# 위젯 클래스 제거, content-area 바로 아래에 내용 배치 #}
 <div class="content-area post-management-page">
-    <div class="widget post-management-widget">
-        <div class="widget-header">
+    {# 위젯 클래스 제거 -> <div class="post-management-container"> #}
+    <div class="post-management-container">
+        <div class="page-header"> {# 위젯 헤더 -> 페이지 헤더로 변경 #}
             <h3><i class="fas fa-clipboard-list"></i> 게시물 관리</h3>
             <a href="{{ url_for('create_post') }}" class="btn btn-primary btn-create-post">
                 <i class="fas fa-plus"></i> 새 게시물 작성
@@ -99,8 +101,8 @@
                 </table>
             </div>
         </div>
-    </div>
-</div>
+    </div> {# post-management-container 닫기 #}
+</div> {# content-area 닫기 #}
 {% endblock %}
 
 {% block page_scripts %}

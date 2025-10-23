@@ -3,57 +3,51 @@
 {% block title %}KUSIS - {{ post.title }}{% endblock %}
 
 {% block styles %}
-{# post_management.css에 post-view-widget 기본 스타일이 있을 수 있음 #}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
-{# 요청하신 새 디자인 템플릿 CSS 로드 (Req 3) #}
+{# 수정된 view_post.css 로드 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/view_post.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="content-area" style="grid-template-columns: 1fr;">
-    {# (Req 2) DB 데이터를 표시하는 공통 템플릿 위젯 #}
-    <div class="widget post-view-widget">
-        
-        {# 1. 게시물 헤더: 제목, 작성자, 작성일 (Req 3: 가독성 UI) #}
-        <div class="post-header">
-            <h1>{{ post.title }}</h1>
-            <div class="post-meta">
-                <span>
-                    <i class="fas fa-user"></i> 
-                    <span class="author-name">{{ post.author.name }}</span>
-                </span>
-                <span>
-                    <i class="fas fa-calendar-alt"></i> 
-                    {{ post.created_at.strftime('%Y년 %m월 %d일 %H:%M') }}
-                </span>
-                {% if post.is_notice %}
-                <span style="color: var(--korea-red); font-weight: 600;">
-                    <i class="fas fa-bullhorn"></i>
-                    공지사항
-                </span>
-                {% endif %}
-            </div>
-        </div>
-
-        {# 2. 게시물 본문: 내용 (DB에서 가져옴) (Req 3: 가독성 UI) #}
-        <div class="post-content">
-            {# 
-               참고: 
-               CSS의 'white-space: pre-wrap;' 속성으로 인해 
-               기본 Textarea에서 입력한 줄바꿈(\n)이 그대로 브라우저에 표시됩니다.
-               (CSS에서 이미지 처리도 적용됨)
-            #}
-            {{ post.content }}
-        </div>
-
-        {# 3. 하단 작업: 목록으로 돌아가기 #}
-        <div class="post-actions">
-            {# post_management 또는 index (알림) 페이지 등 적절한 곳으로 링크 #}
-            <a href="{{ url_for('post_management') }}" class="btn-list">
+{# .content-area에 .view-post-page 클래스 추가 #}
+<div class="content-area view-post-page">
+    {# 위젯 래퍼 대신 .view-post-container 사용 #}
+    <div class="view-post-container">
+        {# .widget-header 대신 .page-header 사용 #}
+        <div class="page-header">
+            <h3>
+                {% if post.is_notice %}<span class="notice-badge-view">[공지]</span>{% endif %}
+                <i class="fas fa-file-alt"></i> {{ post.title }}
+            </h3>
+            <a href="{{ url_for('post_management') }}" class="btn btn-secondary">
                 <i class="fas fa-list"></i> 목록으로
             </a>
         </div>
 
+        {# 승인 상태 표시 (관리자 또는 본인에게만) #}
+        {% if (not post.is_approved) and (current_user.is_admin or post.author_id == current_user.id) %}
+        <div class="alert alert-warning" role="alert">
+            <i class="fas fa-clock"></i> 이 게시물은 현재 관리자 승인 대기 중입니다.
+        </div>
+        {% endif %}
+
+        <div class="post-meta">
+            <span><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
+            <span><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></span>
+        </div>
+
+        {# --- [추가] 이미지 표시 --- #}
+        {% if post.image_filename %}
+        <div class="post-image-container">
+            {# app.py의 UPLOAD_FOLDER ('static/uploads') 경로와 일치시킴 #}
+            <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
+        </div>
+        {% endif %}
+        {# --- [추가 끝] --- #}
+
+        <div class="post-content">
+            {# app.py에서 <br>로 저장했으므로 |safe 필터 사용 #}
+            {{ post.content | safe }}
+        </div>
     </div>
 </div>
 {% endblock %}
