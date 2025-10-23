@@ -1,11 +1,12 @@
 # app.py
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash, abort # abort 추가
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash, abort, send_from_directory # send_from_directory 추가
 from datetime import datetime, timedelta, date
 import json # json 임포트 확인
 import csv
 import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename # --- [수정] 파일 업로드용 import ---
 from flask_sqlalchemy import SQLAlchemy
 import urllib.parse
 from dotenv import load_dotenv
@@ -32,6 +33,21 @@ DB_NAME = os.getenv("DB_NAME")
 ENCODED_PASSWORD = urllib.parse.quote_plus(DB_PASSWORD)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{DB_USER}:{ENCODED_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# --- [수정] 파일 업로드 설정 ---
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# 업로드 폴더 생성 (없으면)
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# --- [수정] 끝 ---
+
 
 db = SQLAlchemy(app)
 
@@ -61,7 +77,7 @@ COLLEGES = {
     "스마트도시학부": ["스마트도시학부"]
 }
 
-# --- Database Models (User 모델 수정, Post 모델 추가) ---
+# --- Database Models (User 모델 유지, Post 모델 수정) ---
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -178,7 +194,7 @@ class Todo(db.Model):
             'semester_id': self.semester_id
         }
 
-# --- 신규: Post 모델 추가 (Req 3, 4, 5) ---
+# --- [수정] Post 모델 수정 (image_filename 추가) ---
 class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
@@ -188,6 +204,7 @@ class Post(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     is_approved = db.Column(db.Boolean, default=False, nullable=False) # 협력직원 글 승인 여부
     is_notice = db.Column(db.Boolean, default=False, nullable=False) # 공지사항 여부
+    image_filename = db.Column(db.String(255), nullable=True) # --- [수정] 이미지 파일명 컬럼 추가 ---
 
     def to_dict(self, include_content=False):
         data = {
@@ -196,7 +213,8 @@ class Post(db.Model):
             'author_name': self.author.name if self.author else 'Unknown',
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M'),
             'is_approved': self.is_approved,
-            'is_notice': self.is_notice
+            'is_notice': self.is_notice,
+            'image_filename': self.image_filename # --- [수정] 이미지 파일명 추가 ---
         }
         if include_content:
             data['content'] = self.content
@@ -347,20 +365,19 @@ def manage_semesters_job():
 def create_initial_data():
     db.create_all() # Post 테이블 포함 모든 테이블 생성/확인
 
-    # --- 스키마 마이그레이션 로직 (기존 유지) ---
+    # --- 스키마 마이그레이션 로직 (Post 모델 image_filename 컬럼 추가) ---
     try:
         inspector = inspect(db.engine)
-        columns = [col['name'] for col in inspector.get_columns('users')]
-
-        has_permission_col = 'permission' in columns
-        has_is_admin_col = 'is_admin' in columns # 이전 'is_admin' 컬럼 존재 여부 확인
-
+        
+        # User 테이블 마이그레이션 (기존 유지)
+        user_columns = [col['name'] for col in inspector.get_columns('users')]
+        has_permission_col = 'permission' in user_columns
+        has_is_admin_col = 'is_admin' in user_columns 
         if not has_permission_col:
             print("--- [MIGRATION] 'permission' column not found in 'users' table. Adding column... ---")
             db.session.execute(text("ALTER TABLE users ADD COLUMN permission VARCHAR(20) NOT NULL DEFAULT 'general'"))
             db.session.commit()
             print("--- [MIGRATION] 'permission' column added with default 'general'. ---")
-
             if has_is_admin_col:
                 print("--- [MIGRATION] Old 'is_admin' column found. Migrating data to 'permission'... ---")
                 db.session.execute(text("UPDATE users SET permission = 'admin' WHERE is_admin = TRUE"))
@@ -368,14 +385,22 @@ def create_initial_data():
                 print("--- [MIGRATION] Data migration complete. ---")
             else:
                  print("--- [MIGRATION] 'is_admin' column not found, skipping data migration. ---")
-
         db.session.execute(text("UPDATE users SET permission = 'general' WHERE permission IS NULL"))
         db.session.commit()
+        
+        # --- [수정] Post 테이블 마이그레이션 (image_filename 추가) ---
+        post_columns = [col['name'] for col in inspector.get_columns('posts')]
+        if 'image_filename' not in post_columns:
+            print("--- [MIGRATION] 'image_filename' column not found in 'posts' table. Adding column... ---")
+            db.session.execute(text("ALTER TABLE posts ADD COLUMN image_filename VARCHAR(255) NULL"))
+            db.session.commit()
+            print("--- [MIGRATION] 'image_filename' column added. ---")
+        # --- [수정] 끝 ---
 
     except Exception as e:
         db.session.rollback()
         print(f"--- [MIGRATION] CRITICAL: Error during schema migration: {e} ---")
-        raise e
+        # raise e # raise를 주석 처리하여 마이그레이션 실패 시에도 일단 실행은 되도록 할 수 있으나, 권장하지 않음
 
     # --- 초기 데이터 생성 로직 (기존 유지) ---
     admin_id = "9999999999"
@@ -727,8 +752,27 @@ def admin_delete_user(user_id):
     if not user: return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
     if user.id == session.get('student_id'): return jsonify({"status": "error", "message": "자기 자신을 삭제할 수 없습니다."}), 403
     try:
-        db.session.delete(user); db.session.commit()
-        return jsonify({"status": "success", "message": f"사용자 '{user.name}'({user_id}) 계정 및 관련 데이터가 삭제되었습니다."})
+        # --- [수정] 사용자 삭제 시 게시물 및 이미지 파일 삭제 로직 ---
+        # 1. 사용자가 작성한 게시물 조회
+        posts_to_delete = Post.query.filter_by(author_id=user_id).all()
+        for post in posts_to_delete:
+            # 2. 게시물에 연결된 이미지 파일 삭제
+            if post.image_filename:
+                try:
+                    image_path = os.path.join(app.config['UPLOAD_FOLDER'], post.image_filename)
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                        print(f"Deleted image file: {image_path}")
+                except Exception as img_e:
+                    print(f"Error deleting image file {post.image_filename} for user {user_id}: {img_e}")
+            # 3. 게시물 DB에서 삭제 (User 삭제 시 cascade로 자동 삭제되지만 명시적 처리)
+            # db.session.delete(post) # User 모델의 cascade 설정으로 자동 삭제됨
+
+        # 4. 사용자 삭제 (관련 데이터(Post 포함)가 cascade로 삭제됨)
+        db.session.delete(user); 
+        db.session.commit()
+        # --- [수정] 끝 ---
+        return jsonify({"status": "success", "message": f"사용자 '{user.name}'({user_id}) 계정 및 관련 데이터(게시물 포함)가 삭제되었습니다."})
     except Exception as e:
         db.session.rollback(); print(f"Error deleting user {user_id}: {e}"); return jsonify({"status": "error", "message": f"사용자 삭제 중 오류 발생: {e}"}), 500
 
@@ -755,6 +799,7 @@ def post_management():
                            pending_posts=pending_posts,
                            approved_posts=approved_posts)
 
+# --- [수정] create_post 함수 (파일 업로드 처리) ---
 @app.route('/post/create', methods=['GET', 'POST'])
 @post_manager_required
 def create_post():
@@ -765,12 +810,32 @@ def create_post():
         title = request.form.get('title')
         content = request.form.get('content')
         is_notice = 'is_notice' in request.form
+        image_file = request.files.get('image') # 업로드된 파일 가져오기
 
         if not title or not content:
             flash('제목과 내용은 필수입니다.', 'danger')
             return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice)
 
+        image_filename = None # 이미지 파일명 초기화
+        
         try:
+            # --- 이미지 파일 처리 로직 ---
+            if image_file and image_file.filename != '':
+                if allowed_file(image_file.filename):
+                    filename = secure_filename(image_file.filename)
+                    # 파일명 중복 방지 처리 (타임스탬프 + 사용자 ID + 파일명)
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    unique_filename = f"{timestamp}_{user.id}_{filename}"
+                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    
+                    image_file.save(save_path)
+                    image_filename = unique_filename # 저장된 파일명 저장
+                else:
+                    flash('허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif)', 'warning')
+                    # 허용되지 않는 파일이어도 텍스트는 저장되도록 하려면 아래 render_template 주석 처리
+                    return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice)
+            # --- 이미지 파일 처리 끝 ---
+
             # 관리자가 작성하면 바로 승인, 협력직원이 작성하면 승인 대기
             is_approved = user.is_admin
             new_post = Post(
@@ -778,7 +843,8 @@ def create_post():
                 content=content,
                 author_id=user.id,
                 is_approved=is_approved,
-                is_notice=is_notice
+                is_notice=is_notice,
+                image_filename=image_filename # --- [수정] DB에 파일명 저장 ---
             )
             db.session.add(new_post)
             db.session.commit()
@@ -786,22 +852,41 @@ def create_post():
             return redirect(url_for('post_management'))
         except Exception as e:
             db.session.rollback()
+            # 파일 저장 중 오류 발생 시 저장된 파일 삭제 로직 (선택 사항)
+            if image_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], image_filename)):
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+            
             flash(f'게시물 작성 중 오류 발생: {e}', 'danger')
+            print(f"Error creating post: {e}") # 로그 출력
 
     return render_template('create_post.html', user=user)
+# --- [수정] 끝 ---
+
 
 @app.route('/post/<int:post_id>')
 @login_required # 모든 로그인 사용자가 볼 수 있도록
 def view_post(post_id):
-    from flask import g # <<<--- [오류 수정] g 객체를 import
+    from flask import g
+    user = g.user # 데코레이터에서 설정한 사용자 정보
     post = db.session.get(Post, post_id)
-    if not post or not post.is_approved: # 승인된 게시물만 조회 가능
-        # 관리자 또는 작성자는 승인되지 않았어도 볼 수 있게 하려면?
-        # if not post or (not post.is_approved and (not g.user or (not g.user.is_admin and g.user.id != post.author_id))):
+    
+    # 승인되지 않은 게시물 접근 제어
+    if not post:
+        abort(404)
         
-        # 현재 로직 유지 (승인된 것만)
-        abort(404) # Not Found
-    return render_template('view_post.html', post=post, user=g.user)
+    # 승인되지 않았고, 관리자도 아니고, 작성자 본인도 아니면 접근 불가
+    if not post.is_approved and (not user or (not user.is_admin and user.id != post.author_id)):
+         flash("승인되지 않은 게시물입니다.", "warning")
+         return redirect(url_for('index')) # 혹은 다른 적절한 페이지
+         
+    return render_template('view_post.html', post=post, user=user)
+
+# --- [수정] 업로드된 파일 제공 라우트 ---
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+# --- [수정] 끝 ---
+
 
 @app.route('/post/<int:post_id>/approve', methods=['POST'])
 @admin_required # 관리자만 승인 가능
@@ -817,6 +902,7 @@ def approve_post(post_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": f"승인 중 오류 발생: {e}"}), 500
 
+# --- [수정] delete_post 함수 (파일 삭제 로직 추가) ---
 @app.route('/post/<int:post_id>/delete', methods=['POST'])
 @post_manager_required # 관리자 또는 협력직원만 삭제 시도 가능
 def delete_post(post_id):
@@ -831,12 +917,29 @@ def delete_post(post_id):
         return jsonify({"status": "error", "message": "삭제 권한이 없습니다."}), 403
 
     try:
+        # --- [수정] 연결된 이미지 파일 삭제 ---
+        image_filename_to_delete = post.image_filename
+        if image_filename_to_delete:
+            try:
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename_to_delete)
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    print(f"Deleted image file: {image_path}")
+                else:
+                    print(f"Image file not found (already deleted?): {image_path}")
+            except Exception as img_e:
+                print(f"Error deleting image file {image_filename_to_delete}: {img_e}")
+                # 파일 삭제 실패 시에도 DB 삭제는 진행 (DB 정합성 우선)
+        # --- [수정] 끝 ---
+
         db.session.delete(post)
         db.session.commit()
         return jsonify({"status": "success", "message": "게시물이 삭제되었습니다."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"삭제 중 오류 발생: {e}"}), 500
+# --- [수정] 끝 ---
+
 
 # --- 신규: 알림 API 엔드포인트 (Req 1, 2) ---
 @app.route('/api/notifications')

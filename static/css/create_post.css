@@ -1,104 +1,269 @@
-/* static/css/view_post.css */
+/* static/css/create_post.css */
 
-.post-view-widget {
-    max-width: 900px;
-    margin: 20px auto;
+.create-post-page .content-area {
+    grid-template-columns: 1fr;
+    padding: 20px;
+}
+
+.create-post-widget {
     background: var(--bg-secondary);
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    overflow: hidden; /* for clean edges */
+    border-radius: 16px;
+    padding: 25px 30px;
+    box-shadow: var(--shadow);
+    max-width: 1200px; /* 너비 확장 */
+    margin: 0 auto;
 }
 
-.post-header {
-    padding: 30px 40px;
+.create-post-widget .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     border-bottom: 2px solid var(--border-color);
-    background: #fdfafb; /* Slight tint for header */
+    padding-bottom: 15px;
+    margin-bottom: 25px;
 }
 
-.post-header h1 {
-    font-size: 28px;
-    font-weight: 700;
+.create-post-widget .widget-header h3 {
+    font-size: 20px;
     color: var(--text-primary);
-    line-height: 1.4;
+    font-weight: 600;
     margin: 0;
 }
 
-.post-meta {
-    margin-top: 15px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    display: flex;
-    flex-wrap: wrap; /* 모바일에서 줄바꿈 */
-    gap: 15px 20px; /* 세로, 가로 갭 */
+.create-post-widget .widget-header h3 i {
+    color: var(--korea-red);
+    margin-right: 8px;
 }
 
-.post-meta span {
-    display: inline-flex;
+/* 목록으로 버튼 스타일 */
+.btn-secondary {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.btn-secondary:hover {
+    background: #e9ecef;
+    color: var(--text-primary);
+}
+.btn-secondary i {
+    margin-right: 5px;
+}
+
+/* 플래시 메시지 */
+.flash-messages {
+    margin-bottom: 20px;
+}
+
+/* 폼 그리드 (2단 레이아웃) */
+.form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 입력 폼 : 미리보기 비율 */
+    gap: 30px;
+}
+
+/* 입력 폼 컬럼 */
+.form-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.input-group {
+    margin-bottom: 0; /* 그리드 gap 사용 */
+}
+
+.input-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    display: flex;
     align-items: center;
     gap: 6px;
 }
+.input-group label i {
+    color: var(--korea-red-light);
+}
 
-.post-meta .author-name {
+.input-group input[type="text"],
+.input-group textarea,
+.input-group input[type="file"] {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: #fdfdfd; /* 약간 다른 배경색 */
+    font-size: 15px;
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box; /* 패딩 포함 크기 계산 */
+}
+
+.input-group input[type="text"]:focus,
+.input-group textarea:focus {
+    outline: none;
+    border-color: var(--korea-red);
+    box-shadow: 0 0 0 3px rgba(165, 0, 52, 0.1);
+}
+
+.input-group textarea {
+    min-height: 300px; /* 높이 조정 */
+    line-height: 1.6;
+    resize: vertical;
+}
+
+/* 파일 업로드 스타일 */
+.input-group input[type="file"] {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+.input-group input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    border: none;
+    background: var(--korea-red-light);
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color .2s ease-in-out;
+}
+.input-group input[type="file"]::file-selector-button:hover {
+    background: var(--korea-red);
+}
+.form-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 5px;
+    display: block;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: #fdfafb;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--korea-red);
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    margin-bottom: 0;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+/* 미리보기 컬럼 */
+.form-right-column {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px dashed var(--border-color);
+    height: fit-content; /* 내용에 맞게 높이 조절 */
+    position: sticky; /* 스크롤 시 따라오도록 */
+    top: 89px; /* 헤더 높이 + 여백 */
+}
+
+.form-right-column h4 {
+    font-size: 16px;
     font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 0;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+.form-right-column h4 i {
     color: var(--korea-red);
 }
 
-.post-content {
-    padding: 40px;
-    font-size: 17px;
-    line-height: 1.8; /* 가독성 향상 */
-    color: #333;
-    
-    /* DB에 저장된 텍스트(textarea)의 줄바꿈(\n)을 
-      HTML <br> 태그처럼 보이게 처리합니다.
-    */
-    white-space: pre-wrap;
-    word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
+.preview-container {
+    max-height: 450px; /* 최대 높이 제한 */
+    overflow-y: auto; /* 내용 길면 스크롤 */
+    padding-right: 10px; /* 스크롤바 공간 확보 */
 }
 
-/* Request 3: 향후 리치 에디터 등을 통해 이미지가 본문에 포함될 경우
-  이미지가 부모 요소를 벗어나지 않도록 처리합니다.
-*/
-.post-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 20px 0;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* 본문 내 h 태그 등 (리치 에디터 사용 대비) 
-*/
-.post-content h2,
-.post-content h3 {
+.preview-title {
+    font-size: 20px;
+    font-weight: 700;
     color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 5px;
-    margin: 25px 0 15px;
+    margin-bottom: 15px;
+    line-height: 1.4;
+    word-break: break-all;
 }
 
-.post-actions {
-    padding: 20px 40px;
+.preview-content {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #444;
+    white-space: pre-wrap; /* JS에서 <br>로 변환하므로 필요 없을 수 있음 */
+    word-wrap: break-word;
+}
+.preview-content p:first-child {
+    margin-top: 0;
+}
+.preview-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* 폼 액션 (작성 완료 버튼) */
+.form-actions {
     text-align: right;
+    margin-top: 30px;
+    padding-top: 20px;
     border-top: 1px solid var(--border-color);
-    background: var(--bg-primary);
 }
 
-.btn-list {
-    background: var(--korea-red);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 20px;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.3s;
+.btn-primary { /* main.css 스타일 상속 */
+    padding: 10px 25px;
+    font-size: 15px;
+    border-radius: 25px;
 }
-
-.btn-list:hover {
-    background: var(--korea-red-light);
-    box-shadow: 0 4px 10px rgba(165, 0, 52, 0.2);
+.btn-primary:hover {
+    transform: translateY(-2px);
 }
-
-.btn-list i {
+.btn-primary i {
     margin-right: 5px;
+}
+
+/* 반응형 */
+@media (max-width: 992px) {
+    .form-grid {
+        grid-template-columns: 1fr; /* 1단 레이아웃 */
+    }
+    .form-right-column {
+        position: static; /* sticky 해제 */
+        margin-top: 30px;
+        max-height: none; /* 높이 제한 해제 */
+    }
+}
+
+@media (max-width: 768px) {
+    .create-post-widget {
+        padding: 20px;
+    }
+    .create-post-widget .widget-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
 }

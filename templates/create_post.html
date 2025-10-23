@@ -3,23 +3,23 @@
 {% block title %}KUSIS - 새 게시물 작성{% endblock %}
 
 {% block styles %}
-{# post_management.css에 create-post-widget 기본 스타일이 있을 수 있으므로 유지 #}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
-{# 요청하신 새 디자인 CSS 로드 (Req 1) #}
+{# 수정된 create_post.css 로드 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="content-area" style="grid-template-columns: 1fr;">
+<div class="content-area create-post-page">
     <div class="widget create-post-widget">
         <div class="widget-header">
             <h3><i class="fas fa-pencil-alt"></i> 새 게시물 작성</h3>
-            <a href="{{ url_for('post_management') }}" class="btn btn-cancel">목록으로</a>
+            <a href="{{ url_for('post_management') }}" class="btn btn-secondary">
+                <i class="fas fa-list"></i> 목록으로
+            </a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="margin-bottom: 15px;">
+                <div class="flash-messages">
                 {% for category, message in messages %}
                     <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
                 {% endfor %}
@@ -27,23 +27,50 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('create_post') }}" id="createPostForm">
-            <div class="input-group">
-                <label for="title">제목</label>
-                <input type="text" id="title" name="title" required placeholder="게시물 제목을 입력하세요" value="{{ title or '' }}">
+        {# --- 수정: form method 수정 및 enctype 추가 --- #}
+        <form method="POST" action="{{ url_for('create_post') }}" id="createPostForm" enctype="multipart/form-data">
+            <div class="form-grid">
+                {# --- 좌측: 입력 폼 --- #}
+                <div class="form-left-column">
+                    <div class="input-group">
+                        <label for="title">제목</label>
+                        <input type="text" id="title" name="title" required placeholder="게시물 제목을 입력하세요" value="{{ title or '' }}">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="content">내용</label>
+                        <textarea id="content" name="content" rows="15" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
+                    </div>
+
+                    {# --- 수정: 파일 업로드 추가 --- #}
+                    <div class="input-group">
+                        <label for="imageUpload"><i class="fas fa-image"></i> 이미지 첨부 (선택)</label>
+                        <input type="file" id="imageUpload" name="image" accept="image/*">
+                        <small class="form-text">이미지 파일(jpg, png, gif 등)을 선택하세요.</small>
+                    </div>
+                    {# --- 수정 끝 --- #}
+
+                    <div class="input-group checkbox-group">
+                        <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
+                        <label for="is_notice">공지사항으로 표시 (관리자 승인 필요)</label>
+                    </div>
+                </div>
+
+                {# --- 우측: 미리보기 --- #}
+                <div class="form-right-column">
+                    <h4><i class="fas fa-eye"></i> 미리보기</h4>
+                    <div class="preview-container">
+                        <h1 id="previewTitle" class="preview-title">제목이 여기에 표시됩니다</h1>
+                        <div id="previewContent" class="preview-content">
+                            <p>내용이 여기에 표시됩니다.</p>
+                            <p>사진 첨부 시 미리보기는 지원되지 않습니다.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="input-group">
-                <label for="content">내용</label>
-                {# 간단한 textarea. 리치 에디터(예: CKEditor, Quill)로 교체 가능 #}
-                <textarea id="content" name="content" rows="15" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
-                {# 이미지 첨부 기능은 여기에 추가 (예: <input type="file">) #}
-            </div>
-             <div class="input-group checkbox-group">
-                <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
-                <label for="is_notice">이 글을 공지사항으로 표시합니다 (관리자 승인 필요)</label>
-            </div>
-            <div style="text-align: right; margin-top: 20px;">
-                <button type="submit" class="btn btn-save">
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-submit-post">
                     <i class="fas fa-check"></i> 작성 완료
                 </button>
             </div>
@@ -53,5 +80,30 @@
 {% endblock %}
 
 {% block page_scripts %}
-{# 필요시 리치 텍스트 에디터 JS 초기화 등 추가 #}
+{# 미리보기 업데이트를 위한 JS 추가 #}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const titleInput = document.getElementById('title');
+    const contentInput = document.getElementById('content');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewContent = document.getElementById('previewContent');
+
+    function updatePreview() {
+        if (previewTitle) {
+            previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
+        }
+        if (previewContent) {
+            // textarea의 줄바꿈(\n)을 <br>로 치환하여 표시
+            const contentHtml = contentInput.value.replace(/\n/g, '<br>');
+            previewContent.innerHTML = contentHtml || '<p>내용이 여기에 표시됩니다.</p><p>사진 첨부 시 미리보기는 지원되지 않습니다.</p>';
+        }
+    }
+
+    if (titleInput) titleInput.addEventListener('input', updatePreview);
+    if (contentInput) contentInput.addEventListener('input', updatePreview);
+
+    // 초기 미리보기 설정
+    updatePreview();
+});
+</script>
 {% endblock %}
