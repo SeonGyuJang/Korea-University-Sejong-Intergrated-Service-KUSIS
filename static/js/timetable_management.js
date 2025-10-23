@@ -5,9 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSemesterId = null;
     let currentSemesterInfo = null;
     let allSemesters = [];
-    let currentSubjects = [];
+    let currentSubjects = []; // 현재 학기 과목 목록 (과목명 포함)
     let gpaChartInstance = null;
-    let selectedSubjectForDetails = null; // 우측 일일 메모용
+    // selectedSubjectForDetails 제거됨 (주차별 모아보기는 학기 전체 대상)
 
     let currentDailyMemoData = { note: "" }; // Req 1: 일일 메모 데이터
     const todayDateStr = new Date().toISOString().split('T')[0]; // Req 1: 오늘 날짜 YYYY-MM-DD
@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentMemoDateEl = document.getElementById('currentMemoDate'); // Req 1
     const dailyMemoText = document.getElementById('dailyMemoText'); // Req 1
     const saveDailyMemoBtn = document.getElementById('saveDailyMemoBtn'); // Req 1
+    let selectedSubjectForDailyMemo = null; // 일일 메모용으로 선택된 과목
 
     // 탭 DOM (좌측 위젯용)
     document.querySelectorAll('.timetable-side-content .widget-tabs .tab').forEach(tab => {
@@ -192,7 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 일일 메모 위젯 이벤트 리스너 (Req 1)
         if (saveDailyMemoBtn) saveDailyMemoBtn.addEventListener('click', saveDailyMemo);
-        if (viewAllMemosBtn) viewAllMemosBtn.addEventListener('click', openAllMemosModal); // Req 3
+        // *** 수정: viewAllMemosBtn 클릭 시 openAllMemosModal(currentSemesterId) 호출 ***
+        if (viewAllMemosBtn) viewAllMemosBtn.addEventListener('click', () => openAllMemosModal(currentSemesterId));
 
         // 주차별 모아보기 모달 (Req 3)
         if (allMemosModal) allMemosModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allMemosModal.classList.remove('active')));
@@ -229,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (globalAddTodoBtn) globalAddTodoBtn.addEventListener('click', addGlobalTodo);
         }
 
-        // 과목 선택 리스너 (이벤트 위임 사용)
+        // 과목 선택 리스너 (이벤트 위임 사용) - 일일 메모 로드
         if (subjectDetailsListUl) {
              subjectDetailsListUl.addEventListener('click', (e) => {
                 const li = e.target.closest('.subject-details-item');
@@ -237,7 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!e.target.closest('.grade-select') && !e.target.closest('.btn-edit-subject')) {
                         if (subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
                         li.classList.add('selected');
-                        selectSubjectForDetails(parseInt(li.dataset.subjectId, 10)); // Req 1: 일일 메모 로드 트리거
+                        // *** 수정: selectSubjectForDailyMemo 호출 ***
+                        selectSubjectForDailyMemo(parseInt(li.dataset.subjectId, 10)); // 일일 메모 로드 트리거
                     }
                 }
             });
@@ -257,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // 시간표 슬롯 클릭 리스너 (과목 선택)
+        // 시간표 슬롯 클릭 리스너 (과목 선택) - 일일 메모 로드
         if (timetableBody) {
             timetableBody.addEventListener('click', (e) => {
                 const slot = e.target.closest('.subject-slot');
@@ -269,7 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const selectedLi = subjectDetailsListUl.querySelector(`li[data-subject-id="${subjectId}"]`);
                         if(selectedLi) selectedLi.classList.add('selected');
                     }
-                    selectSubjectForDetails(subjectId); // Req 1: 일일 메모 로드 트리거
+                    // *** 수정: selectSubjectForDailyMemo 호출 ***
+                    selectSubjectForDailyMemo(subjectId); // 일일 메모 로드 트리거
                 }
             });
         }
@@ -294,7 +298,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedId && selectedId !== currentSemesterId) {
             currentSemesterId = selectedId;
             await loadTimetableForSemester(currentSemesterId);
-            selectedSubjectForDetails = null;
+            // *** 수정: selectedSubjectForDetails 대신 selectedSubjectForDailyMemo 사용 ***
+            selectedSubjectForDailyMemo = null;
             resetDailyMemoPanel(); // Req 1: 일일 메모 패널 초기화
         }
     }
@@ -306,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetDailyMemoPanel(); // Req 1
             disableGlobalTodoWidget("학기를 선택하세요.");
             currentSemesterInfo = null;
+            currentSubjects = []; // 과목 목록 초기화
             if (addSubjectBtn) addSubjectBtn.disabled = true;
             // Req 1: '현재 학기 학점' 관련 로직 없음
             return;
@@ -320,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             currentSemesterInfo = data.semester;
-            currentSubjects = data.subjects || [];
+            currentSubjects = data.subjects || []; // 과목 목록 업데이트
 
             renderTimetableGrid(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
@@ -341,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetDailyMemoPanel(); // Req 1
             disableGlobalTodoWidget(error.message);
             currentSemesterInfo = null;
+            currentSubjects = []; // 에러 시 과목 목록 초기화
             if (addSubjectBtn) addSubjectBtn.disabled = true;
             // Req 1: '현재 학기 학점' 관련 로직 없음
         }
@@ -562,12 +569,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-     // 과목 선택 시 처리 (Req 1: 일일 메모 패널 업데이트)
-     function selectSubjectForDetails(subjectId) {
-         selectedSubjectForDetails = currentSubjects.find(s => s.id === subjectId);
-         if (selectedSubjectForDetails) {
-             if(dailyMemoTitle) dailyMemoTitle.innerHTML = `<i class="fas fa-pencil-alt"></i> 오늘 메모 (${selectedSubjectForDetails.name})`;
-             if(dailyMemoSubjectName) dailyMemoSubjectName.textContent = selectedSubjectForDetails.name;
+     // *** 수정: 함수명 변경 및 로직 분리 ***
+     // 과목 선택 시 처리 (일일 메모 패널 업데이트)
+     function selectSubjectForDailyMemo(subjectId) {
+         selectedSubjectForDailyMemo = currentSubjects.find(s => s.id === subjectId);
+         if (selectedSubjectForDailyMemo) {
+             if(dailyMemoTitle) dailyMemoTitle.innerHTML = `<i class="fas fa-pencil-alt"></i> 오늘 메모 (${selectedSubjectForDailyMemo.name})`;
+             if(dailyMemoSubjectName) dailyMemoSubjectName.textContent = selectedSubjectForDailyMemo.name;
              loadDailyMemo(); // 오늘 날짜 메모 로드
              enableDailyMemoPanel();
          } else {
@@ -613,18 +621,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
          } catch (error) {
              alert(`등급 업데이트 실패: ${error.message}`);
+             // 실패 시 로컬 데이터 롤백 (선택 사항)
+             // const originalSubject = await fetch(`/api/subjects/${subjectId}`).then(res => res.json());
+             // if (originalSubject.status === 'success') {
+             //     subject.grade = originalSubject.subject.grade;
+             //     selectElement.value = subject.grade;
+             // }
          }
      }
 
      // 일일 메모 데이터 로드 (API 호출) - Req 1
      async function loadDailyMemo() {
-         if (!selectedSubjectForDetails || !dailyMemoText) return;
+         if (!selectedSubjectForDailyMemo || !dailyMemoText) return;
          dailyMemoText.disabled = true;
          dailyMemoText.value = '메모 로딩 중...';
          disableDailyMemoPanel();
 
          try {
-             const response = await fetch(`/api/subjects/${selectedSubjectForDetails.id}/memo/${todayDateStr}`);
+             const response = await fetch(`/api/subjects/${selectedSubjectForDailyMemo.id}/memo/${todayDateStr}`);
              if (!response.ok) throw new Error('메모 로드 실패');
              const memoData = await response.json();
              if (memoData.status === 'success') {
@@ -645,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
      // 일일 메모 저장 (API 호출) - Req 1
      async function saveDailyMemo() {
-         if (!selectedSubjectForDetails || !dailyMemoText) {
+         if (!selectedSubjectForDailyMemo || !dailyMemoText) {
              alert("과목을 먼저 선택해주세요.");
              return;
          }
@@ -656,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
          }
 
          try {
-             const response = await fetch(`/api/subjects/${selectedSubjectForDetails.id}/memo/${todayDateStr}`, {
+             const response = await fetch(`/api/subjects/${selectedSubjectForDailyMemo.id}/memo/${todayDateStr}`, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(currentDailyMemoData) // note만 포함
@@ -683,75 +697,93 @@ document.addEventListener('DOMContentLoaded', () => {
          }
      }
 
-     // '주차별 메모 모아보기' 모달 열기 - Req 3
-     async function openAllMemosModal() {
-        if (!selectedSubjectForDetails || !allMemosModal) {
-            alert("먼저 과목을 선택해주세요.");
+     // *** 수정: '주차별 메모 모아보기' 모달 열기 - 학기 ID 사용 ***
+     async function openAllMemosModal(semesterId) {
+        if (!semesterId || !allMemosModal) {
+            alert("먼저 학기를 선택해주세요.");
             return;
         }
 
         const modalTitle = allMemosModal.querySelector('.modal-header h3');
         const accordionContainer = allMemosModal.querySelector('#allMemosAccordion');
+        const semesterName = currentSemesterInfo ? currentSemesterInfo.name : "현재 학기"; // 학기 이름 표시
 
-        if (modalTitle) modalTitle.textContent = `${selectedSubjectForDetails.name} - 주차별 메모 모아보기`;
+        if (modalTitle) modalTitle.textContent = `${semesterName} - 주차별 메모 모아보기`;
         if (accordionContainer) accordionContainer.innerHTML = '<div class="loading-spinner-small"></div>';
         allMemosModal.classList.add('active');
 
         try {
-            const response = await fetch(`/api/subjects/${selectedSubjectForDetails.id}/all-memos-by-week`);
+            // *** 수정: API 엔드포인트 변경 ***
+            const response = await fetch(`/api/semesters/${semesterId}/all-memos-by-week`);
             const result = await response.json();
             if (result.status !== 'success') throw new Error(result.message);
 
             if (Array.isArray(result.data)) {
-                renderAllMemosAccordion(result.data, accordionContainer); // 새 렌더링 함수 호출
+                // *** 수정: renderAllMemosAccordion 호출 ***
+                renderAllMemosAccordion(result.data, accordionContainer);
             } else {
                 console.error("API response data is not an array:", result.data);
                 throw new Error("데이터 형식이 올바르지 않습니다.");
             }
         } catch (error) {
+             console.error("주차별 메모 로드 실패:", error);
              if (accordionContainer) accordionContainer.innerHTML = `<p class="todo-summary-empty">${error.message}</p>`;
         }
      }
 
-    // '주차별 메모 모아보기' 아코디언 렌더링 - Req 3
+    // *** 수정: '주차별 메모 모아보기' 아코디언 렌더링 - 과목별 그룹화 ***
      function renderAllMemosAccordion(allWeeksData, container) {
          if (!container) return;
         container.innerHTML = '';
 
-        // 메모가 하나라도 있는지 확인
-        const hasAnyContent = Array.isArray(allWeeksData) && allWeeksData.some(week => week.memos && week.memos.length > 0);
+        // 주차 데이터가 하나라도 있는지, 그 안에 과목 데이터가 하나라도 있는지 확인
+        const hasAnyContent = Array.isArray(allWeeksData) && allWeeksData.some(week => week.subjects && week.subjects.length > 0);
 
         if (!hasAnyContent) {
-            container.innerHTML = `<p class="todo-summary-empty">모든 주차에 기록된 메모가 없습니다.</p>`;
+            container.innerHTML = `<p class="todo-summary-empty">이 학기에는 기록된 주차별 메모가 없습니다.</p>`;
             return;
         }
 
         allWeeksData.forEach(week => {
-             const weekMemos = week.memos || [];
-             // 해당 주차에 메모가 있을 때만 아코디언 항목 생성
-             if (weekMemos.length === 0) return;
+             const weekSubjects = week.subjects || [];
+             // 해당 주차에 메모가 있는 과목이 있을 때만 아코디언 항목 생성
+             if (weekSubjects.length === 0) return;
 
              const itemDiv = document.createElement('div');
              itemDiv.className = 'accordion-item';
 
-             // 메모 내용을 HTML로 구성
-             let memosHtml = weekMemos.map(memo =>
-                 `<div class="daily-memo-entry">
-                    <span class="memo-date">${memo.date} (${new Date(memo.date).toLocaleDateString('ko-KR', { weekday: 'short' })})</span>
-                    <p class="memo-note">${memo.note}</p>
-                  </div>`
-             ).join('');
+             // --- 과목별 메모 HTML 생성 ---
+             let subjectsHtml = '';
+             weekSubjects.forEach(subjectData => {
+                 if (!subjectData.memos || subjectData.memos.length === 0) return; // 메모 없으면 건너뛰기
 
-             itemDiv.innerHTML = `
-                 <div class="accordion-header">
-                     <span class="week-title">${week.week_number}주차 (${week.date_range})</span>
-                     <i class="fas fa-chevron-down"></i>
-                 </div>
-                 <div class="accordion-content">
-                     ${memosHtml}
-                 </div>
-             `;
-             container.appendChild(itemDiv);
+                 subjectsHtml += `<div class="subject-memo-group">
+                                    <h5 class="subject-memo-title">${subjectData.subject_name}</h5>`;
+
+                 subjectsHtml += subjectData.memos.map(memo =>
+                     `<div class="daily-memo-entry">
+                        <span class="memo-date">${memo.date} (${new Date(memo.date).toLocaleDateString('ko-KR', { weekday: 'short' })})</span>
+                        <p class="memo-note">${memo.note}</p>
+                      </div>`
+                 ).join('');
+
+                 subjectsHtml += `</div>`; // subject-memo-group 닫기
+             });
+             // --- 과목별 메모 HTML 생성 끝 ---
+
+             // 과목별 내용이 있을 때만 아코디언 항목 생성
+             if (subjectsHtml) {
+                 itemDiv.innerHTML = `
+                     <div class="accordion-header">
+                         <span class="week-title">${week.week_number}주차 (${week.date_range})</span>
+                         <i class="fas fa-chevron-down"></i>
+                     </div>
+                     <div class="accordion-content">
+                         ${subjectsHtml}
+                     </div>
+                 `;
+                 container.appendChild(itemDiv);
+             }
          });
 
          // 아코디언 토글 이벤트 리스너 추가
@@ -760,12 +792,26 @@ document.addEventListener('DOMContentLoaded', () => {
                  const content = header.nextElementSibling;
                  const item = header.parentElement;
                  const isActive = item.classList.contains('active');
+
+                 // 모든 활성 아코디언 닫기 (선택사항: 하나만 열리게 하려면)
+                 // container.querySelectorAll('.accordion-item.active').forEach(activeItem => {
+                 //     if (activeItem !== item) {
+                 //         activeItem.classList.remove('active');
+                 //         activeItem.querySelector('.accordion-content').style.maxHeight = null;
+                 //     }
+                 // });
+
                  item.classList.toggle('active', !isActive);
                  if (content) {
                      content.style.maxHeight = isActive ? null : content.scrollHeight + 32 + "px"; // padding 고려
                  }
              });
          });
+
+         // 만약 생성된 아코디언 항목이 없다면 메시지 표시
+         if (container.children.length === 0) {
+              container.innerHTML = `<p class="todo-summary-empty">이 학기에는 기록된 주차별 메모가 없습니다.</p>`;
+         }
      }
 
      // 오른쪽 과목 상세 패널 리셋
@@ -782,7 +828,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
          currentDailyMemoData = { note: "" };
          disableDailyMemoPanel();
-         selectedSubjectForDetails = null;
+         // *** 수정: selectedSubjectForDetails 대신 selectedSubjectForDailyMemo 사용 ***
+         selectedSubjectForDailyMemo = null;
          if(subjectDetailsListUl) subjectDetailsListUl.querySelectorAll('.subject-details-item.selected').forEach(el => el.classList.remove('selected'));
      }
 
@@ -930,7 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTimetableGrid(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
             // --- 수정 끝 ---
-            
+
             await loadGpaStats(); // GPA 차트 동기화
         } catch (error) {
             alert(`저장 실패: ${error.message}`);
@@ -980,10 +1027,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSubjectDetailsList(currentSubjects);
 
             // 일일 메모 패널 업데이트 (선택된 과목이면)
-            if (selectedSubjectForDetails && selectedSubjectForDetails.id === updatedSubjectData.id) {
-                 selectSubjectForDetails(updatedSubjectData.id);
+            // *** 수정: selectedSubjectForDetails 대신 selectedSubjectForDailyMemo 사용 ***
+            if (selectedSubjectForDailyMemo && selectedSubjectForDailyMemo.id === updatedSubjectData.id) {
+                 selectSubjectForDailyMemo(updatedSubjectData.id);
             }
-            
+
             // --- 수정 (Req 1) ---
             // '총 이수 학점' 즉시 업데이트
             if (currentCreditsEl && result.total_earned_credits !== undefined) {
@@ -992,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateCreditProgress(newTotalCredits, currentGoal);
             }
             // --- 수정 끝 ---
-            
+
             await loadGpaStats(); // GPA 차트 동기화
 
         } catch (error) {
@@ -1021,10 +1069,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTimetableGrid(currentSubjects);
             renderSubjectDetailsList(currentSubjects);
 
-            if (selectedSubjectForDetails && selectedSubjectForDetails.id === parseInt(subjectId, 10)) {
+            // *** 수정: selectedSubjectForDetails 대신 selectedSubjectForDailyMemo 사용 ***
+            if (selectedSubjectForDailyMemo && selectedSubjectForDailyMemo.id === parseInt(subjectId, 10)) {
                 resetDailyMemoPanel(); // Req 1
             }
-            
+
             // --- 수정 (Req 1) ---
             // '총 이수 학점' 즉시 업데이트
             if (currentCreditsEl && result.total_earned_credits !== undefined) {
@@ -1253,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const textBeforeCursor = value.substring(0, cursorPos);
         const atMatch = textBeforeCursor.match(/@([\wㄱ-ㅎㅏ-ㅣ가-힣]*)$/);
 
-        if (atMatch) {
+        if (atMatch && currentSubjects && currentSubjects.length > 0) { // currentSubjects 확인 추가
             const query = atMatch[1].toLowerCase();
             const suggestions = currentSubjects.filter(subject =>
                 subject.name.toLowerCase().includes(query)
@@ -1309,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Todo 텍스트에서 @태그된 과목명 하이라이팅 (Req 4)
     function highlightTaggedSubjects(taskText) {
-        if (!taskText || typeof taskText !== 'string') return taskText;
+        if (!taskText || typeof taskText !== 'string' || !currentSubjects) return taskText; // currentSubjects 확인 추가
         return taskText.replace(/@([\wㄱ-ㅎㅏ-ㅣ가-힣]+)/g, (match, subjectName) => {
             const subject = currentSubjects.find(s => s.name === subjectName);
             if (subject && subjectColorMap[subject.id]) {

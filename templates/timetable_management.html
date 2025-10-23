@@ -161,6 +161,7 @@
         <div class="widget daily-memo-widget">
              <div class="widget-header">
                 <h3 id="dailyMemoTitle"><i class="fas fa-pencil-alt"></i> 오늘 메모</h3>
+                 {# *** 수정: 버튼 위치 변경 (모달 헤더로 이동 X, 원래 위치 유지) *** #}
                 <button id="viewAllMemosBtn" class="btn-more" title="주차별 메모 모아보기"><i class="fas fa-book-reader"></i></button>
              </div>
              <div class="daily-memo-content">
@@ -181,9 +182,9 @@
     </div>
 </div>
 
-{# --- 모달들 (기존 유지) --- #}
+{# --- 모달들 --- #}
 
-{# 주차별 메모 모아보기 모달 (기존 유지) #}
+{# *** 수정: 주차별 메모 모아보기 모달 구조 변경 없음 (JS에서 내용만 변경) *** #}
 <div class="modal large-modal" id="allMemosModal">
     <div class="modal-content">
         <div class="modal-header">

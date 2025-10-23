@@ -843,17 +843,38 @@
     border-top: 1px solid var(--border-color);
 }
 .accordion-item.active .accordion-content { /* 활성화 시 패딩 적용 */
-    padding: 10px 14px;
+    padding: 16px 14px; /* 패딩 증가 */
 }
+
+/* *** 수정: 과목별 메모 그룹 스타일 *** */
+.subject-memo-group {
+    margin-bottom: 16px; /* 과목 그룹 간 간격 */
+    padding-bottom: 12px; /* 그룹 하단 패딩 */
+    border-bottom: 1px dashed #ddd; /* 과목 그룹 구분선 */
+}
+.subject-memo-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.subject-memo-title { /* 과목명 제목 */
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px; /* 제목과 메모 내용 간 간격 */
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--korea-red-light);
+    display: inline-block; /* 밑줄 길이 조절 */
+}
+
 .accordion-content .daily-memo-entry { /* 각 날짜별 메모 항목 */
     margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px dashed #eee;
+    /* border-bottom 제거 (과목 그룹에서 처리) */
 }
 .accordion-content .daily-memo-entry:last-child {
     margin-bottom: 0;
     padding-bottom: 0;
-    border-bottom: none;
 }
 .accordion-content .memo-date { /* 메모 날짜 */
     display: block;

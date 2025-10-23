@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 from sqlalchemy import inspect, func, cast, Date as SQLDate # DB 테이블 존재 여부 확인 및 날짜 계산 위해 임포트
+from collections import defaultdict # defaultdict 임포트 추가
 
 load_dotenv()
 
@@ -308,7 +309,8 @@ def create_initial_data():
 
     if not db.session.get(User, admin_id):
         print(f"Admin user {admin_id} not found. Creating...")
-        admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash("13272441"), is_admin=True)
+        admin_pwd = os.getenv("ADMIN_PASSWORD")
+        admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash(admin_pwd), is_admin=True)
         db.session.add(admin_user)
         db.session.commit()
         _create_semesters_for_user(admin_id)
@@ -318,7 +320,8 @@ def create_initial_data():
 
     if not db.session.get(User, sample_user_id):
         print(f"Sample user {sample_user_id} not found. Creating...")
-        sample_user = User(name="장선규", id=sample_user_id, dob="2004-06-16", college="개발자", department="ADMIN", password_hash=generate_password_hash("top13272441"), is_admin=False)
+        sample_pwd = os.getenv("SAMPLE_PASSWORD")
+        sample_user = User(name="장선규", id=sample_user_id, dob="2004-06-16", college="개발자", department="ADMIN", password_hash=generate_password_hash(sample_pwd), is_admin=False)
         db.session.add(sample_user)
         db.session.commit()
         _create_semesters_for_user(sample_user_id)
@@ -768,7 +771,7 @@ def create_subject():
         # --- 수정 끝 ---
 
         created_subject_data = {"id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor, "credits": new_subject.credits, "grade": new_subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in new_subject.timeslots]}
-        
+
         # --- 수정 (Req 1) ---
         # 'current_semester_credits' 대신 'total_earned_credits' 반환
         return jsonify({"status": "success", "message": "과목이 추가되었습니다.", "subject": created_subject_data, "total_earned_credits": total_earned_credits}), 201
@@ -803,7 +806,7 @@ def handle_subject(subject_id):
             # --- 수정 끝 ---
 
             updated_subject_data = {"id": subject.id, "name": subject.name, "professor": subject.professor, "credits": subject.credits, "grade": subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in subject.timeslots]}
-            
+
             # --- 수정 (Req 1) ---
             # 'current_semester_credits' 대신 'total_earned_credits' 반환
             return jsonify({"status": "success", "message": "과목이 수정되었습니다.", "subject": updated_subject_data, "total_earned_credits": total_earned_credits})
@@ -822,7 +825,7 @@ def handle_subject(subject_id):
             all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
             total_earned_credits = sum(s.credits for s in all_user_subjects)
             # --- 수정 끝 ---
-            
+
             # --- 수정 (Req 1) ---
             # 'current_semester_credits' 대신 'total_earned_credits' 반환
             return jsonify({"status": "success", "message": "과목 및 관련 데이터가 삭제되었습니다.", "total_earned_credits": total_earned_credits})
@@ -884,58 +887,80 @@ def update_daily_memo(subject_id, memo_date_str):
         return jsonify({"status": "error", "message": f"메모 저장 중 오류 발생: {e}"}), 500
 
 
-# --- 주차별 메모 모아보기 API (기존 유지) ---
-@app.route('/api/subjects/<int:subject_id>/all-memos-by-week', methods=['GET'])
+# --- 주차별 메모 모아보기 API ( *** 수정됨 *** ) ---
+# URL 경로 변경: subject_id 대신 semester_id 사용
+@app.route('/api/semesters/<int:semester_id>/all-memos-by-week', methods=['GET'])
 @login_required
-def get_all_memos_by_week(subject_id):
+def get_all_memos_by_week(semester_id):
     user_id = session['student_id']
-    subject = db.session.get(Subject, subject_id)
-    if not subject or subject.user_id != user_id:
-        return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
+    # 학기 정보 조회 및 권한 확인
+    semester = db.session.get(Semester, semester_id)
+    if not semester or semester.user_id != user_id:
+        return jsonify({"status": "error", "message": "학기를 찾을 수 없거나 권한이 없습니다."}), 404
 
     try:
-        semester = subject.semester
+        # 학기 시작일 가져오기
         semester_start_date = semester.start_date if semester.start_date else get_semester_start_date_from_calendar(semester.year, semester.season)
         if not semester_start_date:
             return jsonify({"status": "error", "message": "학기 시작일을 계산할 수 없습니다."}), 500
 
-        all_memos = DailyMemo.query.filter_by(subject_id=subject.id).order_by(DailyMemo.memo_date).all()
+        # 해당 학기의 모든 과목 ID 조회
+        subjects_in_semester = Subject.query.filter_by(semester_id=semester.id).all()
+        subject_ids = [s.id for s in subjects_in_semester]
+        subject_name_map = {s.id: s.name for s in subjects_in_semester} # 과목 ID -> 과목명 맵
 
-        memos_by_week = {}
+        # 해당 과목들의 모든 메모 조회
+        all_memos = DailyMemo.query.filter(DailyMemo.subject_id.in_(subject_ids)).order_by(DailyMemo.memo_date).all()
+
+        # 주차별, 과목별로 메모 그룹화
+        # memos_by_week = { week_num: { subject_id: [memo1, memo2], ... }, ... }
+        memos_by_week = defaultdict(lambda: defaultdict(list))
+
         for memo in all_memos:
             if memo.memo_date >= semester_start_date:
                 days_diff = (memo.memo_date - semester_start_date).days
                 week_num = (days_diff // 7) + 1
             else:
-                week_num = 0
+                week_num = 0 # 학기 시작 전 메모는 0주차 (혹은 필요에 따라 다른 처리)
 
-            if week_num not in memos_by_week:
-                memos_by_week[week_num] = []
+            if 1 <= week_num <= 16: # 1주차부터 16주차까지만 포함 (필요시 조정)
+                memos_by_week[week_num][memo.subject_id].append({
+                    "date": memo.memo_date.isoformat(),
+                    "note": memo.note
+                })
 
-            memos_by_week[week_num].append({
-                "date": memo.memo_date.isoformat(),
-                "note": memo.note
-            })
-
+        # 최종 결과 데이터 구조 생성
         result_data = []
-        for week_num in range(1, 17):
+        for week_num in range(1, 17): # 1주차부터 16주차까지
             date_range = f"{week_num}주차"
             try:
                 week_start = semester_start_date + timedelta(weeks=(week_num - 1))
                 week_end = week_start + timedelta(days=6)
                 date_range = f"{week_start.strftime('%m.%d')} ~ {week_end.strftime('%m.%d')}"
-            except OverflowError: pass
+            except OverflowError: pass # 날짜 계산 오류 방지
+
+            # 해당 주차의 과목별 메모 데이터
+            subjects_data = []
+            if week_num in memos_by_week:
+                # 과목 ID 순서대로 정렬 (선택 사항)
+                sorted_subject_ids = sorted(memos_by_week[week_num].keys())
+                for subj_id in sorted_subject_ids:
+                    subjects_data.append({
+                        "subject_id": subj_id,
+                        "subject_name": subject_name_map.get(subj_id, "Unknown Subject"),
+                        "memos": memos_by_week[week_num][subj_id]
+                    })
 
             result_data.append({
                 "week_number": week_num,
                 "date_range": date_range,
-                "memos": memos_by_week.get(week_num, [])
+                "subjects": subjects_data # 과목별 메모 목록 포함
             })
 
-        return jsonify({"status": "success", "subject_name": subject.name, "data": result_data})
+        return jsonify({"status": "success", "semester_name": semester.name, "data": result_data})
 
     except Exception as e:
-        print(f"Error in get_all_memos_by_week: {e}")
+        print(f"Error in get_all_memos_by_week (semester): {e}")
         return jsonify({"status": "error", "message": f"전체 메모 로드 중 오류: {e}"}), 500
 
 
@@ -952,20 +977,20 @@ def get_gpa_stats():
             grade_score = GRADE_MAP.get(subject.grade)
             if grade_score is not None: semester_gpa_credits += subject.credits; semester_gpa_score += (grade_score * subject.credits)
         if semester_gpa_credits > 0: semester_gpa = (semester_gpa_score / semester_gpa_credits); stats.append({"semester_name": semester.name, "gpa": round(semester_gpa, 2)})
-    
+
     all_subjects = Subject.query.filter_by(user_id=user_id).all()
-    
+
     # --- 수정 (Req 1) ---
     # 총 이수 학점: 성적 여부와 관계없이 모든 과목 학점 합산
     total_earned_credits = sum(s.credits for s in all_subjects)
     # --- 수정 끝 ---
-    
+
     total_gpa_credits, total_gpa_score = 0, 0
     for subject in all_subjects:
         grade_score = GRADE_MAP.get(subject.grade)
         if grade_score is not None: total_gpa_credits += subject.credits; total_gpa_score += (grade_score * subject.credits)
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
-    
+
     return jsonify({"semesters": stats, "overall_gpa": round(overall_gpa, 2), "total_earned_credits": total_earned_credits})
 
 @app.route('/api/study-stats', methods=['GET'])
