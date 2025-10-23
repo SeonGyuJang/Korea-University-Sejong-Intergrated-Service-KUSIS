@@ -2,56 +2,216 @@
 
 {% block title %}KUSIS - 관리자 대시보드{% endblock %}
 
+{% block styles %}
+{# 필요하다면 admin 페이지 전용 CSS 추가 #}
+<style>
+    .admin-dashboard-widget { max-width: 1200px; margin: 0 auto; }
+    .form-grid-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .actions-cell { white-space: nowrap; text-align: center; }
+    .actions-cell .btn-sm { padding: 5px 10px; font-size: 13px; margin-left: 5px; }
+    .permission-select { padding: 4px 8px; font-size: 13px; border-radius: 6px; }
+    .user-table th a { color: inherit; text-decoration: none; }
+    .user-table th a:hover { text-decoration: underline; }
+    .user-table th .sort-icon { margin-left: 4px; font-size: 0.8em; }
+    .form-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+    .form-section h4 { margin-bottom: 15px; font-size: 18px; color: var(--text-primary); }
+</style>
+{% endblock %}
+
+
 {% block content %}
-<div class="content-area" style="grid-template-columns: 1fr; max-width: 1000px; margin: 0 auto;">
+<div class="content-area" style="grid-template-columns: 1fr;">
     <div class="widget admin-dashboard-widget">
         <div class="widget-header">
             <h3><i class="fas fa-users-cog"></i> 관리자 대시보드</h3>
         </div>
-        
+
+        {# --- 통계 --- #}
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label"><i class="fas fa-user-graduate"></i> 총 회원 수</div>
                 <div class="stat-value" style="color: var(--korea-red); font-size: 32px; font-weight: 700;">{{ member_count }}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label"><i class="fas fa-calendar-check"></i> 일반 사용자 수</div>
-                <div class="stat-value">{{ member_list | rejectattr('is_admin') | list | length }}</div>
+                <div class="stat-label"><i class="fas fa-user"></i> 일반회원 수</div>
+                <div class="stat-value">{{ member_list | selectattr('permission', 'equalto', 'general') | list | length }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="fas fa-user-friends"></i> 협력회원 수</div>
+                <div class="stat-value">{{ member_list | selectattr('permission', 'equalto', 'associate') | list | length }}</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label"><i class="fas fa-shield-alt"></i> 관리자 계정 수</div>
-                <div class="stat-value">{{ member_list | selectattr('is_admin') | list | length }}</div>
+                <div class="stat-value">{{ member_list | selectattr('permission', 'equalto', 'admin') | list | length }}</div>
             </div>
         </div>
 
-        <h4 style="margin-top: 30px; margin-bottom: 15px; font-size: 18px; color: var(--text-primary);"><i class="fas fa-list"></i> 회원 목록</h4>
-        
-        <div class="member-list-container">
-            <table class="member-table">
-                <thead>
-                    <tr>
-                        <th>학번</th>
-                        <th>이름</th>
-                        <th>소속 학과</th>
-                        <th>권한</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for member in member_list %}
-                    <tr class="{% if member.is_admin %}admin-row{% endif %}">
-                        <td>{{ member.id }}</td>
-                        <td>{{ member.name }}</td>
-                        <td>{{ member.department }}</td>
-                        <td>
-                            <span class="auth-tag {% if member.is_admin %}admin{% else %}user{% endif %}">
-                                {% if member.is_admin %}<i class="fas fa-crown"></i> 관리자{% else %}일반 사용자{% endif %}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        {# --- 플래시 메시지 --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="margin-top: 15px;">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {# --- 새 사용자 생성 폼 --- #}
+        <div class="form-section">
+            <h4><i class="fas fa-user-plus"></i> 새 사용자 생성</h4>
+            <form id="createUserForm" method="POST" action="{{ url_for('admin_create_user') }}">
+                <div class="form-grid-admin">
+                    <div class="input-group">
+                        <label for="create_name">이름 <span style="color:red;">*</span></label>
+                        <input type="text" id="create_name" name="name" required placeholder="이름">
+                    </div>
+                    <div class="input-group">
+                        <label for="create_student_id">학번 <span style="color:red;">*</span></label>
+                        <input type="text" id="create_student_id" name="student_id" pattern="\d{10}" maxlength="10" required placeholder="10자리 학번">
+                    </div>
+                     <div class="input-group">
+                        <label for="create_password">비밀번호 <span style="color:red;">*</span></label>
+                        <input type="password" id="create_password" name="password" required placeholder="초기 비밀번호">
+                    </div>
+                    <div class="input-group">
+                        <label for="create_dob">생년월일 <span style="color:red;">*</span></label>
+                        <input type="date" id="create_dob" name="dob" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="create_college">단과대학 <span style="color:red;">*</span></label>
+                        <select id="create_college" name="college" required onchange="updateDepartments('create_')">
+                            <option value="" disabled selected>단과대학 선택</option>
+                            {% for college in colleges.keys() %}
+                                <option value="{{ college }}">{{ college }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="create_department">학과 <span style="color:red;">*</span></label>
+                        <select id="create_department" name="department" required>
+                            <option value="" disabled selected>학과 선택</option>
+                        </select>
+                    </div>
+                     <div class="input-group">
+                        <label for="create_permission">권한</label>
+                        <select id="create_permission" name="permission">
+                            {% for key, value in permission_map.items() %}
+                                <option value="{{ key }}" {% if key == 'general' %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-save" style="margin-top: 15px;"><i class="fas fa-plus-circle"></i> 사용자 추가</button>
+            </form>
+            {# 단과대/학과 데이터 (JS용) #}
+            <textarea id="college-data-json" style="display:none;">{{ colleges | tojson | safe }}</textarea>
+        </div>
+
+
+        {# --- 사용자 목록 --- #}
+        <div class="form-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4><i class="fas fa-list"></i> 회원 목록</h4>
+                {# 학과별 정렬 드롭다운 #}
+                <div>
+                    <label for="departmentFilter" style="margin-right: 5px; font-size: 14px;">학과 필터:</label>
+                    <select id="departmentFilter" style="padding: 6px 10px; border-radius: 6px;">
+                        <option value="">전체 학과</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept }}">{{ dept }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="member-list-container">
+                <table class="member-table user-table">
+                    <thead>
+                        <tr>
+                            {# 정렬 링크 추가 #}
+                            <th>
+                                <a href="{{ url_for('admin_dashboard', sort_by='id', sort_order='desc' if current_sort_by == 'id' and current_sort_order == 'asc' else 'asc') }}">
+                                    학번
+                                    {% if current_sort_by == 'id' %}
+                                    <i class="fas {{ 'fa-sort-up' if current_sort_order == 'asc' else 'fa-sort-down' }} sort-icon"></i>
+                                    {% else %}
+                                    <i class="fas fa-sort sort-icon" style="opacity: 0.3;"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('admin_dashboard', sort_by='name', sort_order='desc' if current_sort_by == 'name' and current_sort_order == 'asc' else 'asc') }}">
+                                    이름
+                                     {% if current_sort_by == 'name' %}
+                                    <i class="fas {{ 'fa-sort-up' if current_sort_order == 'asc' else 'fa-sort-down' }} sort-icon"></i>
+                                     {% else %}
+                                    <i class="fas fa-sort sort-icon" style="opacity: 0.3;"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>단과대학</th>
+                            <th>
+                                <a href="{{ url_for('admin_dashboard', sort_by='department', sort_order='desc' if current_sort_by == 'department' and current_sort_order == 'asc' else 'asc') }}">
+                                    학과
+                                     {% if current_sort_by == 'department' %}
+                                    <i class="fas {{ 'fa-sort-up' if current_sort_order == 'asc' else 'fa-sort-down' }} sort-icon"></i>
+                                     {% else %}
+                                    <i class="fas fa-sort sort-icon" style="opacity: 0.3;"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                             <th>
+                                <a href="{{ url_for('admin_dashboard', sort_by='permission', sort_order='desc' if current_sort_by == 'permission' and current_sort_order == 'asc' else 'asc') }}">
+                                    권한
+                                     {% if current_sort_by == 'permission' %}
+                                    <i class="fas {{ 'fa-sort-up' if current_sort_order == 'asc' else 'fa-sort-down' }} sort-icon"></i>
+                                     {% else %}
+                                    <i class="fas fa-sort sort-icon" style="opacity: 0.3;"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th style="text-align: center;">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userListBody">
+                        {% for member in member_list %}
+                        <tr data-department="{{ member.department }}">
+                            <td>{{ member.id }}</td>
+                            <td>{{ member.name }}</td>
+                            <td>{{ member.college }}</td>
+                            <td>{{ member.department }}</td>
+                            <td>
+                                {# 권한 변경 드롭다운 #}
+                                <select class="permission-select" data-user-id="{{ member.id }}" data-original-permission="{{ member.permission }}" {% if member.id == session.student_id %}disabled title="자신의 권한은 변경할 수 없습니다."{% endif %}>
+                                    {% for key, value in permission_map.items() %}
+                                        <option value="{{ key }}" {% if member.permission == key %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="actions-cell">
+                                {# 사용자 삭제 버튼 #}
+                                <button class="btn btn-danger btn-sm delete-user-btn" data-user-id="{{ member.id }}" data-user-name="{{ member.name }}" {% if member.id == session.student_id %}disabled title="자신을 삭제할 수 없습니다."{% endif %}>
+                                    <i class="fas fa-trash-alt"></i> 삭제
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-secondary);">등록된 사용자가 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block page_scripts %}
+{# 새 JS 파일 로드 #}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 {% endblock %}

@@ -11,7 +11,7 @@ import urllib.parse
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-from sqlalchemy import inspect, func, cast, Date as SQLDate # DB 테이블 존재 여부 확인 및 날짜 계산 위해 임포트
+from sqlalchemy import inspect, func, cast, Date as SQLDate, text # text 임포트 추가
 from collections import defaultdict # defaultdict 임포트 추가
 
 load_dotenv()
@@ -19,7 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # --- Configuration (기존 유지) ---
-app.secret_key = 'your_super_secret_key_for_session_management'
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your_super_secret_key_for_session_management') # 환경 변수 사용 권장
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
 app.config['SESSION_TYPE'] = 'filesystem'
 
@@ -61,17 +61,18 @@ COLLEGES = {
     "스마트도시학부": ["스마트도시학부"]
 }
 
-# --- Database Models (기존 유지) ---
+# --- Database Models (User 모델 수정) ---
 
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.String(10), primary_key=True)
     name = db.Column(db.String(50), nullable=False)
-    dob = db.Column(db.String(10), nullable=False)
+    dob = db.Column(db.String(10), nullable=False) # Date 타입 사용 고려
     college = db.Column(db.String(100), nullable=False)
     department = db.Column(db.String(100), nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    # is_admin 대신 permission 컬럼 추가
+    permission = db.Column(db.String(20), default='general', nullable=False) # 'general', 'associate', 'admin'
     total_credits_goal = db.Column(db.Integer, default=130, nullable=False)
 
     semesters = db.relationship('Semester', backref='user', lazy=True, cascade="all, delete-orphan")
@@ -80,7 +81,12 @@ class User(db.Model):
     study_logs = db.relationship('StudyLog', backref='user', lazy=True, cascade="all, delete-orphan")
     todos = db.relationship('Todo', backref='user', lazy=True, cascade="all, delete-orphan") # 독립 Todo 유지
 
+    # is_admin 속성 호환성 유지 (permission 기반)
+    @property
+    def is_admin(self):
+        return self.permission == 'admin'
 
+# Semester, Subject, TimeSlot, DailyMemo, Schedule, StudyLog, Todo 모델은 기존 유지
 class Semester(db.Model):
     __tablename__ = 'semesters'
     id = db.Column(db.Integer, primary_key=True)
@@ -300,28 +306,99 @@ def manage_semesters_job():
             print(f"Error in semester management job: {e}")
 
 
-# --- DB 초기화 (DailyMemo 샘플 추가) ---
+# --- DB 초기화 (User 모델 수정 반영 및 마이그레이션) ---
 def create_initial_data():
+    # 1. 모델 기준으로 테이블이 존재하는지 확인/생성
+    # (참고: db.create_all()은 컬럼 추가/삭제 등 마이그레이션은 수행하지 않음)
     db.create_all()
 
+    # ★★★★★ [수정됨] 스키마 마이그레이션 로직 ★★★★★
+    # User 모델이 'permission'을 사용하도록 변경되었으므로
+    # 실제 DB에도 해당 컬럼이 있는지 확인하고 없으면 추가/마이그레이션
+    try:
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        has_permission_col = 'permission' in columns
+        has_is_admin_col = 'is_admin' in columns # 이전 'is_admin' 컬럼 존재 여부 확인
+
+        if not has_permission_col:
+            print("--- [MIGRATION] 'permission' column not found in 'users' table. Adding column... ---")
+            # 1. permission 컬럼 추가 (기본값 'general', NOT NULL)
+            db.session.execute(text("ALTER TABLE users ADD COLUMN permission VARCHAR(20) NOT NULL DEFAULT 'general'"))
+            # 기본값이 적용되도록 커밋
+            db.session.commit()
+            print("--- [MIGRATION] 'permission' column added with default 'general'. ---")
+            
+            # 2. 기존 is_admin 데이터가 있다면 permission 컬럼으로 마이그레이션
+            if has_is_admin_col:
+                print("--- [MIGRATION] Old 'is_admin' column found. Migrating data to 'permission'... ---")
+                db.session.execute(text("UPDATE users SET permission = 'admin' WHERE is_admin = TRUE"))
+                db.session.commit()
+                print("--- [MIGRATION] Data migration complete. ---")
+                
+                # 3. (선택적) 더 이상 필요 없는 is_admin 컬럼 삭제 (주석 처리)
+                # print("--- [MIGRATION] Dropping old 'is_admin' column... ---")
+                # db.session.execute(text("ALTER TABLE users DROP COLUMN is_admin"))
+                # db.session.commit()
+                # print("--- [MIGRATION] Old 'is_admin' column dropped. ---")
+            else:
+                 print("--- [MIGRATION] 'is_admin' column not found, skipping data migration. ---")
+        
+        # 'general' 기본값이 잘 적용되었는지 확인 (NULL 값이 남아있다면 업데이트)
+        # PostgreSQL은 DEFAULT 'general' NOT NULL이 잘 동작하지만, 만약을 위해
+        db.session.execute(text("UPDATE users SET permission = 'general' WHERE permission IS NULL"))
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"--- [MIGRATION] CRITICAL: Error during schema migration: {e} ---")
+        # 마이그레이션 실패 시, 앱 실행을 계속하면 안 될 수 있으므로 오류 발생
+        raise e
+    
+    # ★★★★★ 마이그레이션 로직 끝 ★★★★★
+
+    # --- 마이그레이션 완료 후, 기존 데이터 생성/확인 로직 수행 ---
+    
     admin_id = "9999999999"
     sample_user_id = "2023390822"
 
-    if not db.session.get(User, admin_id):
+    # 이제 db.session.get(User, admin_id)가 정상 동작해야 함
+    admin_user = db.session.get(User, admin_id)
+
+    if not admin_user:
         print(f"Admin user {admin_id} not found. Creating...")
-        admin_pwd = os.getenv("ADMIN_PASSWORD")
-        admin_user = User(id=admin_id, name="admin", dob="2000-01-01", college="관리자", department="관리팀", password_hash=generate_password_hash(admin_pwd), is_admin=True)
+        admin_pwd = os.getenv("ADMIN_PASSWORD", "admin123") # 기본값 설정
+        admin_user = User(
+            id=admin_id, name="admin", dob="2000-01-01",
+            college="관리자", department="관리팀",
+            password_hash=generate_password_hash(admin_pwd),
+            permission='admin' # permission 설정
+        )
         db.session.add(admin_user)
         db.session.commit()
         _create_semesters_for_user(admin_id)
         print(f"Admin user {admin_id} created.")
     else:
-        print(f"Admin user {admin_id} already exists. Skipping.")
+        # 기존 관리자 계정의 permission 업데이트 (마이그레이션이 이미 처리했겠지만, 이중 확인)
+        if admin_user.permission != 'admin':
+             admin_user.permission = 'admin'
+             db.session.commit()
+             print(f"Updated existing admin user {admin_id} permission to 'admin'.")
+        else:
+            print(f"Admin user {admin_id} already exists or permission is correct. Skipping.")
 
-    if not db.session.get(User, sample_user_id):
+    # 샘플 사용자 로직 (기존과 동일)
+    sample_user = db.session.get(User, sample_user_id)
+    if not sample_user:
         print(f"Sample user {sample_user_id} not found. Creating...")
-        sample_pwd = os.getenv("SAMPLE_PASSWORD")
-        sample_user = User(name="장선규", id=sample_user_id, dob="2004-06-16", college="개발자", department="ADMIN", password_hash=generate_password_hash(sample_pwd), is_admin=False)
+        sample_pwd = os.getenv("SAMPLE_PASSWORD", "password123") # 기본값 설정
+        sample_user = User(
+            name="장선규", id=sample_user_id, dob="2004-06-16",
+            college="과학기술대학", department="컴퓨터융합소프트웨어학과", # 실제 학과 정보로 수정
+            password_hash=generate_password_hash(sample_pwd),
+            permission='general' # 기본 권한 설정
+        )
         db.session.add(sample_user)
         db.session.commit()
         _create_semesters_for_user(sample_user_id)
@@ -339,24 +416,14 @@ def create_initial_data():
             db.session.add(TimeSlot(subject_id=s2.id, day_of_week=2, start_time="13:30", end_time="14:45", room="세종관 205"))
             db.session.add(TimeSlot(subject_id=s2.id, day_of_week=4, start_time="13:30", end_time="14:45", room="세종관 205"))
 
-            # DailyMemo 샘플 추가 (Req 1)
-            # 오늘 날짜를 기준으로 샘플 메모 추가 (테스트 용이성)
+            # DailyMemo 샘플 추가 (기존 유지)
             today_date = date.today()
             yesterday_date = today_date - timedelta(days=1)
             next_week_date = today_date + timedelta(days=7)
-
-            db.session.add(DailyMemo(
-                subject_id=s1.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 오늘 수업 내용: Flask 라우팅 기초"
-            ))
-            db.session.add(DailyMemo(
-                subject_id=s1.id, memo_date=yesterday_date, note=f"[{yesterday_date.strftime('%Y-%m-%d')}] 어제 복습 내용 정리"
-            ))
-            db.session.add(DailyMemo(
-                subject_id=s2.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 데이터베이스 정규화 복습 필요"
-            ))
-            db.session.add(DailyMemo(
-                subject_id=s1.id, memo_date=next_week_date, note=f"[{next_week_date.strftime('%Y-%m-%d')}] 다음 주 발표 준비 시작"
-            ))
+            db.session.add(DailyMemo(subject_id=s1.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 오늘 수업 내용: Flask 라우팅 기초"))
+            db.session.add(DailyMemo(subject_id=s1.id, memo_date=yesterday_date, note=f"[{yesterday_date.strftime('%Y-%m-%d')}] 어제 복습 내용 정리"))
+            db.session.add(DailyMemo(subject_id=s2.id, memo_date=today_date, note=f"[{today_date.strftime('%Y-%m-%d')}] 데이터베이스 정규화 복습 필요"))
+            db.session.add(DailyMemo(subject_id=s1.id, memo_date=next_week_date, note=f"[{next_week_date.strftime('%Y-%m-%d')}] 다음 주 발표 준비 시작"))
 
             db.session.commit()
 
@@ -366,10 +433,16 @@ def create_initial_data():
         db.session.commit()
         print(f"Sample data for user {sample_user_id} created.")
     else:
-        print(f"Sample user {sample_user_id} already exists. Skipping sample data creation.")
+        # 기존 일반 사용자의 permission 업데이트 (마이그레이션이 처리했겠지만, 이중 확인)
+        if sample_user.permission not in ['general', 'associate', 'admin']:
+            sample_user.permission = 'general'
+            db.session.commit()
+            print(f"Updated existing user {sample_user_id} permission to 'general'.")
+        else:
+            print(f"Sample user {sample_user_id} already exists or permission is correct. Skipping sample data creation.")
 
 
-# --- Authentication Decorators (기존 유지) ---
+# --- Authentication Decorators (is_admin 대신 permission 확인) ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -391,7 +464,8 @@ def admin_required(f):
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
         user = db.session.get(User, session['student_id'])
-        if not user or not user.is_admin:
+        # is_admin 대신 user.permission == 'admin' 확인
+        if not user or user.permission != 'admin':
             flash("접근 권한이 없습니다. 관리자만 접근 가능합니다.", "danger")
             return redirect(url_for('index'))
         return f(*args, **kwargs)
@@ -492,18 +566,16 @@ SHUTTLE_SCHEDULE_DATA = load_bus_schedule()
 MEAL_PLAN_DATA = load_meal_data()
 TODAY_MEAL_KEY = get_today_meal_key()
 
-# --- 페이지 엔드포인트 (기존 유지) ---
+# --- 페이지 엔드포인트 ---
 @app.route('/')
 def index():
     user_info = None
-    is_admin = False
+    # is_admin 제거, 템플릿에서 user.permission 사용
     if 'student_id' in session:
-        user_info = db.session.get(User, session['student_id'])
-        if user_info:
-            is_admin = user_info.is_admin
-        else:
+        user_info = db.session.get(User, session['student_id']) # 이 부분에서 오류 발생했었음
+        if not user_info:
             session.clear() # DB에 없는 사용자면 세션 클리어
-    return render_template('index.html', user=user_info, is_admin=is_admin)
+    return render_template('index.html', user=user_info) # is_admin 전달 제거
 
 @app.route('/timetable-management')
 @login_required
@@ -512,10 +584,7 @@ def timetable_management():
     user = db.session.get(User, user_id)
     all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
 
-    # --- 수정 (Req 1) ---
-    # 총 이수 학점: 성적 여부와 관계없이 모든 과목 학점 합산
     total_earned_credits = sum(subject.credits for subject in all_user_subjects)
-    # --- 수정 끝 ---
 
     GRADE_MAP = {"A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0, "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0}
     total_gpa_credits = 0
@@ -531,14 +600,14 @@ def timetable_management():
     remaining_credits = max(0, current_goal - total_earned_credits)
 
     return render_template(
-        'timetable_management.html', user=user, is_admin=user.is_admin if user else False,
-        current_credits=total_earned_credits, # 수정된 총 이수 학점 전달
+        'timetable_management.html', user=user, # is_admin 제거
+        current_credits=total_earned_credits,
         goal_credits=current_goal,
         remaining_credits=remaining_credits,
         overall_gpa=round(overall_gpa, 2)
     )
 
-# --- Authentication Routes (기존 유지) ---
+# --- Authentication Routes (기존 유지, register에서 permission 설정) ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -584,7 +653,8 @@ def register():
             return render_template('register.html', colleges=COLLEGES)
         try:
             hashed_password = generate_password_hash(password)
-            new_user = User(id=student_id, name=name, dob=dob, college=college, department=department, password_hash=hashed_password, is_admin=False, total_credits_goal=130)
+            # permission='general' 로 기본 설정
+            new_user = User(id=student_id, name=name, dob=dob, college=college, department=department, password_hash=hashed_password, permission='general', total_credits_goal=130)
             db.session.add(new_user)
             db.session.commit()
             _create_semesters_for_user(new_user.id)
@@ -596,16 +666,167 @@ def register():
             flash("회원가입 중 오류가 발생했습니다. 다시 시도해주세요.", "danger")
     return render_template('register.html', colleges=COLLEGES)
 
+# --- 관리자 대시보드 라우트 수정 ---
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    all_users = User.query.all()
+    # 정렬 기준 (기본: 학번)
+    sort_by = request.args.get('sort_by', 'id')
+    # 정렬 순서 (기본: 오름차순)
+    sort_order = request.args.get('sort_order', 'asc')
+
+    query = User.query
+
+    # 정렬 적용
+    if sort_by == 'department':
+        order_column = User.department
+    elif sort_by == 'name':
+        order_column = User.name
+    elif sort_by == 'permission':
+        order_column = User.permission
+    else: # 기본: id (학번)
+        order_column = User.id
+
+    if sort_order == 'desc':
+        query = query.order_by(order_column.desc())
+    else:
+        query = query.order_by(order_column.asc())
+
+    all_users = query.all()
     member_count = len(all_users)
-    member_list = sorted(
-        [{"id": user.id, "name": user.name, "department": user.department, "is_admin": user.is_admin} for user in all_users],
-        key=lambda x: (not x['is_admin'], x['id'])
+
+    # 학과 목록 추출 (정렬용)
+    departments = sorted(list(set(user.department for user in all_users if user.department)))
+
+    # 권한 매핑 (템플릿 표시용)
+    permission_map = {
+        'general': '일반회원',
+        'associate': '협력회원',
+        'admin': '관리자'
+    }
+
+    # 사용자 목록 데이터 구성 (딕셔너리 리스트)
+    member_list_data = [
+        {
+            "id": user.id,
+            "name": user.name,
+            "college": user.college,
+            "department": user.department,
+            "permission": user.permission,
+            "permission_display": permission_map.get(user.permission, user.permission) # 표시용 이름
+        } for user in all_users
+    ]
+
+    return render_template(
+        'admin.html',
+        member_count=member_count,
+        member_list=member_list_data,
+        colleges=COLLEGES, # 사용자 생성 폼용
+        departments=departments, # 정렬용
+        permission_map=permission_map, # 권한 표시 및 선택용
+        current_sort_by=sort_by,
+        current_sort_order=sort_order
     )
-    return render_template('admin.html', member_count=member_count, member_list=member_list)
+
+# --- 관리자 기능 API 엔드포인트 ---
+
+@app.route('/admin/users', methods=['POST'])
+@admin_required
+def admin_create_user():
+    """ 관리자가 새 사용자 계정 생성 """
+    data = request.form
+    name = data.get('name')
+    student_id = data.get('student_id')
+    password = data.get('password')
+    dob = data.get('dob')
+    college = data.get('college')
+    department = data.get('department')
+    permission = data.get('permission', 'general') # 기본값 general
+
+    if not all([name, student_id, password, dob, college, department]):
+        flash("모든 필수 필드를 입력해주세요.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    if db.session.get(User, student_id):
+        flash("이미 존재하는 학번입니다.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    if permission not in ['general', 'associate', 'admin']:
+        flash("유효하지 않은 권한입니다.", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    try:
+        hashed_password = generate_password_hash(password)
+        new_user = User(
+            id=student_id, name=name, dob=dob, college=college, department=department,
+            password_hash=hashed_password, permission=permission, total_credits_goal=130
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        _create_semesters_for_user(new_user.id) # 새 사용자의 학기 생성
+        flash(f"사용자 '{name}'({student_id}) 계정이 생성되었습니다.", "success")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating user via admin: {e}")
+        flash(f"사용자 생성 중 오류 발생: {e}", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/users/<string:user_id>/permission', methods=['POST'])
+@admin_required
+def admin_update_permission(user_id):
+    """ 사용자의 권한 업데이트 """
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
+
+    # 자기 자신의 권한 변경 방지 (선택 사항)
+    # if user.id == session.get('student_id'):
+    #     return jsonify({"status": "error", "message": "자신의 권한은 변경할 수 없습니다."}), 403
+
+    new_permission = request.json.get('permission')
+    if new_permission not in ['general', 'associate', 'admin']:
+        return jsonify({"status": "error", "message": "유효하지 않은 권한입니다."}), 400
+
+    try:
+        user.permission = new_permission
+        db.session.commit()
+        permission_map = {'general': '일반회원', 'associate': '협력회원', 'admin': '관리자'}
+        return jsonify({
+            "status": "success",
+            "message": f"'{user.name}'님의 권한이 '{permission_map.get(new_permission, new_permission)}'(으)로 변경되었습니다.",
+            "new_permission": new_permission,
+            "new_permission_display": permission_map.get(new_permission, new_permission)
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating permission for {user_id}: {e}")
+        return jsonify({"status": "error", "message": f"권한 업데이트 중 오류 발생: {e}"}), 500
+
+
+@app.route('/admin/users/<string:user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(user_id):
+    """ 사용자 계정 삭제 """
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
+
+    # 관리자 자신 삭제 방지
+    if user.id == session.get('student_id'):
+        return jsonify({"status": "error", "message": "자기 자신을 삭제할 수 없습니다."}), 403
+
+    try:
+        # 사용자와 관련된 모든 데이터 삭제 (cascade 설정 덕분에 관련 데이터 자동 삭제됨)
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"status": "success", "message": f"사용자 '{user.name}'({user_id}) 계정 및 관련 데이터가 삭제되었습니다."})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting user {user_id}: {e}")
+        return jsonify({"status": "error", "message": f"사용자 삭제 중 오류 발생: {e}"}), 500
+
 
 # --- Public API Endpoints (기존 유지) ---
 @app.route('/api/shuttle')
@@ -625,7 +846,13 @@ def get_weekly_meal():
     formatted_data = format_weekly_meal_for_client(MEAL_PLAN_DATA)
     return jsonify(formatted_data)
 
-# --- Secure API Endpoints ---
+# --- Secure API Endpoints (기존 유지) ---
+# ... (get_schedule, add_schedule, handle_semesters, get_timetable_data, create_subject, handle_subject) ...
+# ... (get_daily_memo, update_daily_memo, get_all_memos_by_week) ...
+# ... (get_gpa_stats, get_study_stats, save_study_time) ...
+# ... (get_todos, create_todo, manage_todo) ...
+# ... (update_credit_goal) ...
+# Secure API 엔드포인트들은 기존 코드를 그대로 유지합니다. (수정 불필요)
 @app.route('/api/schedule', methods=['GET'])
 @login_required
 def get_schedule():
@@ -699,13 +926,12 @@ def get_timetable_data():
     semester_id_str = request.args.get('semester_id')
     semester = None
 
-    # 학기 결정 로직 (기존과 동일)
-    if semester_id_str: # 학기 ID가 명시적으로 주어졌을 때
+    if semester_id_str:
         try:
             semester = db.session.get(Semester, int(semester_id_str))
             if semester and semester.user_id != user_id: semester = None
         except ValueError: semester = None
-    else: # 학기 ID가 주어지지 않았을 때 (기본 학기 로직)
+    else:
         today = date.today()
         all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
         if all_semesters:
@@ -721,33 +947,23 @@ def get_timetable_data():
                 all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
                 semester = all_semesters[0]
 
-    if not semester: # 학기 못 찾으면 최신 학기 선택 (기존과 동일)
+    if not semester:
         all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
         if all_semesters:
              season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
              all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
              semester = all_semesters[0]
-        else: # 학기 없으면 404
-             # --- 수정 ---
-             # 'current_semester_credits' 제거
+        else:
              return jsonify({"semester": None, "subjects": []}), 404
-             # --- 수정 끝 ---
 
-    # 선택된 학기의 과목 정보 로드 (기존과 동일)
     subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all()
     result = []
-    # current_semester_credits 계산 제거
     for s in subjects:
         timeslots_data = [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in s.timeslots]
         result.append({"id": s.id, "name": s.name, "professor": s.professor, "credits": s.credits, "grade": s.grade, "timeslots": timeslots_data})
-        # 학점 누적 제거
 
     semester_info = {"id": semester.id, "name": semester.name, "year": semester.year, "season": semester.season, "start_date": semester.start_date.isoformat() if semester.start_date else None}
-    # --- 수정 ---
-    # 'current_semester_credits' 반환 제거
     return jsonify({"semester": semester_info, "subjects": result})
-    # --- 수정 끝 ---
-
 
 @app.route('/api/subjects', methods=['POST'])
 @login_required
@@ -758,24 +974,17 @@ def create_subject():
     if not semester or semester.user_id != user_id: return jsonify({"status": "error", "message": "유효하지 않은 학기입니다."}), 404
     try:
         new_subject = Subject(user_id=user_id, semester_id=semester_id, name=name, professor=data.get('professor'), credits=data.get('credits', 3), grade='Not Set')
-        db.session.add(new_subject); db.session.flush() # ID 생성을 위해 flush
+        db.session.add(new_subject); db.session.flush()
         for ts_data in data.get('timeslots', []):
              if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'):
                  db.session.add(TimeSlot(subject_id=new_subject.id, day_of_week=ts_data.get('day'), start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')))
         db.session.commit()
 
-        # --- 수정 (Req 1) ---
-        # 사용자의 '전체' 총 이수 학점 재계산
         all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
         total_earned_credits = sum(s.credits for s in all_user_subjects)
-        # --- 수정 끝 ---
 
         created_subject_data = {"id": new_subject.id, "name": new_subject.name, "professor": new_subject.professor, "credits": new_subject.credits, "grade": new_subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in new_subject.timeslots]}
-
-        # --- 수정 (Req 1) ---
-        # 'current_semester_credits' 대신 'total_earned_credits' 반환
         return jsonify({"status": "success", "message": "과목이 추가되었습니다.", "subject": created_subject_data, "total_earned_credits": total_earned_credits}), 201
-        # --- 수정 끝 ---
     except Exception as e:
         db.session.rollback(); return jsonify({"status": "error", "message": f"과목 추가 중 오류 발생: {e}"}), 500
 
@@ -799,18 +1008,11 @@ def handle_subject(subject_id):
                      db.session.add(TimeSlot(subject_id=subject.id, day_of_week=ts_data.get('day'), start_time=ts_data.get('start'), end_time=ts_data.get('end'), room=ts_data.get('room')))
             db.session.commit()
 
-            # --- 수정 (Req 1) ---
-            # 사용자의 '전체' 총 이수 학점 재계산
             all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
             total_earned_credits = sum(s.credits for s in all_user_subjects)
-            # --- 수정 끝 ---
 
             updated_subject_data = {"id": subject.id, "name": subject.name, "professor": subject.professor, "credits": subject.credits, "grade": subject.grade, "timeslots": [{"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} for ts in subject.timeslots]}
-
-            # --- 수정 (Req 1) ---
-            # 'current_semester_credits' 대신 'total_earned_credits' 반환
             return jsonify({"status": "success", "message": "과목이 수정되었습니다.", "subject": updated_subject_data, "total_earned_credits": total_earned_credits})
-            # --- 수정 끝 ---
         except Exception as e:
             db.session.rollback(); return jsonify({"status": "error", "message": f"과목 수정 중 오류 발생: {e}"}), 500
 
@@ -820,21 +1022,12 @@ def handle_subject(subject_id):
             TimeSlot.query.filter_by(subject_id=subject.id).delete()
             db.session.delete(subject); db.session.commit()
 
-            # --- 수정 (Req 1) ---
-            # 사용자의 '전체' 총 이수 학점 재계산
             all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
             total_earned_credits = sum(s.credits for s in all_user_subjects)
-            # --- 수정 끝 ---
-
-            # --- 수정 (Req 1) ---
-            # 'current_semester_credits' 대신 'total_earned_credits' 반환
             return jsonify({"status": "success", "message": "과목 및 관련 데이터가 삭제되었습니다.", "total_earned_credits": total_earned_credits})
-            # --- 수정 끝 ---
         except Exception as e:
             db.session.rollback(); return jsonify({"status": "error", "message": f"과목 삭제 중 오류 발생: {e}"}), 500
 
-
-# --- DailyMemo API (기존 유지) ---
 @app.route('/api/subjects/<int:subject_id>/memo/<memo_date_str>', methods=['GET'])
 @login_required
 def get_daily_memo(subject_id, memo_date_str):
@@ -886,34 +1079,24 @@ def update_daily_memo(subject_id, memo_date_str):
         db.session.rollback()
         return jsonify({"status": "error", "message": f"메모 저장 중 오류 발생: {e}"}), 500
 
-
-# --- 주차별 메모 모아보기 API ( *** 수정됨 *** ) ---
-# URL 경로 변경: subject_id 대신 semester_id 사용
 @app.route('/api/semesters/<int:semester_id>/all-memos-by-week', methods=['GET'])
 @login_required
 def get_all_memos_by_week(semester_id):
     user_id = session['student_id']
-    # 학기 정보 조회 및 권한 확인
     semester = db.session.get(Semester, semester_id)
     if not semester or semester.user_id != user_id:
         return jsonify({"status": "error", "message": "학기를 찾을 수 없거나 권한이 없습니다."}), 404
 
     try:
-        # 학기 시작일 가져오기
         semester_start_date = semester.start_date if semester.start_date else get_semester_start_date_from_calendar(semester.year, semester.season)
         if not semester_start_date:
             return jsonify({"status": "error", "message": "학기 시작일을 계산할 수 없습니다."}), 500
 
-        # 해당 학기의 모든 과목 ID 조회
         subjects_in_semester = Subject.query.filter_by(semester_id=semester.id).all()
         subject_ids = [s.id for s in subjects_in_semester]
-        subject_name_map = {s.id: s.name for s in subjects_in_semester} # 과목 ID -> 과목명 맵
+        subject_name_map = {s.id: s.name for s in subjects_in_semester}
 
-        # 해당 과목들의 모든 메모 조회
         all_memos = DailyMemo.query.filter(DailyMemo.subject_id.in_(subject_ids)).order_by(DailyMemo.memo_date).all()
-
-        # 주차별, 과목별로 메모 그룹화
-        # memos_by_week = { week_num: { subject_id: [memo1, memo2], ... }, ... }
         memos_by_week = defaultdict(lambda: defaultdict(list))
 
         for memo in all_memos:
@@ -921,28 +1104,25 @@ def get_all_memos_by_week(semester_id):
                 days_diff = (memo.memo_date - semester_start_date).days
                 week_num = (days_diff // 7) + 1
             else:
-                week_num = 0 # 학기 시작 전 메모는 0주차 (혹은 필요에 따라 다른 처리)
+                week_num = 0
 
-            if 1 <= week_num <= 16: # 1주차부터 16주차까지만 포함 (필요시 조정)
+            if 1 <= week_num <= 16:
                 memos_by_week[week_num][memo.subject_id].append({
                     "date": memo.memo_date.isoformat(),
                     "note": memo.note
                 })
 
-        # 최종 결과 데이터 구조 생성
         result_data = []
-        for week_num in range(1, 17): # 1주차부터 16주차까지
+        for week_num in range(1, 17):
             date_range = f"{week_num}주차"
             try:
                 week_start = semester_start_date + timedelta(weeks=(week_num - 1))
                 week_end = week_start + timedelta(days=6)
                 date_range = f"{week_start.strftime('%m.%d')} ~ {week_end.strftime('%m.%d')}"
-            except OverflowError: pass # 날짜 계산 오류 방지
+            except OverflowError: pass
 
-            # 해당 주차의 과목별 메모 데이터
             subjects_data = []
             if week_num in memos_by_week:
-                # 과목 ID 순서대로 정렬 (선택 사항)
                 sorted_subject_ids = sorted(memos_by_week[week_num].keys())
                 for subj_id in sorted_subject_ids:
                     subjects_data.append({
@@ -954,7 +1134,7 @@ def get_all_memos_by_week(semester_id):
             result_data.append({
                 "week_number": week_num,
                 "date_range": date_range,
-                "subjects": subjects_data # 과목별 메모 목록 포함
+                "subjects": subjects_data
             })
 
         return jsonify({"status": "success", "semester_name": semester.name, "data": result_data})
@@ -963,8 +1143,6 @@ def get_all_memos_by_week(semester_id):
         print(f"Error in get_all_memos_by_week (semester): {e}")
         return jsonify({"status": "error", "message": f"전체 메모 로드 중 오류: {e}"}), 500
 
-
-# --- GPA, 공부 시간 관련 API (수정) ---
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
@@ -979,11 +1157,7 @@ def get_gpa_stats():
         if semester_gpa_credits > 0: semester_gpa = (semester_gpa_score / semester_gpa_credits); stats.append({"semester_name": semester.name, "gpa": round(semester_gpa, 2)})
 
     all_subjects = Subject.query.filter_by(user_id=user_id).all()
-
-    # --- 수정 (Req 1) ---
-    # 총 이수 학점: 성적 여부와 관계없이 모든 과목 학점 합산
     total_earned_credits = sum(s.credits for s in all_subjects)
-    # --- 수정 끝 ---
 
     total_gpa_credits, total_gpa_score = 0, 0
     for subject in all_subjects:
@@ -1019,16 +1193,13 @@ def save_study_time():
     except Exception as e:
         db.session.rollback(); return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
 
-
-# --- 독립 Todo API (기존 유지) ---
 @app.route('/api/todos', methods=['GET'])
 @login_required
 def get_todos():
-    """ 이번 주 Todo 가져오기 (JS에서 계산된 주 시작/종료일 기준) """
     user_id = session['student_id']
     semester_id = request.args.get('semester_id', type=int)
-    start_date_str = request.args.get('start_date') # YYYY-MM-DD
-    end_date_str = request.args.get('end_date')     # YYYY-MM-DD
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
 
     if not semester_id or not start_date_str or not end_date_str:
         return jsonify({'status': 'error', 'message': '학기 ID와 날짜 범위가 필요합니다.'}), 400
@@ -1051,11 +1222,9 @@ def get_todos():
         'todos': [todo.to_dict() for todo in todos]
     })
 
-
 @app.route('/api/todos', methods=['POST'])
 @login_required
 def create_todo():
-    """ 새로운 Todo 생성 """
     user_id = session['student_id']
     data = request.get_json()
     if not data or 'task' not in data or 'due_date' not in data or 'semester_id' not in data:
@@ -1069,7 +1238,6 @@ def create_todo():
         if not task:
              return jsonify({'status': 'error', 'message': 'Todo 내용이 없습니다.'}), 400
 
-        # 해당 학기가 유효한지 확인
         semester = db.session.get(Semester, semester_id)
         if not semester or semester.user_id != user_id:
             return jsonify({'status': 'error', 'message': '유효하지 않은 학기입니다.'}), 404
@@ -1089,25 +1257,20 @@ def create_todo():
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
 @app.route('/api/todos/<int:todo_id>', methods=['PUT', 'DELETE'])
 @login_required
 def manage_todo(todo_id):
-    """ Todo 수정(완료/미완료) 또는 삭제 """
     user_id = session['student_id']
     todo = db.session.get(Todo, todo_id)
 
-    # Todo가 존재하지 않거나, 현재 사용자의 Todo가 아닌 경우
     if not todo or todo.user_id != user_id:
         return jsonify({'status': 'error', 'message': 'Todo를 찾을 수 없습니다.'}), 404
 
     try:
         if request.method == 'PUT':
-            # 완료/미완료 토글
             data = request.get_json()
             if 'done' in data:
                 todo.done = bool(data['done'])
-
             db.session.commit()
             return jsonify({'status': 'success', 'todo': todo.to_dict()})
 
@@ -1120,7 +1283,6 @@ def manage_todo(todo_id):
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# --- 목표 학점 업데이트 API (기존 유지) ---
 @app.route('/api/credits/goal', methods=['POST'])
 @login_required
 def update_credit_goal():
@@ -1134,21 +1296,31 @@ def update_credit_goal():
     except Exception as e:
         db.session.rollback(); return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
+
 # --- 앱 실행 부분 (기존 유지) ---
 if __name__ == '__main__':
     with app.app_context():
         try:
             print("--- [KUSIS] Checking database and initial data... ---")
-            create_initial_data()
-            print("--- [KUSIS] Database check complete. System ready. ---")
+            # ★★★★★ 수정된 함수 호출 ★★★★★
+            create_initial_data() 
+            print("--- [KUSIS] Database check and migration complete. System ready. ---")
         except Exception as e:
             print(f"--- [KUSIS] CRITICAL: Error during DB check/initialization: {e} ---")
             print("--- [KUSIS] Please check your .env file and ensure the database server is running. ---")
+            # 마이그레이션 실패 시 앱을 종료하는 것이 안전할 수 있습니다.
+            # 하지만 여기서는 일단 실행은 계속하도록 둡니다.
+            # import sys
+            # sys.exit(1)
+
 
     scheduler = BackgroundScheduler()
+    # Cron 표현식 수정: 매년 12월 1일 새벽 3시에 실행
     scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3, id='semester_management_job')
     scheduler.start()
     print("Scheduler started... Press Ctrl+C to exit")
     atexit.register(lambda: scheduler.shutdown())
 
-    app.run(debug=True, port=2424)
+    # 환경 변수에서 포트 번호 읽기, 없으면 2424 사용
+    port = int(os.environ.get("PORT", 2424))
+    app.run(debug=os.environ.get("FLASK_DEBUG", "False") == "True", host='0.0.0.0', port=port)
