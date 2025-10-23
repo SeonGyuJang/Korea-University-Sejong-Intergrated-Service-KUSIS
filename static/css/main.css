@@ -606,37 +606,6 @@
     color: var(--korea-red);
 }
 
-/* 평일/주말 탭 */
-.shuttle-day-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.day-tab {
-    flex: 1;
-    padding: 8px 16px;
-    border: 2px solid var(--border-color);
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    color: var(--text-primary);
-}
-
-.day-tab:hover {
-    border-color: var(--korea-red);
-    background: #fef5f7;
-}
-
-.day-tab.active {
-    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
-    color: white;
-    border-color: var(--korea-red);
-}
-
 /* 노선 탭 */
 .shuttle-route-tabs {
     margin-bottom: 16px;
