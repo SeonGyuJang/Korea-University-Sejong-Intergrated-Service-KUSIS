@@ -9,15 +9,20 @@
 {% block content %}
 <div class="content-area timetable-management-page">
 
+    {# --- 좌측 사이드바 --- #}
     <div class="timetable-side-content">
+        {# --- 학점/성적 위젯 --- #}
         <div class="widget">
             <div class="widget-tabs-container">
                 <div class="widget-tabs">
                     <button class="tab active" data-tab="credits"><i class="fas fa-graduation-cap"></i> 학점</button>
                     <button class="tab" data-tab="gpa"><i class="fas fa-chart-line"></i> 성적</button>
-                    </div>
+                    {# --- [Req 2 수정] Todo 요약 탭 제거 --- #}
+                    {# <button class="tab" data-tab="todos"><i class="fas fa-check-square"></i> Todo</button> #}
+                </div>
             </div>
 
+            {# 학점 탭 내용 #}
             <div class="widget-tab-content active" id="tab-content-credits">
                 <div class="credit-summary">
                     <div class="credit-progress-circle">
@@ -47,12 +52,15 @@
                             </div>
                         </div>
                     </div>
+                    {# --- [오류 수정] |max(0) 필터 제거 --- #}
                     <div class="credit-remaining">
-                        앞으로 <span id="remainingCredits">{{ goal_credits - current_credits }}</span>학점 남았습니다.
+                        앞으로 <span id="remainingCredits">{{ remaining_credits }}</span>학점 남았습니다.
                     </div>
+                    {# --- [오류 수정 완료] --- #}
                 </div>
             </div>
 
+            {# 성적 탭 내용 #}
             <div class="widget-tab-content" id="tab-content-gpa">
                 <div class="gpa-chart-header">
                     <h4>전체 평균 학점: <span id="overallGpa">{{ overall_gpa }}</span></h4>
@@ -63,13 +71,17 @@
                 </div>
             </div>
 
-            </div>
+            {# --- [Req 2 수정] Todo 요약 탭 콘텐츠 제거 --- #}
+            {# <div class="widget-tab-content" id="tab-content-todos"> ... </div> #}
+        </div>
 
+        {# --- [Req 2 수정] 이번 주 Todo 위젯 추가 --- #}
         <div class="widget global-todo-widget" id="globalTodoWidget">
             <div class="widget-header">
                 <h3><i class="fas fa-tasks"></i> 이번 주 Todo</h3>
-                <span id="globalTodoWeekRange" class="week-range-display"></span>
+                <span id="globalTodoWeekRange" class="week-range-display"></span> {# 주차 범위 표시 영역 #}
             </div>
+            {# 요일 선택 버튼 #}
             <div class="todo-day-selector global-day-selector">
                 <button class="day-circle" data-day="1">월</button>
                 <button class="day-circle" data-day="2">화</button>
@@ -79,20 +91,23 @@
                 <button class="day-circle" data-day="6">토</button>
                 <button class="day-circle" data-day="0">일</button>
             </div>
+            {# Todo 목록 및 추가 영역 #}
             <div class="global-todo-widget-content">
                 <ul id="globalTodoList" class="memo-todo-list">
+                    {# JS에서 동적으로 채워짐 #}
                     <li class="todo-empty">학기를 선택하세요.</li>
                 </ul>
                 <div class="memo-todo-add global-todo-add">
+                    {# --- [Req 1] @ 태그 제안 오버레이 --- #}
                     <div class="tag-suggestion-overlay" id="globalTagSuggestionOverlay"></div>
                     <input type="text" id="globalNewTodoInput" placeholder="할 일 추가 (@과목 태그 가능)..." disabled>
                     <button id="globalAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
                 </div>
             </div>
         </div>
-
     </div>
 
+    {# --- 중앙 시간표 영역 --- #}
     <div class="timetable-main-content">
         <div class="widget timetable-editor-widget">
             <div class="widget-header">
@@ -102,7 +117,7 @@
                     </select>
                 </div>
                 <div id="addSubjectBtnContainer">
-                    <button id="addSubjectBtn" class="btn-add-subject">
+                    <button id="addSubjectBtn" class="btn-add-subject" disabled> {# 초기 비활성화 #}
                         <i class="fas fa-plus"></i>
                         <span>새 과목 추가</span>
                     </button>
@@ -121,6 +136,7 @@
                         </tr>
                     </thead>
                     <tbody id="timetableEditorBody">
+                        {# JS에서 동적으로 채워짐 #}
                         <tr><td colspan="6" class="todo-summary-empty">학기를 선택해주세요.</td></tr>
                     </tbody>
                 </table>
@@ -128,28 +144,35 @@
         </div>
     </div>
 
+    {# --- [Req 2 수정] 우측 사이드바 구조 변경 --- #}
     <div class="timetable-details-side-content">
+        {# --- 과목 정보 위젯 --- #}
         <div class="widget subject-details-widget">
             <div class="widget-header">
                 <h3><i class="fas fa-book-open"></i> 과목 정보</h3>
+                {# 필요시 추가 버튼 등 #}
             </div>
             <div class="subject-details-list-container">
                 <ul id="subjectDetailsList">
+                    {# JS에서 동적으로 채워짐 #}
                     <li class="subject-details-empty">학기를 선택하면 과목 목록이 표시됩니다.</li>
                 </ul>
             </div>
         </div>
-        
+
+        {# --- 주차별 정보 위젯 --- #}
         <div class="widget weekly-details-widget">
              <div class="widget-header">
                 <h3 id="weeklyDetailsTitle"><i class="fas fa-calendar-week"></i> 주차별 정보</h3>
                 <button id="viewAllWeeksBtn" class="btn-more" title="모든 주차 모아보기"><i class="fas fa-book-reader"></i></button>
              </div>
+             {# 주차 선택 컨트롤 #}
              <div class="week-selector">
                 <button id="prevWeekBtn" disabled><i class="fas fa-chevron-left"></i></button>
                 <span id="currentWeekDisplay">주차 선택</span>
                 <button id="nextWeekBtn" disabled><i class="fas fa-chevron-right"></i></button>
              </div>
+             {# 주차별 메모 및 Todo 내용 #}
              <div class="weekly-content">
                 <h4 class="memo-subtitle" style="margin-top: 0;">
                     <i class="fas fa-sticky-note"></i> 주차 메모 ( <span id="weeklyMemoSubjectName">과목 선택</span> )
@@ -160,12 +183,14 @@
                     <i class="fas fa-check-square"></i> 주차 Todo ( <span id="weeklyTodoSubjectName">과목 선택</span> )
                 </h4>
                  <ul id="weeklyTodoList" class="memo-todo-list">
+                     {# JS에서 동적으로 채워짐 #}
                      <li class="todo-empty">과목을 선택해주세요.</li>
                  </ul>
                  <div class="memo-todo-add">
                      <input type="text" id="weeklyNewTodoInput" placeholder="새로운 할 일..." disabled>
                      <button id="weeklyAddTodoBtn" class="btn btn-primary" disabled><i class="fas fa-plus"></i></button>
                  </div>
+                 {# 저장 버튼 #}
                  <div class="save-button-container">
                      <button id="saveWeeklyMemoTodoBtn" class="btn-save-weekly" disabled>
                         <i class="fas fa-save"></i> 주차 정보 저장
@@ -176,6 +201,9 @@
     </div>
 </div>
 
+{# --- 모달들 (기존 유지) --- #}
+
+{# 모든 주차 모아보기 모달 #}
 <div class="modal large-modal" id="allWeeksModal">
     <div class="modal-content">
         <div class="modal-header">
@@ -184,7 +212,8 @@
         </div>
         <div class="modal-body">
             <div class="accordion" id="allWeeksAccordion">
-                </div>
+                {# JS에서 동적으로 채워짐 #}
+            </div>
         </div>
         <div class="modal-footer">
              <button class="btn btn-cancel modal-close">닫기</button>
@@ -192,6 +221,7 @@
     </div>
 </div>
 
+{# 새 과목 추가 모달 #}
 <div class="modal" id="addSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -229,6 +259,7 @@
     </div>
 </div>
 
+{# 과목 수정 모달 #}
 <div class="modal" id="editSubjectModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
@@ -266,8 +297,9 @@
                 <h4 class="form-subtitle">시간 및 장소</h4>
                 <div id="editTimeSlotContainer"></div>
                 <button type="button" id="editAddTimeSlotBtn" class="btn btn-secondary"><i class="fas fa-plus"></i> 시간 추가</button>
-                <hr class="form-divider">
-                 </form>
+                {# --- [Req 2 수정] 메모/Todo 관련 필드 제거 --- #}
+                {# <hr class="form-divider"> ... #}
+             </form> {# form 태그 닫기 위치 수정 #}
         </div>
         <div class="modal-footer space-between">
             <button class="btn btn-danger" id="deleteSubjectBtn"><i class="fas fa-trash"></i> 삭제</button>
