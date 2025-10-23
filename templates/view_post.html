@@ -11,58 +11,72 @@
         color: var(--korea-red-light);
         margin-right: 8px;
     }
+    /* 수정 버튼 스타일 */
+    .btn-edit-view {
+        background: #3498db;
+        color: white;
+        border: 1px solid #3498db;
+        margin-left: 10px; /* 목록 버튼과의 간격 */
+    }
+    .btn-edit-view:hover {
+        background: #2980b9;
+        border-color: #2980b9;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="content-area view-post-page">
     <div class="view-post-container">
-        {# 제목과 목록 버튼 #}
+        {# 제목과 버튼 영역 #}
         <header class="post-header">
             <div class="header-left">
-                {# --- 요구사항 2: 카테고리 아이콘 표시 --- #}
                 {% set category_icons = {'공지': 'fas fa-bullhorn', '홍보': 'fas fa-ad', '안내': 'fas fa-info-circle', '업데이트': 'fas fa-sync-alt', '일반': 'fas fa-comment-alt'} %}
                 {% set icon_class = category_icons.get(post.category, category_icons['일반']) %}
                 <i class="{{ icon_class }} post-category-icon" title="{{ post.category }}"></i>
-                {# ------------------------------------ #}
-
-                {# 공지 뱃지 제거 또는 유지 선택 (아이콘으로 대체 가능) #}
-                {# {% if post.is_notice %}<span class="notice-badge-view">[공지]</span>{% endif %} #}
                 <h1 class="post-title">{{ post.title }}</h1>
             </div>
-            <a href="{{ url_for('post_management') }}" class="btn btn-outline">
-                <i class="fas fa-list"></i> 목록으로
-            </a>
+            {# 버튼 그룹 #}
+            <div>
+                <a href="{{ url_for('post_management') }}" class="btn btn-outline">
+                    <i class="fas fa-list"></i> 목록으로
+                </a>
+                {# 수정 버튼 추가 (권한 확인) #}
+                {% if user.is_admin or post.author_id == user.id %}
+                <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn btn-outline btn-edit-view">
+                    <i class="fas fa-edit"></i> 수정
+                </a>
+                {% endif %}
+            </div>
         </header>
 
-        {# 승인 상태 표시 (기존 유지) #}
-        {% if (not post.is_approved) and (current_user.is_admin or post.author_id == current_user.id) %}
+        {# 승인 상태 표시 #}
+        {% if (not post.is_approved) and (user.is_admin or post.author_id == user.id) %}
         <div class="alert alert-warning post-approval-notice" role="alert">
             <i class="fas fa-clock"></i> 이 게시물은 현재 관리자 승인 대기 중입니다.
         </div>
         {% endif %}
 
-        {# 메타 정보 (작성자, 작성일) - 기존 유지 #}
+        {# 메타 정보 #}
         <div class="post-meta">
             <span class="meta-item"><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
-            {# 요구사항 5 관련: post.created_at은 UTC 기준. KST로 변환하려면 필터 필요 #}
-            {# 예: {{ (post.created_at + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M') }} #}
-            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</strong> (UTC)</span>
-             {# 노출 기한 표시 (선택 사항) #}
+            {# kst 필터 사용하여 KST로 표시 #}
+            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at | kst }}</strong> (KST)</span>
             {% if post.expires_at %}
-                <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감: <strong>{{ post.expires_at.strftime('%Y-%m-%d %H:%M') }}</strong> (UTC)</span>
+                {# kst 필터 사용하여 KST로 표시 #}
+                <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감: <strong>{{ post.expires_at | kst }}</strong> (KST)</span>
             {% endif %}
         </div>
 
-        {# 본문 컨텐츠 영역 (기존 유지) #}
+        {# 본문 컨텐츠 영역 #}
         <article class="post-body">
             {% if post.image_filename %}
             <div class="post-image-container">
-                <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
+                <img src="{{ url_for('uploaded_file', filename=post.image_filename) }}" alt="{{ post.title }} 이미지" class="post-image">
             </div>
             {% endif %}
             <div class="post-content">
-                {{ post.content | safe }}
+                {{ post.content | safe }} {# DB 저장 시 <br> 처리되었으므로 safe 필터 사용 #}
             </div>
         </article>
     </div>

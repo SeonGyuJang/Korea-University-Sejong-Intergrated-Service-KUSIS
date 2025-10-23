@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 from sqlalchemy import inspect, func, cast, Date as SQLDate, text, desc, or_ # desc, or_ 임포트
+import pytz # 시간대 변환을 위해 추가
 
 load_dotenv()
 
@@ -47,6 +48,33 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db = SQLAlchemy(app)
+
+# --- 시간대 설정 ---
+KST = pytz.timezone('Asia/Seoul')
+
+# --- Jinja2 필터 추가 ---
+@app.template_filter('kst')
+def format_datetime_kst(value, format='%Y-%m-%d %H:%M'):
+    """UTC 시간을 KST로 변환하고 지정된 형식으로 포맷하는 필터"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        try:
+            # 문자열을 naive datetime 객체로 파싱 (UTC로 가정)
+            value = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f') # ISO 형식 등 DB 저장 형식에 맞게 조정 필요
+        except ValueError:
+             try:
+                value = datetime.strptime(value, '%Y-%m-%d %H:%M:%S') # 다른 형식 시도
+             except ValueError:
+                 return value # 파싱 실패 시 원본 반환
+    # 시간대 정보가 없는 naive datetime이면 UTC로 가정
+    if value.tzinfo is None:
+        utc_dt = pytz.utc.localize(value)
+    else:
+        utc_dt = value.astimezone(pytz.utc)
+
+    kst_dt = utc_dt.astimezone(KST)
+    return kst_dt.strftime(format)
 
 # --- Flask CLI 명령어 ---
 @app.cli.command("init-db")
@@ -183,26 +211,14 @@ class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=False) # 저장 시 <br> 처리됨
     author_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
-    
-    # 요구사항 5: default=datetime.utcnow 사용 (정상)
-    # 이것은 게시물이 '생성'될 때의 UTC 시간을 저장합니다.
-    # '10월 23일 8시 30분'으로 고정된 것이 아니라, DB에 저장된 *기존* 데이터의 생성 시간입니다.
-    # 새 게시물은 이 코드로 인해 현재 UTC 시간으로 저장됩니다.
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) 
-    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # UTC
     is_approved = db.Column(db.Boolean, default=False, nullable=False)
     is_notice = db.Column(db.Boolean, default=False, nullable=False)
     image_filename = db.Column(db.String(255), nullable=True)
-
-    # 요구사항 2: 카테고리 필드
-    category = db.Column(db.String(50), nullable=True, default='일반') # 예: '공지', '홍보', '안내', '업데이트', '일반'
-
-    # 요구사항 3: 노출 기한 필드
-    expires_at = db.Column(db.DateTime, nullable=True) # 만료 시간 (UTC)
-
-    # 요구사항 4: 표시 여부 필드
+    category = db.Column(db.String(50), nullable=True, default='일반')
+    expires_at = db.Column(db.DateTime, nullable=True) # UTC
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
 
     def to_dict(self, include_content=False):
@@ -210,20 +226,21 @@ class Post(db.Model):
             'id': self.id,
             'title': self.title,
             'author_name': self.author.name if self.author else 'Unknown',
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M'), # UTC 기준 표시
+            'created_at': self.created_at.isoformat(), # UTC ISO 형식
             'is_approved': self.is_approved,
             'is_notice': self.is_notice,
             'image_filename': self.image_filename,
-            'category': self.category, 
-            'expires_at': self.expires_at.isoformat() if self.expires_at else None, 
-            'is_visible': self.is_visible 
+            'category': self.category,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'is_visible': self.is_visible
         }
         if include_content:
-            data['content'] = self.content
+            data['content'] = self.content # HTML <br> 포함된 내용
             data['author_id'] = self.author_id
         return data
 
 # --- 학사일정, 학기 시작일 관련 함수 ---
+# ... (기존 코드 유지) ...
 def load_academic_calendar():
     calendar_data = {}
     try:
@@ -253,9 +270,9 @@ def get_semester_start_date_from_calendar(year, season):
     elif "2학기" in season: month_key = f"{year}-09"
     elif "여름학기" in season: month_key = f"{year}-06"
     elif "겨울학기" in season: month_key = f"{year}-12"
-    
+
     start_date = ACADEMIC_CALENDAR.get(month_key)
-    
+
     # fallback (기본 날짜)
     return start_date if start_date else _get_semester_start_date_fallback(year, season)
 
@@ -271,7 +288,7 @@ def _create_semesters_for_user(user_id):
         start_year = 2020 # 시작 연도
         end_year = 2025 # 종료 연도
         seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
-        
+
         for year in range(start_year, end_year + 1):
             for season in seasons:
                 semester_name = f"{year}년 {season}"
@@ -285,8 +302,8 @@ def _create_semesters_for_user(user_id):
         db.session.rollback()
         print(f"Error creating semesters for user {user_id}: {e}")
 
-
 # --- 학기 자동 관리 스케줄 작업 ---
+# ... (기존 코드 유지) ...
 def manage_semesters_job():
     with app.app_context():
         print(f"[{datetime.now()}] Starting semester management job...")
@@ -294,7 +311,7 @@ def manage_semesters_job():
             # 예시: 특정 날짜가 되면 새 학기 생성
             today = date.today()
             current_year = today.year
-            
+
             # 매년 12월 1일에 다음 년도 학기 데이터가 없는 경우 생성
             if today.month == 12 and today.day == 1:
                 next_year = current_year + 1
@@ -311,15 +328,15 @@ def manage_semesters_job():
                             start_date = get_semester_start_date_from_calendar(next_year, season)
                             new_semester = Semester(user_id=user.id, name=semester_name, year=next_year, season=season, start_date=start_date)
                             db.session.add(new_semester)
-            
+
             db.session.commit()
             print(f"[{datetime.now()}] Semester management job finished.")
         except Exception as e:
             db.session.rollback()
             print(f"[{datetime.now()}] ERROR in semester management job: {e}")
 
-
-# --- DB 초기화 (Post 모델 마이그레이션 추가) ---
+# --- DB 초기화 ---
+# ... (기존 코드 유지) ...
 def create_initial_data():
     db.create_all()
 
@@ -344,7 +361,7 @@ def create_initial_data():
 
         # --- Post 테이블 마이그레이션 (요구사항 2, 3, 4 관련 필드) ---
         post_columns = [col['name'] for col in inspector.get_columns('posts')]
-        
+
         if 'image_filename' not in post_columns:
              print("--- [MIGRATION] 'image_filename' column not found in 'posts' table. Adding column... ---")
              db.session.execute(text("ALTER TABLE posts ADD COLUMN image_filename VARCHAR(255) NULL"))
@@ -358,7 +375,7 @@ def create_initial_data():
         if 'expires_at' not in post_columns:
             print("--- [MIGRATION] 'expires_at' column not found in 'posts' table. Adding column... ---")
             # PostgreSQL 기준. SQLite는 DATETIME, MySQL은 DATETIME
-            db.session.execute(text("ALTER TABLE posts ADD COLUMN expires_at TIMESTAMP WITHOUT TIME ZONE NULL")) 
+            db.session.execute(text("ALTER TABLE posts ADD COLUMN expires_at TIMESTAMP WITHOUT TIME ZONE NULL"))
             print("--- [MIGRATION] 'expires_at' column added. ---")
 
         if 'is_visible' not in post_columns:
@@ -413,7 +430,7 @@ def create_initial_data():
             )
             db.session.add(sample_user)
             print(f"Sample user '{sample_user_id}' created.")
-        
+
         db.session.commit()
 
         # 3. 샘플 계정용 학기/과목/데이터 생성
@@ -429,23 +446,25 @@ def create_initial_data():
         db.session.rollback()
         print(f"Error creating initial data: {e}")
 
+
 # --- Authentication Decorators ---
+# ... (기존 코드 유지) ...
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'student_id' not in session:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login', next=request.url))
-        
+
         # g 객체에 사용자 정보 저장
         from flask import g
         g.user = db.session.get(User, session['student_id'])
-        
+
         if not g.user:
             session.clear()
             flash("사용자 정보가 유효하지 않습니다. 다시 로그인해주세요.", "danger")
             return redirect(url_for('login'))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -455,14 +474,14 @@ def post_manager_required(f):
         if 'student_id' not in session:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
-        
+
         from flask import g
         g.user = db.session.get(User, session['student_id'])
 
         if not g.user or not g.user.can_manage_posts:
             flash("게시물 관리 권한이 없습니다.", "danger")
             return redirect(url_for('index'))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -472,18 +491,20 @@ def admin_required(f):
         if 'student_id' not in session:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
-        
+
         from flask import g
         g.user = db.session.get(User, session['student_id'])
 
         if not g.user or not g.user.is_admin:
             flash("접근 권한이 없습니다. 관리자만 접근 가능합니다.", "danger")
             return redirect(url_for('index'))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
+
 # --- 데이터 로드 및 정제 함수 ---
+# ... (기존 코드 유지) ...
 def load_bus_schedule():
     schedule = []
     try:
@@ -492,7 +513,7 @@ def load_bus_schedule():
             for row in reader:
                 note = row.get('Note', '').strip()
                 route = row.get('Route', '')
-                
+
                 # 경로 한국어 변환
                 if route == 'Station_to_School': route_kr = '조치원역 → 학교'
                 elif route == 'School_to_Station': route_kr = '학교 → 조치원역'
@@ -506,9 +527,9 @@ def load_bus_schedule():
                     route_group = "Osong_Included"
                     if route == 'Station_to_School': route_kr = '조치원/오송역 → 학교 (경유)'
                     elif route == 'School_to_Station': route_kr = '학교 → 조치원역/오송역 (경유)'
-                
+
                 type_kr = '평일' if row.get('Type') == 'Weekday' else '일요일' if row.get('Type') == 'Sunday' else '기타'
-                
+
                 schedule.append({
                     "time": row.get('Departure_Time'),
                     "route": route_kr,
@@ -528,26 +549,26 @@ def load_meal_data():
             student_data = json.load(f)
             data['student'] = student_data.get('메뉴', {})
             data['student_period'] = student_data.get('기간', {})
-        
+
         with open(STAFF_MENU_PATH, 'r', encoding='utf-8') as f:
             staff_data = json.load(f)
             data['faculty'] = staff_data.get('메뉴', {})
             data['faculty_period'] = staff_data.get('기간', {})
-            
+
     except Exception as e:
         print(f"Error loading meal data: {e}")
         data = {'student': {}, 'faculty': {}, 'student_period': {}, 'faculty_period': {}}
     return data
 
 def get_today_meal_key():
-    today = datetime.now()
-    day_of_week_kr = ['월', '화', '수', '목', '금', '토', '일'][today.weekday()]
-    return f"{today.month}.{today.day}({day_of_week_kr})"
+    today_kst = datetime.now(KST) # KST 기준으로 오늘 날짜 가져오기
+    day_of_week_kr = ['월', '화', '수', '목', '금', '토', '일'][today_kst.weekday()]
+    return f"{today_kst.month}.{today_kst.day}({day_of_week_kr})"
 
 def menu_to_string(menu_list):
     if not menu_list:
         return ""
-    
+
     # Kcal, 숫자, ( ) 안 내용 제거 및 공백 정리
     cleaned_menu = []
     for item in menu_list:
@@ -575,14 +596,14 @@ def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
             'ala_carte': "식단 정보 없음", # 일품 + 분식
             'snack_plus': "식단 정보 없음"
         }
-        
+
         if '조식' in daily_menu:
             formatted_menu['breakfast'] = menu_to_string(daily_menu['조식'].get('메뉴', []))
-        
+
         # 중식
         if '중식-한식' in daily_menu:
             formatted_menu['lunch']['korean'] = menu_to_string(daily_menu['중식-한식'].get('메뉴', []))
-            
+
         ala_carte_items = []
         if '중식-일품' in daily_menu:
             ilpum_str = menu_to_string(daily_menu['중식-일품'].get('메뉴', []))
@@ -592,23 +613,23 @@ def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
             bunsik_str = menu_to_string(daily_menu['중식-분식'].get('메뉴', []))
             if bunsik_str:
                 ala_carte_items.append("분식: " + bunsik_str)
-        
+
         if ala_carte_items:
             formatted_menu['lunch']['ala_carte'] = " / ".join(ala_carte_items)
-            
+
         if '중식-plus' in daily_menu:
             formatted_menu['lunch']['snack_plus'] = menu_to_string(daily_menu['중식-plus'].get('메뉴', []))
 
         if '석식' in daily_menu:
             formatted_menu['dinner'] = menu_to_string(daily_menu['석식'].get('메뉴', []))
-            
+
     elif cafeteria_type == 'faculty':
         formatted_menu['breakfast'] = "조식 제공 없음" # 교직원은 조식/석식 없음
         formatted_menu['dinner'] = "석식 제공 없음"
-        
+
         if '중식' in daily_menu:
             formatted_menu['lunch'] = menu_to_string(daily_menu['중식'].get('메뉴', []))
-            
+
     return formatted_menu
 
 def format_weekly_meal_for_client(weekly_meal_data):
@@ -620,6 +641,7 @@ def format_weekly_meal_for_client(weekly_meal_data):
         }
     }
     return formatted_data
+
 
 # --- 앱 시작 시 데이터 로드 ---
 SHUTTLE_SCHEDULE_DATA = load_bus_schedule()
@@ -643,9 +665,9 @@ def timetable_management():
     # g.user는 login_required 데코레이터에서 설정됨
     from flask import g
     user = g.user
-    
+
     all_user_subjects = Subject.query.filter_by(user_id=user.id).all()
-    
+
     # 총 이수 학점
     total_earned_credits = sum(subject.credits for subject in all_user_subjects)
 
@@ -656,49 +678,50 @@ def timetable_management():
     }
     total_gpa_credits = 0
     total_gpa_score = 0
-    
+
     for subject in all_user_subjects:
         grade_score = GRADE_MAP.get(subject.grade)
         if grade_score is not None: # 'Not Set' 등은 제외
             total_gpa_credits += subject.credits
             total_gpa_score += (grade_score * subject.credits)
-            
+
     overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
 
     current_goal = user.total_credits_goal
     remaining_credits = max(0, current_goal - total_earned_credits)
 
     return render_template(
-        'timetable_management.html', 
-        user=user, 
-        current_credits=total_earned_credits, 
-        goal_credits=current_goal, 
-        remaining_credits=remaining_credits, 
+        'timetable_management.html',
+        user=user,
+        current_credits=total_earned_credits,
+        goal_credits=current_goal,
+        remaining_credits=remaining_credits,
         overall_gpa=round(overall_gpa, 2)
     )
 
 # --- Authentication Routes ---
+# ... (기존 login, logout, register 코드 유지) ...
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         student_id = request.form.get('student_id')
         password = request.form.get('password')
-        
+
         user = db.session.get(User, student_id)
-        
+
         if user and check_password_hash(user.password_hash, password):
             session.clear() # 기존 세션 정리
             session['student_id'] = user.id
             session.permanent = True # 세션 유지 시간 설정 (Config에서)
             app.permanent_session_lifetime = timedelta(hours=1) # 1시간
-            
+
             flash(f"{user.name}님, KUSIS에 오신 것을 환영합니다.", "success")
-            
+
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
             flash("학번 또는 비밀번호가 일치하지 않습니다.", "danger")
-            
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -721,11 +744,11 @@ def register():
         if not all([name, student_id, password, password_confirm, dob, college, department]):
             flash("모든 필드를 입력해주세요.", "danger")
             return render_template('register.html', colleges=COLLEGES)
-            
+
         if password != password_confirm:
             flash("비밀번호가 일치하지 않습니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
-            
+
         if db.session.get(User, student_id):
             flash("이미 가입된 학번입니다.", "danger")
             return render_template('register.html', colleges=COLLEGES)
@@ -733,21 +756,21 @@ def register():
         try:
             hashed_password = generate_password_hash(password)
             new_user = User(
-                id=student_id, 
-                name=name, 
-                dob=dob, 
-                college=college, 
-                department=department, 
+                id=student_id,
+                name=name,
+                dob=dob,
+                college=college,
+                department=department,
                 password_hash=hashed_password,
                 permission='general', # 기본 권한
                 total_credits_goal=130 # 기본 목표 학점
             )
             db.session.add(new_user)
             db.session.commit()
-            
+
             # 새 사용자를 위한 학기 데이터 생성
             _create_semesters_for_user(new_user.id)
-            
+
             flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
             return redirect(url_for('login'))
         except Exception as e:
@@ -758,15 +781,16 @@ def register():
     return render_template('register.html', colleges=COLLEGES)
 
 # --- 관리자 대시보드 라우트 ---
+# ... (기존 코드 유지) ...
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
     # 정렬 기준
     sort_by = request.args.get('sort_by', 'id')
     sort_order = request.args.get('sort_order', 'asc')
-    
+
     query = User.query
-    
+
     # 정렬 적용
     if sort_by == 'department':
         order_column = User.department
@@ -776,17 +800,17 @@ def admin_dashboard():
         order_column = User.permission
     else: # 기본: id (학번)
         order_column = User.id
-        
+
     query = query.order_by(order_column.desc() if sort_order == 'desc' else order_column.asc())
-    
+
     all_users = query.all()
     member_count = len(all_users)
-    
+
     # 학과 목록 (중복 제거 및 정렬)
     departments = sorted(list(set(user.department for user in all_users if user.department)))
-    
+
     permission_map = {'general': '일반회원', 'associate': '협력회원', 'admin': '관리자'}
-    
+
     member_list_data = [
         {
             "id": user.id,
@@ -798,19 +822,21 @@ def admin_dashboard():
         }
         for user in all_users
     ]
-    
+
     return render_template(
-        'admin.html', 
-        member_count=member_count, 
+        'admin.html',
+        member_count=member_count,
         member_list=member_list_data,
-        colleges=COLLEGES, 
+        colleges=COLLEGES,
         departments=departments,
         permission_map=permission_map,
         current_sort_by=sort_by,
         current_sort_order=sort_order
     )
 
+
 # --- 관리자 기능 API 엔드포인트 ---
+# ... (기존 코드 유지) ...
 @app.route('/admin/users/<string:user_id>/permission', methods=['POST'])
 @admin_required
 def admin_update_permission(user_id):
@@ -821,13 +847,13 @@ def admin_update_permission(user_id):
     new_permission = request.json.get('permission')
     if new_permission not in ['general', 'associate', 'admin']:
         return jsonify({"status": "error", "message": "유효하지 않은 권한입니다."}), 400
-        
+
     try:
         user.permission = new_permission
         db.session.commit()
         permission_map = {'general': '일반회원', 'associate': '협력회원', 'admin': '관리자'}
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "message": f"'{user.name}'님의 권한이 '{permission_map.get(new_permission, new_permission)}'(으)로 변경되었습니다.",
             "new_permission": new_permission,
             "new_permission_display": permission_map.get(new_permission, new_permission)
@@ -865,7 +891,7 @@ def admin_delete_user(user_id):
         # 사용자 삭제 (관련 데이터는 cascade delete 설정에 따라 삭제됨)
         db.session.delete(user)
         db.session.commit()
-        
+
         return jsonify({"status": "success", "message": f"사용자 '{user.name}'({user_id}) 계정 및 관련 데이터(게시물 포함)가 삭제되었습니다."})
     except Exception as e:
         db.session.rollback()
@@ -873,7 +899,7 @@ def admin_delete_user(user_id):
         return jsonify({"status": "error", "message": f"사용자 삭제 중 오류 발생: {e}"}), 500
 
 
-# --- 게시물 관리 라우트 (요구사항 4 반영) ---
+# --- 게시물 관리 라우트 ---
 @app.route('/post_management')
 @post_manager_required
 def post_management():
@@ -882,7 +908,7 @@ def post_management():
 
     pending_posts = []
     approved_posts = []
-    
+
     # is_visible 필터링 추가 (승인된 게시물에만 적용)
     if user.is_admin:
         # 관리자: 모든 승인 대기, 모든 승인된 글 (숨김 포함)
@@ -898,7 +924,7 @@ def post_management():
                            pending_posts=pending_posts,
                            approved_posts=approved_posts)
 
-# --- create_post 함수 수정 (요구사항 2, 3 반영) ---
+# --- 게시물 생성 라우트 ---
 @app.route('/post/create', methods=['GET', 'POST'])
 @post_manager_required
 def create_post():
@@ -911,11 +937,7 @@ def create_post():
         content = request.form.get('content')
         is_notice = 'is_notice' in request.form
         image_file = request.files.get('image')
-        
-        # 요구사항 2: 카테고리
         category = request.form.get('category', '일반')
-        
-        # 요구사항 3: 노출 기한
         expires_at_str = request.form.get('expires_at')
 
         if not title or not content:
@@ -930,14 +952,15 @@ def create_post():
         expires_at_dt = None
 
         try:
-            # 요구사항 3: 노출 기한 처리 (YYYY-MM-DDTHH:MM 형식)
+            # 노출 기한 처리 (YYYY-MM-DDTHH:MM 형식, KST 입력 -> UTC 저장)
             if expires_at_str:
                 try:
-                    # 입력된 시간을 naive datetime으로 파싱.
-                    # 이 시간은 UTC로 간주하고 DB에 저장됩니다.
-                    # 사용자가 KST로 입력했다면, JS에서 UTC로 변환하여 보내거나
-                    # 서버에서 9시간을 빼야 하지만, 여기서는 입력값 자체를 UTC로 가정합니다.
-                    expires_at_dt = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M')
+                    # KST로 입력된 시간을 naive datetime으로 파싱
+                    naive_dt = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M')
+                    # KST 시간대 정보 추가
+                    kst_dt = KST.localize(naive_dt)
+                    # UTC로 변환하여 저장
+                    expires_at_dt = kst_dt.astimezone(pytz.utc)
                 except ValueError:
                     flash('노출 기한 형식이 잘못되었습니다. 비워두거나 YYYY-MM-DDTHH:MM 형식으로 입력하세요.', 'warning')
                     return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
@@ -953,12 +976,11 @@ def create_post():
                     image_filename = unique_filename
                 else:
                     flash('허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif)', 'warning')
-                    # 파일 형식 오류 시에도 텍스트는 저장되도록 하려면 아래 return 주석 처리
                     return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
 
             # 관리자는 즉시 승인
-            is_approved = user.is_admin 
-            
+            is_approved = user.is_admin
+
             new_post = Post(
                 title=title,
                 content=content.replace('\n', '<br>'), # 줄바꿈을 <br>로 치환
@@ -966,25 +988,23 @@ def create_post():
                 is_approved=is_approved,
                 is_notice=is_notice,
                 image_filename=image_filename,
-                category=category, # 카테고리 저장
-                expires_at=expires_at_dt, # 노출 기한 저장 (UTC)
-                is_visible=True # 생성 시 기본값은 True (요구사항 4)
+                category=category,
+                expires_at=expires_at_dt, # UTC 시간 저장
+                is_visible=True
             )
             db.session.add(new_post)
             db.session.commit()
-            
+
             flash('게시물이 성공적으로 작성되었습니다.' + (' 관리자 승인 후 공지사항에 표시됩니다.' if not is_approved else ''), 'success')
             return redirect(url_for('post_management'))
-        
+
         except Exception as e:
             db.session.rollback()
-            # 이미지 저장이 성공했으나 DB 오류 시, 저장된 이미지 삭제
             if image_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], image_filename)):
                 try:
                     os.remove(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
                 except Exception as img_e:
                     print(f"Error rolling back image file {image_filename}: {img_e}")
-                    
             flash(f'게시물 작성 중 오류 발생: {e}', 'danger')
             print(f"Error creating post: {e}")
 
@@ -992,7 +1012,7 @@ def create_post():
     return render_template('create_post.html', user=user, categories=post_categories)
 
 
-# --- view_post 라우트 수정 (요구사항 4 반영) ---
+# --- 게시물 보기 라우트 ---
 @app.route('/post/<int:post_id>')
 @login_required
 def view_post(post_id):
@@ -1012,7 +1032,6 @@ def view_post(post_id):
     if not post.is_approved:
         if not user or (not user.is_admin and user.id != post.author_id):
             flash("승인되지 않은 게시물입니다.", "warning")
-            # 관리자는 승인되지 않은 글도 볼 수 있어야 하므로 post_management 로 리디렉션
             if user and user.can_manage_posts:
                 return redirect(url_for('post_management'))
             else:
@@ -1020,7 +1039,134 @@ def view_post(post_id):
 
     return render_template('view_post.html', post=post, user=user)
 
+# --- 게시물 수정 라우트 (신규 추가) ---
+@app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_post(post_id):
+    from flask import g
+    user = g.user
+    post = db.session.get(Post, post_id)
+    post_categories = ['공지', '홍보', '안내', '업데이트', '일반']
+
+    if not post:
+        abort(404)
+
+    # 권한 확인: 관리자 또는 작성자 본인
+    if not user.is_admin and post.author_id != user.id:
+        flash("게시물을 수정할 권한이 없습니다.", "danger")
+        return redirect(url_for('view_post', post_id=post_id))
+
+    if request.method == 'POST':
+        # 폼 데이터 가져오기
+        title = request.form.get('title')
+        content = request.form.get('content')
+        category = request.form.get('category', post.category)
+        is_notice = 'is_notice' in request.form
+        expires_at_str = request.form.get('expires_at')
+        delete_image = 'delete_image' in request.form
+        image_file = request.files.get('image')
+
+        if not title or not content:
+            flash('제목과 내용은 필수입니다.', 'danger')
+            # 오류 시 현재 입력값 유지하여 템플릿 렌더링
+            return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                                   title=title, content=content.replace('<br>', '\n'), category=category,
+                                   is_notice=is_notice, expires_at=expires_at_str)
+
+        if category not in post_categories:
+            flash('유효하지 않은 카테고리입니다.', 'warning')
+            category = post.category # 기존 값으로 복원
+
+        expires_at_dt = post.expires_at # 기존 값 유지
+
+        try:
+            # 노출 기한 처리 (KST 입력 -> UTC 저장)
+            if expires_at_str:
+                try:
+                    naive_dt = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M')
+                    kst_dt = KST.localize(naive_dt)
+                    expires_at_dt = kst_dt.astimezone(pytz.utc)
+                except ValueError:
+                    flash('노출 기한 형식이 잘못되었습니다.', 'warning')
+                    return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                                           title=title, content=content.replace('<br>', '\n'), category=category,
+                                           is_notice=is_notice, expires_at=expires_at_str)
+            else:
+                 expires_at_dt = None # 빈 문자열이면 None으로 설정
+
+            # 이미지 처리
+            image_filename_to_update = post.image_filename
+            old_image_filename = post.image_filename
+
+            # 1. 기존 이미지 삭제 체크
+            if delete_image and old_image_filename:
+                image_filename_to_update = None
+                # 실제 파일 삭제는 DB 업데이트 성공 후
+
+            # 2. 새 이미지 업로드
+            if image_file and image_file.filename != '':
+                if allowed_file(image_file.filename):
+                    filename = secure_filename(image_file.filename)
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    unique_filename = f"{timestamp}_{user.id}_{filename}"
+                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    image_file.save(save_path)
+                    image_filename_to_update = unique_filename
+                    # 이전 이미지 파일 삭제는 DB 업데이트 성공 후
+                else:
+                    flash('허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif)', 'warning')
+                    return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                                           title=title, content=content.replace('<br>', '\n'), category=category,
+                                           is_notice=is_notice, expires_at=expires_at_str)
+
+            # 게시물 업데이트
+            post.title = title
+            post.content = content.replace('\n', '<br>')
+            post.category = category
+            post.is_notice = is_notice
+            post.expires_at = expires_at_dt
+            post.image_filename = image_filename_to_update
+
+            # 협력직원이 수정하면 승인 상태 해제 (관리자는 유지)
+            if not user.is_admin:
+                post.is_approved = False
+
+            db.session.commit()
+
+            # DB 업데이트 성공 후 기존 이미지 파일 삭제 (필요한 경우)
+            if (delete_image or (image_file and image_file.filename != '')) and old_image_filename:
+                 if old_image_filename != image_filename_to_update: # 새 파일로 교체되었거나 삭제된 경우
+                    try:
+                        old_image_path = os.path.join(app.config['UPLOAD_FOLDER'], old_image_filename)
+                        if os.path.exists(old_image_path):
+                            os.remove(old_image_path)
+                            print(f"Deleted old image file: {old_image_path}")
+                    except Exception as img_e:
+                        print(f"Error deleting old image file {old_image_filename}: {img_e}")
+
+            flash('게시물이 성공적으로 수정되었습니다.' + (' 관리자 재승인 후 게시됩니다.' if not post.is_approved and not user.is_admin else ''), 'success')
+            return redirect(url_for('view_post', post_id=post.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'게시물 수정 중 오류 발생: {e}', 'danger')
+            print(f"Error editing post {post_id}: {e}")
+
+    # GET 요청 시: 폼에 기존 데이터 채워서 렌더링
+    # DB에 저장된 UTC 시간을 KST로 변환하여 datetime-local input 형식(YYYY-MM-DDTHH:MM)으로 전달
+    expires_at_kst_str = ""
+    if post.expires_at:
+        kst_expires = post.expires_at.replace(tzinfo=pytz.utc).astimezone(KST)
+        expires_at_kst_str = kst_expires.strftime('%Y-%m-%dT%H:%M')
+
+    return render_template('edit_post.html', post=post, user=user, categories=post_categories,
+                           title=post.title, content=post.content.replace('<br>', '\n'), # textarea는 \n 사용
+                           category=post.category, is_notice=post.is_notice,
+                           expires_at=expires_at_kst_str)
+
+
 # --- 업로드된 파일 제공 라우트 ---
+# ... (기존 코드 유지) ...
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     # ../ 등의 경로 탐색 방지
@@ -1029,15 +1175,15 @@ def uploaded_file(filename):
         abort(404)
     return send_from_directory(app.config['UPLOAD_FOLDER'], safe_filename)
 
-
-# --- approve_post 라우트 ---
+# --- 게시물 승인/삭제/표시여부 토글 API ---
+# ... (기존 코드 유지) ...
 @app.route('/post/<int:post_id>/approve', methods=['POST'])
 @admin_required
 def approve_post(post_id):
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
-    
+
     try:
         post.is_approved = True
         db.session.commit()
@@ -1046,27 +1192,26 @@ def approve_post(post_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": f"승인 중 오류 발생: {e}"}), 500
 
-# --- delete_post 라우트 (이미지 삭제 포함) ---
 @app.route('/post/<int:post_id>/delete', methods=['POST'])
 @post_manager_required
 def delete_post(post_id):
     from flask import g
     user = g.user
-    
+
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
-        
+
     # 관리자가 아니면서 작성자 본인도 아니면 삭제 불가
     if not user.is_admin and post.author_id != user.id:
         return jsonify({"status": "error", "message": "삭제 권한이 없습니다."}), 403
-        
+
     try:
         image_filename_to_delete = post.image_filename
-        
+
         db.session.delete(post)
         db.session.commit()
-        
+
         # DB 삭제 성공 후 이미지 파일 삭제
         if image_filename_to_delete:
             try:
@@ -1079,76 +1224,67 @@ def delete_post(post_id):
             except Exception as img_e:
                 # 이미지 삭제 실패는 로그만 남김 (DB는 이미 삭제됨)
                 print(f"Error deleting image file {image_filename_to_delete}: {img_e}")
-                
+
         return jsonify({"status": "success", "message": "게시물이 삭제되었습니다."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"삭제 중 오류 발생: {e}"}), 500
 
-
-# --- 신규: 게시물 표시 여부 토글 API (요구사항 4) ---
 @app.route('/post/<int:post_id>/toggle_visibility', methods=['POST'])
 @admin_required # 관리자만 가능
 def toggle_post_visibility(post_id):
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
-        
+
     try:
         post.is_visible = not post.is_visible # 상태 토글
         db.session.commit()
         new_status = "표시됨" if post.is_visible else "숨김"
         return jsonify({
-            "status": "success", 
-            "message": f"게시물 상태가 '{new_status}'(으)로 변경되었습니다.", 
+            "status": "success",
+            "message": f"게시물 상태가 '{new_status}'(으)로 변경되었습니다.",
             "is_visible": post.is_visible
         })
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"상태 변경 중 오류 발생: {e}"}), 500
 
-
-# --- 알림 API 엔드포인트 수정 (요구사항 1, 2, 3, 4 반영) ---
+# --- 알림 API 엔드포인트 ---
 @app.route('/api/notifications')
 @login_required # 알림은 로그인한 사용자만 받도록 함
 def get_notifications():
-    # 요구사항 5 관련: 현재 시간을 UTC 기준으로 가져옴 (DB와 비교하기 위해)
-    now_utc = datetime.now(timezone.utc)
-    # naive datetime (timezone.utc.localize(datetime.utcnow()) 와 유사)
+    # 현재 시간을 UTC 기준으로 가져옴
     now_utc_naive = datetime.utcnow()
-
 
     try:
         # is_notice=True, is_approved=True, is_visible=True 이고 만료되지 않은 게시물
         notices_query = Post.query.filter(
             Post.is_notice == True,
             Post.is_approved == True,
-            Post.is_visible == True, # 요구사항 4: 보이는 게시물만
-            
-            # 요구사항 3: 만료되지 않은 게시물 (expires_at이 NULL이거나, 현재 UTC 시간보다 미래)
-            or_(Post.expires_at == None, Post.expires_at > now_utc_naive) 
+            Post.is_visible == True,
+            or_(Post.expires_at == None, Post.expires_at > now_utc_naive)
         ).order_by(desc(Post.created_at)).limit(5) # 예시: 최근 5개
-        
+
         notices = notices_query.all()
 
-        # 요구사항 2: 카테고리 정보 포함
         notice_list = [{
             "id": notice.id,
             "title": notice.title,
-            "category": notice.category # 카테고리 정보 추가
+            "category": notice.category
          } for notice in notices]
 
-        # 요구사항 1: 실제 필터링된 개수 반환
         return jsonify({
             "status": "success",
             "notifications": notice_list,
-            "count": len(notice_list) 
+            "count": len(notice_list)
         })
     except Exception as e:
         print(f"Error fetching notifications: {e}")
         return jsonify({"status": "error", "message": "알림 조회 중 오류 발생", "notifications": [], "count": 0}), 500
 
 # --- Public API Endpoints ---
+# ... (기존 코드 유지) ...
 @app.route('/api/shuttle')
 def get_shuttle():
     return jsonify(SHUTTLE_SCHEDULE_DATA)
@@ -1167,17 +1303,17 @@ def get_weekly_meal():
     return jsonify(formatted_data)
 
 # --- Secure API Endpoints ---
-
+# ... (기존 코드 유지: /api/schedule, /api/schedule/add, /api/semesters, /api/timetable-data, /api/subjects, /api/gpa-stats, /api/study-stats, /api/study-time, /api/credits/goal, /api/todos) ...
 @app.route('/api/schedule', methods=['GET'])
 @login_required
 def get_schedule():
     from flask import g
     user_id = g.user.id
-    
-    today = datetime.now()
-    today_str = today.strftime('%Y-%m-%d')
-    today_day_of_week = today.weekday() + 1 # 1:월 ~ 7:일 (TimeSlot은 1~5 사용)
-    
+
+    today_kst = datetime.now(KST) # KST 기준
+    today_str = today_kst.strftime('%Y-%m-%d')
+    today_day_of_week = today_kst.weekday() + 1 # 1:월 ~ 7:일
+
     schedule_list = []
 
     try:
@@ -1187,26 +1323,23 @@ def get_schedule():
             schedule_list.append({"type": "schedule", "time": s.time, "title": s.title, "location": s.location})
 
         # 2. 오늘 요일의 시간표 (수업)
-        # 현재 날짜에 맞는 학기 찾기
         current_semester = None
         all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
         if all_semesters:
             current_found = False
-            today_date_obj = today.date()
+            today_date_obj = today_kst.date()
             for s in all_semesters:
                 start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
                 if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
                     current_semester = s
                     current_found = True
-                    break # 찾았으면 루프 종료
-            
-            # 현재 진행 중인 학기가 없으면, 가장 최신 학기를 기본값으로
+                    break
+
             if not current_found and all_semesters:
                 season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
                 all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
                 current_semester = all_semesters[0]
 
-        # 현재 학기가 있고, 오늘이 평일(월~금)인 경우
         if current_semester and 1 <= today_day_of_week <= 5:
             today_subjects = Subject.query.join(TimeSlot).filter(
                 Subject.semester_id == current_semester.id
@@ -1215,17 +1348,15 @@ def get_schedule():
             ).all()
 
             for subject in today_subjects:
-                # 오늘 요일의 시간대만 필터링
                 subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
                 for ts in subject_timeslots_today:
                     schedule_list.append({
-                        "type": "class", 
-                        "time": ts.start_time, 
-                        "title": subject.name, 
+                        "type": "class",
+                        "time": ts.start_time,
+                        "title": subject.name,
                         "location": ts.room
                     })
 
-        # 시간순 정렬
         schedule_list.sort(key=lambda x: x['time'])
         return jsonify(schedule_list)
 
@@ -1239,7 +1370,7 @@ def add_schedule():
     from flask import g
     user_id = g.user.id
     data = request.json
-    
+
     s_date = data.get('date')
     s_time = data.get('time')
     s_title = data.get('title')
@@ -1249,7 +1380,6 @@ def add_schedule():
         return jsonify({"status": "error", "message": "날짜, 시간, 일정 내용은 필수입니다."}), 400
 
     try:
-        # 간단한 형식 검증
         datetime.strptime(s_date, '%Y-%m-%d')
         datetime.strptime(s_time, '%H:%M')
     except ValueError:
@@ -1257,16 +1387,16 @@ def add_schedule():
 
     try:
         new_schedule = Schedule(
-            user_id=user_id, 
-            date=s_date, 
-            time=s_time, 
-            title=s_title, 
+            user_id=user_id,
+            date=s_date,
+            time=s_time,
+            title=s_title,
             location=s_location
         )
         db.session.add(new_schedule)
         db.session.commit()
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "message": "일정이 추가되었습니다.",
             "schedule": {
                 "id": new_schedule.entry_id,
@@ -1288,7 +1418,6 @@ def handle_semesters():
     user_id = g.user.id
     try:
         semesters = Semester.query.filter_by(user_id=user_id).all()
-        # 정렬 (최신순)
         season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
         semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
         return jsonify([{"id": s.id, "name": s.name} for s in semesters])
@@ -1310,27 +1439,24 @@ def get_timetable_data():
                 semester = db.session.get(Semester, int(semester_id_str))
             except ValueError:
                 semester = None
-            if semester and semester.user_id != user_id: # 본인 학기인지 확인
+            if semester and semester.user_id != user_id:
                 semester = None
         else:
-            # semester_id가 없으면 현재 학기 자동 감지
-            today = date.today()
+            today_kst = datetime.now(KST).date() # KST 기준
             all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
             if all_semesters:
                 current_found = False
                 for s in all_semesters:
                     start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
-                    if start and start <= today and today <= start + timedelta(weeks=16): # 16주
+                    if start and start <= today_kst and today_kst <= start + timedelta(weeks=16):
                         semester = s
                         current_found = True
-                        break # 루프 종료
-                # 현재 학기 못찾으면 최신 학기
+                        break
                 if not current_found:
                     season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
                     all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
                     semester = all_semesters[0]
 
-        # 그래도 학기가 없으면 (데이터가 아예 없으면)
         if not semester:
             all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
             if all_semesters:
@@ -1338,23 +1464,22 @@ def get_timetable_data():
                 all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
                 semester = all_semesters[0]
             else:
-                return jsonify({"semester": None, "subjects": []}), 404 # 학기 정보 없음
+                return jsonify({"semester": None, "subjects": []}), 404
 
         subjects = Subject.query.filter_by(user_id=user_id, semester_id=semester.id).all()
         result = []
         for s in subjects:
             timeslots_data = [
-                {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} 
+                {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room}
                 for ts in s.timeslots
             ]
-            
-            # memo 파싱
+
             memo_data = {}
             if s.memo:
                 try:
                     memo_data = json.loads(s.memo)
                 except (json.JSONDecodeError, TypeError):
-                    memo_data = {"note": s.memo if isinstance(s.memo, str) else "", "todos": []} # 호환성
+                    memo_data = {"note": s.memo if isinstance(s.memo, str) else "", "todos": []}
             else:
                 memo_data = {"note": "", "todos": []}
 
@@ -1365,7 +1490,7 @@ def get_timetable_data():
                 "credits": s.credits,
                 "grade": s.grade,
                 "timeslots": timeslots_data,
-                "memo": memo_data # 파싱된 JSON 객체
+                "memo": memo_data
             })
 
         semester_info = {
@@ -1387,21 +1512,20 @@ def create_subject():
     from flask import g
     user_id = g.user.id
     data = request.json
-    
+
     semester_id = data.get('semester_id')
     name = data.get('name')
 
     if not semester_id or not name:
         return jsonify({"status": "error", "message": "학기 ID와 과목명은 필수입니다."}), 400
-        
+
     semester = db.session.get(Semester, semester_id)
     if not semester or semester.user_id != user_id:
         return jsonify({"status": "error", "message": "유효하지 않은 학기입니다."}), 404
 
     try:
-        # memo 필드 초기화
         initial_memo = json.dumps({"note": "", "todos": []})
-        
+
         new_subject = Subject(
             user_id=user_id,
             semester_id=semester_id,
@@ -1412,7 +1536,7 @@ def create_subject():
             memo=initial_memo
         )
         db.session.add(new_subject)
-        db.session.flush() # new_subject.id를 얻기 위해
+        db.session.flush()
 
         for ts_data in data.get('timeslots', []):
             if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'):
@@ -1423,15 +1547,13 @@ def create_subject():
                     end_time=ts_data.get('end'),
                     room=ts_data.get('room')
                 ))
-        
+
         db.session.commit()
 
-        # 총 이수 학점 업데이트
         all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
         total_earned_credits = sum(s.credits for s in all_user_subjects)
 
-        # 클라이언트에 반환할 데이터
-        memo_data = json.loads(new_subject.memo) # 파싱된 객체
+        memo_data = json.loads(new_subject.memo)
         created_subject_data = {
             "id": new_subject.id,
             "name": new_subject.name,
@@ -1439,15 +1561,15 @@ def create_subject():
             "credits": new_subject.credits,
             "grade": new_subject.grade,
             "timeslots": [
-                {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} 
+                {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room}
                 for ts in new_subject.timeslots
             ],
             "memo": memo_data
         }
 
         return jsonify({
-            "status": "success", 
-            "message": "과목이 추가되었습니다.", 
+            "status": "success",
+            "message": "과목이 추가되었습니다.",
             "subject": created_subject_data,
             "total_earned_credits": total_earned_credits
         }), 201
@@ -1460,12 +1582,11 @@ def create_subject():
 def handle_subject(subject_id):
     from flask import g
     user_id = g.user.id
-    
+
     subject = db.session.get(Subject, subject_id)
     if not subject or subject.user_id != user_id:
         return jsonify({"status": "error", "message": "과목을 찾을 수 없거나 권한이 없습니다."}), 404
 
-    # 과목 수정 (PUT)
     if request.method == 'PUT':
         data = request.json
         try:
@@ -1474,17 +1595,15 @@ def handle_subject(subject_id):
             subject.credits = data.get('credits', subject.credits)
             subject.grade = data.get('grade', subject.grade)
 
-            # Memo 업데이트 (JSON 형식)
-            memo_data = data.get('memo') # { "note": "...", "todos": [...] }
+            memo_data = data.get('memo')
             if isinstance(memo_data, dict) and ('note' in memo_data or 'todos' in memo_data):
                 subject.memo = json.dumps({
                     "note": memo_data.get('note', ''),
                     "todos": memo_data.get('todos', [])
                 })
-            elif isinstance(memo_data, str): # 이전 버전 호환성
+            elif isinstance(memo_data, str):
                 subject.memo = json.dumps({"note": memo_data, "todos": []})
-            
-            # 시간표 업데이트 (기존 것 삭제 후 새로 추가)
+
             TimeSlot.query.filter_by(subject_id=subject.id).delete()
             for ts_data in data.get('timeslots', []):
                 if ts_data.get('day') and ts_data.get('start') and ts_data.get('end'):
@@ -1495,14 +1614,12 @@ def handle_subject(subject_id):
                         end_time=ts_data.get('end'),
                         room=ts_data.get('room')
                     ))
-            
+
             db.session.commit()
-            
-            # 총 이수 학점 업데이트
+
             all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
             total_earned_credits = sum(s.credits for s in all_user_subjects)
 
-            # 클라이언트에 반환할 데이터
             memo_data_resp = json.loads(subject.memo)
             updated_subject_data = {
                 "id": subject.id,
@@ -1511,15 +1628,15 @@ def handle_subject(subject_id):
                 "credits": subject.credits,
                 "grade": subject.grade,
                 "timeslots": [
-                    {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room} 
+                    {"id": ts.id, "day": ts.day_of_week, "start": ts.start_time, "end": ts.end_time, "room": ts.room}
                     for ts in subject.timeslots
                 ],
                 "memo": memo_data_resp
             }
 
             return jsonify({
-                "status": "success", 
-                "message": "과목이 수정되었습니다.", 
+                "status": "success",
+                "message": "과목이 수정되었습니다.",
                 "subject": updated_subject_data,
                 "total_earned_credits": total_earned_credits
             })
@@ -1527,48 +1644,42 @@ def handle_subject(subject_id):
             db.session.rollback()
             return jsonify({"status": "error", "message": f"과목 수정 중 오류 발생: {e}"}), 500
 
-    # 과목 삭제 (DELETE)
     if request.method == 'DELETE':
         try:
-            # TimeSlot은 cascade delete
             db.session.delete(subject)
             db.session.commit()
-            
-            # 총 이수 학점 업데이트
+
             all_user_subjects = Subject.query.filter_by(user_id=user_id).all()
             total_earned_credits = sum(s.credits for s in all_user_subjects)
 
             return jsonify({
-                "status": "success", 
+                "status": "success",
                 "message": "과목 및 관련 데이터가 삭제되었습니다.",
                 "total_earned_credits": total_earned_credits
             })
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": f"과목 삭제 중 오류 발생: {e}"}), 500
-    
-    # PUT, DELETE 외의 메소드 방지
-    return jsonify({"status": "error", "message": "허용되지 않는 메소드입니다."}), 405
 
+    return jsonify({"status": "error", "message": "허용되지 않는 메소드입니다."}), 405
 
 @app.route('/api/gpa-stats', methods=['GET'])
 @login_required
 def get_gpa_stats():
     from flask import g
     user_id = g.user.id
-    
+
     try:
         semesters = Semester.query.filter_by(user_id=user_id).all()
-        # 학기순 정렬
         season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
         semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)))
-        
+
         stats = []
         GRADE_MAP = {
             "A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0,
             "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0
         }
-        
+
         for semester in semesters:
             subjects = semester.subjects
             semester_gpa_credits = 0
@@ -1578,15 +1689,14 @@ def get_gpa_stats():
                 if grade_score is not None:
                     semester_gpa_credits += subject.credits
                     semester_gpa_score += (grade_score * subject.credits)
-            
+
             if semester_gpa_credits > 0:
                 semester_gpa = (semester_gpa_score / semester_gpa_credits)
                 stats.append({"semester_name": semester.name, "gpa": round(semester_gpa, 2)})
 
-        # 전체 평점 계산 (위의 로직 재활용)
         all_subjects = Subject.query.filter_by(user_id=user_id).all()
-        total_earned_credits = sum(s.credits for s in all_subjects) # 총 이수 학점
-        
+        total_earned_credits = sum(s.credits for s in all_subjects)
+
         total_gpa_credits = 0
         total_gpa_score = 0
         for subject in all_subjects:
@@ -1594,7 +1704,7 @@ def get_gpa_stats():
             if grade_score is not None:
                 total_gpa_credits += subject.credits
                 total_gpa_score += (grade_score * subject.credits)
-        
+
         overall_gpa = (total_gpa_score / total_gpa_credits) if total_gpa_credits > 0 else 0.0
 
         return jsonify({
@@ -1606,33 +1716,29 @@ def get_gpa_stats():
         print(f"Error fetching gpa stats: {e}")
         return jsonify({"status": "error", "message": "GPA 통계 조회 실패"}), 500
 
-
 @app.route('/api/study-stats', methods=['GET'])
 @login_required
 def get_study_stats():
     from flask import g
     user_id = g.user.id
     try:
-        today = datetime.now().date()
-        today_str = today.strftime('%Y-%m-%d')
+        today_kst = datetime.now(KST).date() # KST 기준
+        today_str = today_kst.strftime('%Y-%m-%d')
 
-        # 오늘 공부 시간
         today_log = StudyLog.query.filter_by(user_id=user_id, date=today_str).first()
         today_seconds = today_log.duration_seconds if today_log else 0
-        
-        # 주간 (오늘 포함 7일) 평균 공부 시간
-        seven_days_ago = today - timedelta(days=6)
-        seven_days_ago_str = seven_days_ago.strftime('%Y-%m-%d')
-        
+
+        seven_days_ago_kst = today_kst - timedelta(days=6)
+        seven_days_ago_str = seven_days_ago_kst.strftime('%Y-%m-%d')
+
         weekly_logs = StudyLog.query.filter(
             StudyLog.user_id == user_id,
             StudyLog.date >= seven_days_ago_str,
             StudyLog.date <= today_str
         ).all()
-        
+
         total_seconds = sum(log.duration_seconds for log in weekly_logs)
-        # 0으로 나누기 방지
-        weekly_avg_seconds = total_seconds / 7 if total_seconds > 0 else 0 
+        weekly_avg_seconds = total_seconds / 7 if total_seconds > 0 else 0
 
         return jsonify({"today": today_seconds, "weekly_avg": weekly_avg_seconds})
     except Exception as e:
@@ -1644,8 +1750,8 @@ def get_study_stats():
 @login_required
 def save_study_time():
     data = request.json
-    duration_to_add = data.get('duration_to_add') # 추가할 시간 (초)
-    date_str = data.get('date') # YYYY-MM-DD
+    duration_to_add = data.get('duration_to_add')
+    date_str = data.get('date') # YYYY-MM-DD (KST 기준 날짜)
     from flask import g
     user_id = g.user.id
 
@@ -1653,19 +1759,19 @@ def save_study_time():
         return jsonify({"status": "error", "message": "잘못된 요청입니다."}), 400
 
     try:
-        datetime.strptime(date_str, '%Y-%m-%d') # 날짜 형식 검증
-        
+        datetime.strptime(date_str, '%Y-%m-%d') # 날짜 형식 검증 (KST 기준)
+
         log_entry = StudyLog.query.filter_by(user_id=user_id, date=date_str).first()
-        
+
         if log_entry:
             log_entry.duration_seconds += duration_to_add
         else:
             log_entry = StudyLog(user_id=user_id, date=date_str, duration_seconds=duration_to_add)
             db.session.add(log_entry)
-            
+
         db.session.commit()
         return jsonify({"status": "success", "data": {"total_duration": log_entry.duration_seconds}})
-        
+
     except ValueError:
         return jsonify({"status": "error", "message": "잘못된 날짜 형식입니다."}), 400
     except Exception as e:
@@ -1687,14 +1793,13 @@ def update_credit_goal():
         user = db.session.get(User, user_id)
         if not user:
             return jsonify({"status": "error", "message": "사용자를 찾을 수 없습니다."}), 404
-            
+
         user.total_credits_goal = new_goal
         db.session.commit()
         return jsonify({"status": "success", "message": "목표 학점이 업데이트되었습니다.", "new_goal": new_goal})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
-
 
 @app.route('/api/todos', methods=['GET'])
 @login_required
@@ -1711,14 +1816,14 @@ def get_todos():
     try:
         start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        
+
         todos = Todo.query.filter(
             Todo.user_id == user_id,
             Todo.semester_id == semester_id,
             Todo.due_date >= start_date_obj,
             Todo.due_date <= end_date_obj
         ).order_by(Todo.due_date, Todo.created_at).all()
-        
+
         return jsonify({'status': 'success', 'todos': [todo.to_dict() for todo in todos]})
     except ValueError:
         return jsonify({'status': 'error', 'message': '날짜 형식이 올바르지 않습니다.'}), 400
@@ -1743,11 +1848,11 @@ def create_todo():
 
         if not task:
             return jsonify({'status': 'error', 'message': 'Todo 내용이 없습니다.'}), 400
-            
+
         semester = db.session.get(Semester, semester_id)
         if not semester or semester.user_id != user_id:
             return jsonify({'status': 'error', 'message': '유효하지 않은 학기입니다.'}), 404
-            
+
         new_todo = Todo(
             user_id=user_id,
             semester_id=semester_id,
@@ -1766,7 +1871,7 @@ def create_todo():
 def manage_todo(todo_id):
     from flask import g
     user_id = g.user.id
-    
+
     todo = db.session.get(Todo, todo_id)
     if not todo or todo.user_id != user_id:
         return jsonify({'status': 'error', 'message': 'Todo를 찾을 수 없습니다.'}), 404
@@ -1778,17 +1883,18 @@ def manage_todo(todo_id):
                 todo.done = bool(data['done'])
             db.session.commit()
             return jsonify({'status': 'success', 'todo': todo.to_dict()})
-        
+
         elif request.method == 'DELETE':
             db.session.delete(todo)
             db.session.commit()
             return jsonify({'status': 'success', 'message': 'Todo가 삭제되었습니다.'})
-            
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # --- 앱 실행 부분 ---
+# ... (기존 코드 유지) ...
 if __name__ == '__main__':
     with app.app_context():
         try:
@@ -1803,10 +1909,10 @@ if __name__ == '__main__':
     scheduler = BackgroundScheduler(timezone='Asia/Seoul') # 한국 시간대 기준
     # 매일 자정(KST)에 학기 관리 작업 실행 (예시)
     # scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3, id='semester_management_job')
-    
+
     # 테스트용: 1시간마다 실행
-    scheduler.add_job(manage_semesters_job, 'interval', minutes=60, id='semester_management_job_test') 
-    
+    scheduler.add_job(manage_semesters_job, 'interval', minutes=60, id='semester_management_job_test')
+
     try:
         scheduler.start()
         print("Scheduler started... Press Ctrl+C to exit")

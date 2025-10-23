@@ -46,6 +46,16 @@
     input:checked + .visibility-toggle-slider:before {
         transform: translateX(20px); /* 이동 거리 조정 */
     }
+    /* 수정 버튼 스타일 추가 */
+    .btn-edit {
+        background-color: #3498db; /* 파란색 계열 */
+        color: white;
+        border-color: #3498db;
+    }
+    .btn-edit:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+    }
 </style>
 {% endblock %}
 
@@ -59,7 +69,7 @@
             </a>
         </div>
 
-        {# 플래시 메시지 (기존 유지) #}
+        {# 플래시 메시지 #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -70,7 +80,7 @@
             {% endif %}
         {% endwith %}
 
-        {# 관리자만 승인 대기 목록 표시 (기존 유지) #}
+        {# 승인 대기 목록 #}
         {% if user.is_admin and pending_posts %}
         <div class="post-section">
             <h4><i class="fas fa-clock pending-icon"></i> 승인 대기 중</h4>
@@ -80,7 +90,7 @@
                         <tr>
                             <th class="col-title">제목</th>
                             <th class="col-author">작성자</th>
-                            <th class="col-date">작성일</th>
+                            <th class="col-date">작성일 (KST)</th> {# 시간대 명시 #}
                             <th class="col-notice">공지</th>
                             <th class="col-actions">작업</th>
                         </tr>
@@ -90,10 +100,12 @@
                         <tr data-post-id="{{ post.id }}">
                             <td><a href="{{ url_for('view_post', post_id=post.id) }}" class="post-title-link" title="미리보기">{{ post.title }}</a></td>
                             <td>{{ post.author.name }}</td>
-                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }} (UTC)</td>
+                            <td>{{ post.created_at | kst }}</td> {# kst 필터 사용 #}
                             <td class="notice-cell">{% if post.is_notice %}<span class="notice-badge">공지</span>{% else %}-{% endif %}</td>
                             <td class="actions-cell">
                                 <button class="btn btn-sm btn-approve" data-post-id="{{ post.id }}"><i class="fas fa-check"></i> 승인</button>
+                                {# 수정 버튼 추가 #}
+                                <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn btn-sm btn-edit"><i class="fas fa-edit"></i> 수정</a>
                                 <button class="btn btn-sm btn-danger btn-delete" data-post-id="{{ post.id }}"><i class="fas fa-trash-alt"></i> 삭제</button>
                             </td>
                         </tr>
@@ -113,25 +125,21 @@
                         <tr>
                             <th class="col-title">제목</th>
                             <th class="col-author">작성자</th>
-                            <th class="col-date">작성일</th>
+                            <th class="col-date">작성일 (KST)</th> {# 시간대 명시 #}
                             <th class="col-notice">공지</th>
-                            {# --- 요구사항 4: 표시 여부 컬럼 추가 (관리자에게만) --- #}
                             {% if user.is_admin %}
                                 <th style="width: 10%; text-align: center;">표시 여부</th>
                             {% endif %}
-                            {# ------------------------------------------------ #}
                             <th class="col-actions">작업</th>
                         </tr>
                     </thead>
                     <tbody id="approvedPostList">
                         {% for post in approved_posts %}
-                        {# 협력 직원은 숨김 처리된 글을 보지 못함 (백엔드에서 필터링) #}
                         <tr data-post-id="{{ post.id }}">
                             <td><a href="{{ url_for('view_post', post_id=post.id) }}" class="post-title-link">{{ post.title }}</a></td>
                             <td>{{ post.author.name }}</td>
-                            <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }} (UTC)</td>
+                            <td>{{ post.created_at | kst }}</td> {# kst 필터 사용 #}
                             <td class="notice-cell">{% if post.is_notice %}<span class="notice-badge">공지</span>{% else %}-{% endif %}</td>
-                            {# --- 요구사항 4: 표시 여부 토글 스위치 (관리자에게만) --- #}
                             {% if user.is_admin %}
                                 <td style="text-align: center;">
                                     <label class="visibility-toggle-label" title="클릭하여 표시/숨김 전환">
@@ -140,16 +148,17 @@
                                     </label>
                                 </td>
                             {% endif %}
-                            {# ---------------------------------------------------- #}
                             <td class="actions-cell">
+                                {# 수정 버튼 추가 #}
                                 {% if user.is_admin or post.author_id == user.id %}
+                                <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn btn-sm btn-edit"><i class="fas fa-edit"></i> 수정</a>
                                 <button class="btn btn-sm btn-danger btn-delete" data-post-id="{{ post.id }}"><i class="fas fa-trash-alt"></i> 삭제</button>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{% if user.is_admin %}6{% else %}5{% endif %}" class="no-posts-message">게시된 글이 없습니다.</td> {# colspan 조정 #}
+                            <td colspan="{% if user.is_admin %}6{% else %}5{% endif %}" class="no-posts-message">게시된 글이 없습니다.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

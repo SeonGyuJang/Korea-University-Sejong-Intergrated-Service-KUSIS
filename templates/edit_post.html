@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 게시물 수정{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}"> {# 생성 폼 CSS 재사용 #}
+<style>
+    /* 기존 이미지 미리보기 및 삭제 버튼 스타일 */
+    .current-image-container { margin-top: 15px; border: 1px dashed var(--border-color); padding: 15px; border-radius: 8px; background: #fdfafb; }
+    .current-image-container img { max-width: 100%; max-height: 150px; display: block; margin-bottom: 10px; border-radius: 4px; }
+    .delete-image-label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--color-danger); cursor: pointer; }
+    .delete-image-label input { width: 14px; height: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-area create-post-page">
+    <div class="create-post-container">
+        <div class="page-header">
+            <h3><i class="fas fa-edit"></i> 게시물 수정</h3>
+            <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> 게시물 보기
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('edit_post', post_id=post.id) }}" id="editPostForm" enctype="multipart/form-data">
+            <div class="form-grid">
+                {# --- 좌측: 입력 폼 --- #}
+                <div class="form-left-column">
+                    <div class="input-group">
+                        <label for="title"><i class="fas fa-heading"></i> 제목</label>
+                        <input type="text" id="title" name="title" required value="{{ title or post.title }}">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="category"><i class="fas fa-tags"></i> 카테고리</label>
+                        <select id="category" name="category" required>
+                            {% for cat in categories %}
+                                <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="content"><i class="fas fa-paragraph"></i> 내용</label>
+                        <textarea id="content" name="content" rows="10" required>{{ content or post.content.replace('<br>', '\n') }}</textarea>
+                    </div>
+
+                    {# --- 이미지 관리 --- #}
+                    <div class="input-group">
+                        <label for="imageUpload"><i class="fas fa-image"></i> 이미지 변경/추가 (선택)</label>
+                        <input type="file" id="imageUpload" name="image" accept="image/*">
+                        <small class="form-text">새 이미지를 업로드하면 기존 이미지는 교체됩니다.</small>
+                        {# 이미지 미리보기 #}
+                        <div class="image-preview-container">
+                            <img id="imagePreview" src="#" alt="새 이미지 미리보기">
+                        </div>
+                        {# 기존 이미지 표시 및 삭제 옵션 #}
+                        {% if post.image_filename %}
+                        <div class="current-image-container">
+                            <p style="font-size: 13px; margin-bottom: 5px;"><strong>현재 이미지:</strong></p>
+                            <img src="{{ url_for('uploaded_file', filename=post.image_filename) }}" alt="현재 이미지">
+                            <label class="delete-image-label">
+                                <input type="checkbox" name="delete_image" value="yes"> 현재 이미지 삭제
+                            </label>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {# --- 이미지 관리 끝 --- #}
+
+
+                    <div class="input-group">
+                        <label for="expires_at"><i class="far fa-calendar-times"></i> 알림 노출 기한 (선택, KST)</label>
+                        {# 서버에서 KST로 변환된 값을 value로 설정 #}
+                        <input type="datetime-local" id="expires_at" name="expires_at" value="{{ expires_at }}">
+                        <small class="form-text">한국 시간(KST) 기준. 비워두면 계속 노출됩니다.</small>
+                    </div>
+
+                    <div class="input-group checkbox-group">
+                        <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
+                        <label for="is_notice">상단 알림 위젯에 공지사항으로 표시 (관리자 승인 필요)</label>
+                    </div>
+                </div>
+
+                {# --- 우측: 미리보기 --- #}
+                <div class="form-right-column">
+                    <h4><i class="fas fa-eye"></i> 미리보기</h4>
+                    <div class="preview-container">
+                        <h1 id="previewTitle" class="preview-title">{{ title or post.title }}</h1>
+                        {# 이미지 미리보기 영역 포함 #}
+                        <div id="previewContent" class="preview-content {% if post.image_filename %}has-image{% endif %}">
+                             {{ (content or post.content) | safe }}
+                             {# 기존 이미지 또는 새 이미지 미리보기 텍스트 #}
+                             <p class="preview-image-text">(첨부된 이미지는 실제 게시물 보기 페이지에서 표시됩니다.)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-secondary" style="margin-right: 10px;">취소</a>
+                <button type="submit" class="btn btn-primary btn-submit-post">
+                    <i class="fas fa-save"></i> 수정 완료
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // 미리보기 업데이트 로직 (생성 폼과 거의 동일)
+    const titleInput = document.getElementById('title');
+    const contentInput = document.getElementById('content');
+    const imageInput = document.getElementById('imageUpload');
+    const deleteImageCheckbox = document.querySelector('input[name="delete_image"]');
+
+    const previewTitle = document.getElementById('previewTitle');
+    const previewContent = document.getElementById('previewContent');
+    const imagePreview = document.getElementById('imagePreview'); // 새 이미지 미리보기
+    const currentImageContainer = document.querySelector('.current-image-container'); // 기존 이미지 컨테이너
+    const previewImageText = previewContent.querySelector('.preview-image-text');
+
+    function updatePreview() {
+        if (previewTitle) previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
+        if (previewContent) {
+            const contentHtml = contentInput.value.replace(/\n/g, '<br>');
+            const existingImageText = previewImageText ? previewImageText.outerHTML : '';
+            previewContent.innerHTML = (contentHtml || '<p>내용이 여기에 표시됩니다.</p>') + existingImageText;
+        }
+    }
+
+    function handleImagePreview(event) {
+        const file = event.target.files[0];
+        if (file && imagePreview && previewContent && previewImageText) {
+            // 새 이미지 선택 시
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.add('visible');
+                previewContent.classList.add('has-image'); // 미리보기 텍스트 표시
+                // 기존 이미지 컨테이너 숨기기 (선택 사항)
+                if (currentImageContainer) currentImageContainer.style.display = 'none';
+                // 기존 이미지 삭제 체크박스 해제 (새 이미지 선택 시)
+                if (deleteImageCheckbox) deleteImageCheckbox.checked = false;
+            }
+            reader.readAsDataURL(file);
+        } else if (imagePreview && previewContent && previewImageText) {
+            // 파일 선택 취소 시
+            imagePreview.src = '#';
+            imagePreview.classList.remove('visible');
+             // 기존 이미지가 있다면 미리보기 텍스트 유지, 아니면 숨김
+            if (currentImageContainer) {
+                 previewContent.classList.add('has-image');
+                 currentImageContainer.style.display = 'block'; // 기존 이미지 다시 표시
+            } else {
+                 previewContent.classList.remove('has-image');
+            }
+        }
+    }
+
+    if (titleInput) titleInput.addEventListener('input', updatePreview);
+    if (contentInput) contentInput.addEventListener('input', updatePreview);
+    if (imageInput) imageInput.addEventListener('change', handleImagePreview);
+
+     // 기존 이미지 삭제 체크박스 처리
+     if (deleteImageCheckbox && previewContent && previewImageText && imagePreview && currentImageContainer) {
+         deleteImageCheckbox.addEventListener('change', (e) => {
+             if (e.target.checked) {
+                 // 삭제 체크 시: 미리보기 텍스트 숨김, 새 이미지 미리보기 숨김
+                 previewContent.classList.remove('has-image');
+                 imagePreview.classList.remove('visible');
+                 imageInput.value = ''; // 새 파일 선택 취소
+                 currentImageContainer.style.opacity = '0.5'; // 삭제될 것임을 표시
+             } else {
+                 // 삭제 체크 해제 시: 미리보기 텍스트 표시, 기존 이미지 표시 복원
+                 previewContent.classList.add('has-image');
+                 currentImageContainer.style.opacity = '1';
+             }
+         });
+     }
+
+    // 초기 미리보기 실행
+    updatePreview();
+});
+</script>
+{% endblock %}
