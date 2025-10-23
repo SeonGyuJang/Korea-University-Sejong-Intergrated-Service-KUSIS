@@ -793,8 +793,13 @@ def create_post():
 @app.route('/post/<int:post_id>')
 @login_required # 모든 로그인 사용자가 볼 수 있도록
 def view_post(post_id):
+    from flask import g # <<<--- [오류 수정] g 객체를 import
     post = db.session.get(Post, post_id)
     if not post or not post.is_approved: # 승인된 게시물만 조회 가능
+        # 관리자 또는 작성자는 승인되지 않았어도 볼 수 있게 하려면?
+        # if not post or (not post.is_approved and (not g.user or (not g.user.is_admin and g.user.id != post.author_id))):
+        
+        # 현재 로직 유지 (승인된 것만)
         abort(404) # Not Found
     return render_template('view_post.html', post=post, user=g.user)
 
@@ -858,9 +863,9 @@ def get_shuttle():
 
 @app.route('/api/meal')
 def get_meal():
-    cafeteria = request.args.get('cafeteria', 'student')
+    cafeteria = request.args.get('cafeterIA', 'student')
     if cafeteria in MEAL_PLAN_DATA:
-        formatted_meal = format_meal_for_client(MEAL_PLAN_DATA[cafeteria], TODAY_MEAL_KEY, cafeteria)
+        formatted_meal = format_meal_for_client(MEAL_PLAN_DATA[cafeterIA], TODAY_MEAL_KEY, cafeteria)
         return jsonify(formatted_meal)
     return jsonify({"error": "Invalid cafeteria type"}), 400
 

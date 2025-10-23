@@ -3,8 +3,10 @@
 {% block title %}KUSIS - 새 게시물 작성{% endblock %}
 
 {% block styles %}
+{# post_management.css에 create-post-widget 기본 스타일이 있을 수 있으므로 유지 #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/post_management.css') }}">
-{# 필요시 리치 텍스트 에디터 CSS 추가 #}
+{# 요청하신 새 디자인 CSS 로드 (Req 1) #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -51,3 +53,5 @@
 {% endblock %}
 
 {% block page_scripts %}
+{# 필요시 리치 텍스트 에디터 JS 초기화 등 추가 #}
+{% endblock %}

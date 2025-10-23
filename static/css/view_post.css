@@ -1,0 +1,104 @@
+/* static/css/view_post.css */
+
+.post-view-widget {
+    max-width: 900px;
+    margin: 20px auto;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    overflow: hidden; /* for clean edges */
+}
+
+.post-header {
+    padding: 30px 40px;
+    border-bottom: 2px solid var(--border-color);
+    background: #fdfafb; /* Slight tint for header */
+}
+
+.post-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.post-meta {
+    margin-top: 15px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    flex-wrap: wrap; /* 모바일에서 줄바꿈 */
+    gap: 15px 20px; /* 세로, 가로 갭 */
+}
+
+.post-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.post-meta .author-name {
+    font-weight: 600;
+    color: var(--korea-red);
+}
+
+.post-content {
+    padding: 40px;
+    font-size: 17px;
+    line-height: 1.8; /* 가독성 향상 */
+    color: #333;
+    
+    /* DB에 저장된 텍스트(textarea)의 줄바꿈(\n)을 
+      HTML <br> 태그처럼 보이게 처리합니다.
+    */
+    white-space: pre-wrap;
+    word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
+}
+
+/* Request 3: 향후 리치 에디터 등을 통해 이미지가 본문에 포함될 경우
+  이미지가 부모 요소를 벗어나지 않도록 처리합니다.
+*/
+.post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 20px 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 본문 내 h 태그 등 (리치 에디터 사용 대비) 
+*/
+.post-content h2,
+.post-content h3 {
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+    margin: 25px 0 15px;
+}
+
+.post-actions {
+    padding: 20px 40px;
+    text-align: right;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.btn-list {
+    background: var(--korea-red);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn-list:hover {
+    background: var(--korea-red-light);
+    box-shadow: 0 4px 10px rgba(165, 0, 52, 0.2);
+}
+
+.btn-list i {
+    margin-right: 5px;
+}

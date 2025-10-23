@@ -1,99 +1,115 @@
-/* static/css/post_management.css */
+/* static/css/create_post.css */
 
-.post-management-widget,
-.create-post-widget,
-.post-view-widget {
-    max-width: 1000px; /* 너비 조정 가능 */
-    margin: 0 auto;
+.create-post-widget {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 25px 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    max-width: 900px;
+    margin: 20px auto;
 }
 
-.post-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
-}
-.post-section:first-of-type {
-    margin-top: 10px;
-    padding-top: 0;
-    border-top: none;
+.create-post-widget .widget-header {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 25px;
 }
 
-.post-section h4 {
-    margin-bottom: 15px;
-    font-size: 18px;
+.create-post-widget .widget-header h3 {
+    font-size: 22px;
     color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
-.post-section h4 i {
+
+.create-post-widget .widget-header h3 i {
     color: var(--korea-red);
 }
 
-.post-list-container {
-    overflow-x: auto; /* 테이블이 길 경우 가로 스크롤 */
+#createPostForm .input-group {
+    margin-bottom: 20px;
 }
 
-.post-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 600px; /* 최소 너비 지정 */
-}
-
-.post-table th,
-.post-table td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-    font-size: 14px;
-    vertical-align: middle;
-}
-
-.post-table th {
-    background: var(--bg-primary);
+#createPostForm label {
+    display: block;
+    font-size: 16px;
     font-weight: 600;
-    color: var(--korea-red);
+    margin-bottom: 8px;
+    color: var(--text-secondary);
 }
 
-.post-table tbody tr:hover {
-    background: #fef5f7;
-}
-
-.post-table td.actions-cell {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.post-table .btn-sm {
-    padding: 5px 10px;
-    font-size: 13px;
-    margin-left: 5px;
-    vertical-align: middle;
-}
-.btn-approve { background: var(--color-success); color: white; border:none; }
-.btn-approve:hover { background: #218838; }
-.btn-view { background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border-color); text-decoration: none; display: inline-block; line-height: 1.5;}
-.btn-view:hover { background: #e9ecef; color: var(--text-primary); }
-
-/* Create Post Form */
-.create-post-widget textarea {
-    min-height: 300px;
+#createPostForm input[type="text"],
+#createPostForm textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
     font-size: 15px;
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#createPostForm input[type="text"]:focus,
+#createPostForm textarea:focus {
+    outline: none;
+    border-color: var(--korea-red);
+    box-shadow: 0 0 0 3px rgba(165, 0, 52, 0.15);
+}
+
+#createPostForm textarea {
+    min-height: 350px;
     line-height: 1.6;
+    resize: vertical;
 }
 
 .checkbox-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    padding: 10px;
+    background: #fdfafb;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
+
 .checkbox-group input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     accent-color: var(--korea-red);
 }
+
 .checkbox-group label {
     margin-bottom: 0;
     font-weight: 500;
-    cursor: pointer;
+    font-size: 15px;
+    color: var(--text-secondary);
+}
+
+.btn-save {
+    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
+    color: white;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 25px;
+    box-shadow: 0 4px 12px rgba(165, 0, 52, 0.2);
+    transition: all 0.3s;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(165, 0, 52, 0.3);
+}
+
+.btn-save i {
+    margin-right: 5px;
+}
+
+.btn-cancel {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+.btn-cancel:hover {
+    background: #f0f0f0;
+    color: var(--text-primary);
 }
