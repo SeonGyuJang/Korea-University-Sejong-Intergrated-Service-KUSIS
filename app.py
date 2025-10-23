@@ -976,13 +976,13 @@ def create_post():
         title = request.form.get('title')
         content = request.form.get('content')
         is_notice = 'is_notice' in request.form
-        image_files = request.files.getlist('images') # 여러 파일 받기
+        image_files = request.files.getlist('images') # <<< 수정: 여러 파일 받기
         category = request.form.get('category', '일반')
         expires_at_str = request.form.get('expires_at')
 
         if not title or not content:
             flash('제목과 내용은 필수입니다.', 'danger')
-            return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
+            return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
 
         if category not in post_categories:
             flash('유효하지 않은 카테고리입니다.', 'warning')
@@ -1000,14 +1000,14 @@ def create_post():
                     expires_at_dt = kst_dt.astimezone(pytz.utc)
                  except ValueError:
                     flash('노출 기한 형식이 잘못되었습니다. 비워두거나 YYYY-MM-DDTHH:MM 형식으로 입력하세요.', 'warning')
-                    return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
+                    return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
 
             # --- 이미지 파일 처리 (여러 개, 최대 MAX_UPLOADS개) ---
             valid_files = [f for f in image_files if f and f.filename != '' and allowed_file(f.filename)]
 
             if len(valid_files) > MAX_UPLOADS:
                 flash(f'이미지는 최대 {MAX_UPLOADS}개까지 첨부할 수 있습니다.', 'warning')
-                return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str)
+                return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
 
             if len(image_files) > len(valid_files) and len(valid_files) < len(image_files):
                  flash('허용되지 않는 파일 형식(png, jpg, jpeg, gif)이 포함되어 제외되었습니다.', 'warning')
@@ -1027,6 +1027,11 @@ def create_post():
                      print(f"Error saving file {filename}: {save_e}")
                      flash(f"파일 '{filename}' 저장 중 오류 발생.", "danger")
                      # 저장 실패 시 롤백 로직 필요
+                     # 이미 저장된 파일들 삭제
+                     for fname in uploaded_filenames:
+                         fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+                         if os.path.exists(fpath): os.remove(fpath)
+                     raise save_e # 오류를 다시 발생시켜 롤백 유도
 
             # --- 이미지 파일명 리스트를 문자열로 변환 (쉼표 구분) ---
             image_filenames_str = ",".join(uploaded_filenames) if uploaded_filenames else None
@@ -1040,7 +1045,7 @@ def create_post():
                 author_id=user.id,
                 is_approved=is_approved,
                 is_notice=is_notice,
-                image_filenames=image_filenames_str, # 수정됨
+                image_filenames=image_filenames_str, # <<< 수정됨
                 category=category,
                 expires_at=expires_at_dt,
                 is_visible=True
@@ -1064,9 +1069,12 @@ def create_post():
 
             flash(f'게시물 작성 중 오류 발생: {e}', 'danger')
             print(f"Error creating post: {e}")
+            # 오류 발생 시 입력값 유지하며 템플릿 렌더링
+            return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
+
 
     # GET 요청 시
-    return render_template('create_post.html', user=user, categories=post_categories)
+    return render_template('create_post.html', user=user, categories=post_categories, config=app.config)
 
 
 # --- 게시물 보기 라우트 수정 ---
@@ -1137,7 +1145,7 @@ def edit_post(post_id):
             return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                    title=title, content=content.replace('<br>', '\n'), category=category,
                                    is_notice=is_notice, expires_at=expires_at_str,
-                                   existing_images=existing_images) # 기존 이미지 리스트 전달
+                                   existing_images=existing_images, config=app.config) # 기존 이미지 리스트 전달
 
         if category not in post_categories:
             flash('유효하지 않은 카테고리입니다.', 'warning')
@@ -1164,7 +1172,7 @@ def edit_post(post_id):
                     return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                            title=title, content=content.replace('<br>', '\n'), category=category,
                                            is_notice=is_notice, expires_at=expires_at_str,
-                                           existing_images=existing_images)
+                                           existing_images=existing_images, config=app.config)
             else:
                  expires_at_dt = None # 빈 문자열이면 None으로 설정
 
@@ -1187,7 +1195,7 @@ def edit_post(post_id):
                 return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                        title=title, content=content.replace('<br>', '\n'), category=category,
                                        is_notice=is_notice, expires_at=expires_at_str,
-                                       existing_images=existing_images)
+                                       existing_images=existing_images, config=app.config)
 
             # 4. 새 이미지 저장 및 파일명 추가
             for image_file in valid_new_files:
@@ -1255,7 +1263,7 @@ def edit_post(post_id):
             return render_template('edit_post.html', post=post, user=user, categories=post_categories,
                                    title=title, content=content.replace('<br>', '\n'), category=category,
                                    is_notice=is_notice, expires_at=expires_at_str,
-                                   existing_images=existing_images)
+                                   existing_images=existing_images, config=app.config)
 
 
     # GET 요청 시: 폼에 기존 데이터 채워서 렌더링
@@ -1271,7 +1279,7 @@ def edit_post(post_id):
                            title=post.title, content=post.content.replace('<br>', '\n'), # textarea는 \n 사용
                            category=post.category, is_notice=post.is_notice,
                            expires_at=expires_at_kst_str,
-                           existing_images=existing_images) # 리스트 전달
+                           existing_images=existing_images, config=app.config) # 리스트 전달
 
 
 # --- 업로드된 파일 제공 라우트 ---
