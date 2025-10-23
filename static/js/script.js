@@ -92,10 +92,19 @@ function setupEventListeners() {
         });
     });
 
-    // 셔틀버스 탭
-    document.querySelectorAll('.shuttle-widget .tab').forEach(tab => {
+    // 셔틀버스 평일/주말 탭
+    document.querySelectorAll('.shuttle-widget .day-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
-            document.querySelectorAll('.shuttle-widget .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.shuttle-widget .day-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            updateRealTimeShuttle();
+        });
+    });
+
+    // 셔틀버스 노선 탭
+    document.querySelectorAll('.shuttle-widget .shuttle-route-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            document.querySelectorAll('.shuttle-widget .shuttle-route-tabs .tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
             updateRealTimeShuttle();
         });
@@ -296,30 +305,43 @@ async function loadShuttleSchedule() {
     }
 }
 
-// [수정됨] 요구사항 1, 3 반영
+// [수정됨] 요구사항 1, 3 반영 + 평일/주말 탭 추가
 function updateRealTimeShuttle() {
     const container = document.getElementById('shuttleList');
     if (!container) return;
-    const activeTab = document.querySelector('.shuttle-widget .tab.active');
-    const currentFilter = activeTab ? activeTab.dataset.tab : 'all';
+
+    // 평일/주말 탭
+    const activeDayTab = document.querySelector('.shuttle-widget .day-tab.active');
+    const currentDayFilter = activeDayTab ? activeDayTab.dataset.day : 'weekday';
+
+    // 노선 탭
+    const activeRouteTab = document.querySelector('.shuttle-widget .shuttle-route-tabs .tab.active');
+    const currentRouteFilter = activeRouteTab ? activeRouteTab.dataset.tab : 'all';
 
     let data = window.shuttleData || [];
 
     const TODAY_DATE = new Date();
     const todayDayOfWeek = TODAY_DATE.getDay();
-    // 수정: 토요일도 평일 시간표 적용 (단, CSV에 토요일 시간표가 따로 없다면)
-    const dayType = (todayDayOfWeek === 0) ? '일요일' : '평일';
 
-    // 1. 요일 필터링
+    // 1. 평일/주말 필터링
+    let dayType;
+    if (currentDayFilter === 'weekday') {
+        dayType = '평일';
+    } else {
+        dayType = '일요일'; // 주말
+    }
     data = data.filter(s => s.type === dayType || s.type === '기타');
 
-    // 2. 탭 필터링
+    // 2. 노선 탭 필터링
     data = data.filter(s => {
-        switch (currentFilter) {
-            case 'school_to_station': return s.route.includes('학교 → 조치원역');
-            case 'station_to_school': return s.route.includes('조치원/오송역 → 학교') || s.route === '조치원역 → 학교';
-            case 'osong': return s.route_group === 'Osong_Included';
-            case 'all': default: return true;
+        switch (currentRouteFilter) {
+            case 'to_station':
+                return s.route.includes('학교 → 조치원역') || s.route.includes('학교 → 오송역');
+            case 'to_school':
+                return s.route.includes('→ 학교');
+            case 'all':
+            default:
+                return true;
         }
     });
 
@@ -418,47 +440,77 @@ function renderFullShuttleTable(container) {
         container.innerHTML = '<p>시간표 정보가 없습니다.</p>';
         return;
     }
-    // 데이터 그룹화 및 정렬
-    const groupedData = data.reduce((acc, shuttle) => {
-        acc[shuttle.type] = acc[shuttle.type] || {};
-        const groupKey = shuttle.route_group === 'Osong_Included' ? 'Osong' : 'Jochiwon';
-        acc[shuttle.type][groupKey] = acc[shuttle.type][groupKey] || [];
-        acc[shuttle.type][groupKey].push(shuttle);
-        return acc;
-    }, {});
-    for (const day in groupedData) {
-        for (const routeGroup in groupedData[day]) {
-            groupedData[day][routeGroup].sort((a, b) => a.time.localeCompare(b.time));
+
+    // 데이터를 평일/주말 -> 방향별로 그룹화
+    const groupedData = {};
+    data.forEach(shuttle => {
+        const dayType = shuttle.type;
+        if (!groupedData[dayType]) {
+            groupedData[dayType] = {
+                to_school: [],
+                to_station: []
+            };
         }
-    }
+
+        // 노선별로 분류
+        if (shuttle.route.includes('→ 학교')) {
+            groupedData[dayType].to_school.push(shuttle);
+        } else if (shuttle.route.includes('학교 →')) {
+            groupedData[dayType].to_station.push(shuttle);
+        }
+    });
+
+    // 각 그룹별로 시간순 정렬
+    Object.keys(groupedData).forEach(dayType => {
+        groupedData[dayType].to_school.sort((a, b) => a.time.localeCompare(b.time));
+        groupedData[dayType].to_station.sort((a, b) => a.time.localeCompare(b.time));
+    });
 
     // HTML 생성
     let html = '';
-    const dayOrder = ['평일', '일요일']; // 순서 정의
-    const routeOrder = ['Jochiwon', 'Osong'];
+    const dayOrder = ['평일', '일요일'];
 
     dayOrder.forEach(dayType => {
-        if (groupedData[dayType]) {
-            routeOrder.forEach(routeGroup => {
-                const shuttles = groupedData[dayType][routeGroup];
-                if (shuttles && shuttles.length > 0) {
-                    const groupName = routeGroup === 'Jochiwon' ? '조치원역 ↔ 학교 노선' : '오송역 포함 노선';
-                    html += `<span class="shuttle-group-header">${dayType} - ${groupName}</span>`;
-                    html += `<table class="shuttle-full-table">
-                        <thead><tr><th>출발 시각</th><th>노선 구분</th><th>비고</th></tr></thead><tbody>`;
-                    shuttles.forEach(shuttle => {
-                        html += `
-                            <tr>
-                                <td>${shuttle.time}</td>
-                                <td>${shuttle.route}</td>
-                                <td>${shuttle.note || '-'}</td>
-                            </tr>
-                        `;
-                    });
-                    html += '</tbody></table>';
-                }
+        if (!groupedData[dayType]) return;
+
+        html += `<div class="shuttle-day-section">
+                    <h3 class="shuttle-day-title"><i class="fas fa-calendar-alt"></i> ${dayType}</h3>`;
+
+        // 역 → 학교 방향
+        if (groupedData[dayType].to_school.length > 0) {
+            html += `<div class="shuttle-direction-section">
+                        <h4 class="shuttle-direction-title"><i class="fas fa-arrow-right"></i> 역 → 학교</h4>
+                        <table class="shuttle-full-table">
+                            <thead><tr><th>출발 시각</th><th>노선</th><th>비고</th></tr></thead>
+                            <tbody>`;
+            groupedData[dayType].to_school.forEach(shuttle => {
+                html += `<tr>
+                            <td class="shuttle-time-col">${shuttle.time}</td>
+                            <td>${shuttle.route}</td>
+                            <td>${shuttle.note || '-'}</td>
+                        </tr>`;
             });
+            html += `</tbody></table></div>`;
         }
+
+        // 학교 → 역 방향
+        if (groupedData[dayType].to_station.length > 0) {
+            html += `<div class="shuttle-direction-section">
+                        <h4 class="shuttle-direction-title"><i class="fas fa-arrow-right"></i> 학교 → 역</h4>
+                        <table class="shuttle-full-table">
+                            <thead><tr><th>출발 시각</th><th>노선</th><th>비고</th></tr></thead>
+                            <tbody>`;
+            groupedData[dayType].to_station.forEach(shuttle => {
+                html += `<tr>
+                            <td class="shuttle-time-col">${shuttle.time}</td>
+                            <td>${shuttle.route}</td>
+                            <td>${shuttle.note || '-'}</td>
+                        </tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        html += `</div>`;
     });
 
     container.innerHTML = html || '<p>시간표 정보가 없습니다.</p>';

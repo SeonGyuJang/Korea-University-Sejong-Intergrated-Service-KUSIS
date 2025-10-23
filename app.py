@@ -457,13 +457,14 @@ def format_meal_for_client(menu_data, target_date_key, cafeteria_type):
     return formatted_menu
 
 def format_weekly_meal_for_client(weekly_meal_data):
-    formatted_data = {"기간": weekly_meal_data.get('student_period', weekly_meal_data.get('faculty_period', {})), "식단": {}}
-    all_date_keys = sorted(set(weekly_meal_data.get('student', {}).keys()).union(set(weekly_meal_data.get('faculty', {}).keys())))
-    for cafeteria_type in ['student', 'faculty']:
-        formatted_data['식단'][cafeteria_type] = {}
-        menu_data = weekly_meal_data.get(cafeteria_type, {})
-        for date_key in all_date_keys:
-            formatted_data['식단'][cafeteria_type][date_key] = format_meal_for_client(menu_data, date_key, cafeteria_type)
+    # 주간 식단표는 원본 데이터를 그대로 전달 (JS가 원본 키를 사용하므로)
+    formatted_data = {
+        "기간": weekly_meal_data.get('student_period', weekly_meal_data.get('faculty_period', {})),
+        "식단": {
+            "student": weekly_meal_data.get('student', {}),
+            "faculty": weekly_meal_data.get('faculty', {})
+        }
+    }
     return formatted_data
 
 
