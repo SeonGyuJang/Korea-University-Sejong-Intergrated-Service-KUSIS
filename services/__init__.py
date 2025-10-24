@@ -10,6 +10,13 @@ from .semester_service import (
 )
 from .meal_service import load_meal_data, get_today_meal_key, format_meal_for_client, format_weekly_meal_for_client
 from .bus_service import load_bus_schedule
+from .calendar_service import (
+    load_holidays,
+    load_academic_schedule,
+    initialize_system_categories,
+    initialize_system_events,
+    create_default_categories_for_user
+)
 
 __all__ = [
     'load_academic_calendar',
@@ -20,5 +27,10 @@ __all__ = [
     'get_today_meal_key',
     'format_meal_for_client',
     'format_weekly_meal_for_client',
-    'load_bus_schedule'
+    'load_bus_schedule',
+    'load_holidays',
+    'load_academic_schedule',
+    'initialize_system_categories',
+    'initialize_system_events',
+    'create_default_categories_for_user'
 ]
