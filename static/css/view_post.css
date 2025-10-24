@@ -1,5 +1,24 @@
 /* static/css/view_post.css */
 
+/* 카테고리 아이콘 스타일 */
+.post-category-icon {
+    font-size: 1.1em; /* 제목 크기에 비례 */
+    color: var(--korea-red-light);
+    margin-right: 8px;
+}
+
+/* 수정 버튼 스타일 */
+.btn-edit-view {
+    background: #3498db;
+    color: white;
+    border: 1px solid #3498db;
+    margin-left: 10px; /* 목록 버튼과의 간격 */
+}
+.btn-edit-view:hover {
+    background: #2980b9;
+    border-color: #2980b9;
+}
+
 /* 페이지 기본 레이아웃 (기존 그리드 덮어쓰기) */
 .view-post-page {
     display: block;

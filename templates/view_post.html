@@ -4,45 +4,6 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/view_post.css') }}">
-<style>
-    /* 카테고리 아이콘 스타일 */
-    .post-category-icon {
-        font-size: 1.1em; /* 제목 크기에 비례 */
-        color: var(--korea-red-light);
-        margin-right: 8px;
-    }
-    /* 수정 버튼 스타일 */
-    .btn-edit-view {
-        background: #3498db;
-        color: white;
-        border: 1px solid #3498db;
-        margin-left: 10px; /* 목록 버튼과의 간격 */
-    }
-    .btn-edit-view:hover {
-        background: #2980b9;
-        border-color: #2980b9;
-    }
-
-    /* --- [신규] 이미지 갤러리 스타일 --- */
-    .post-image-gallery {
-        display: grid;
-        /* 반응형 그리드: 최소 150px, 최대 1fr 크기의 열 자동 생성 */
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 15px; /* 이미지 간격 */
-        margin-bottom: 30px; /* 갤러리와 본문 간격 */
-    }
-
-    .post-image-item {
-        width: 100%;
-        height: auto; /* 비율 유지 */
-        max-height: 300px; /* 최대 높이 제한 (선택 사항) */
-        object-fit: contain; /* 이미지가 잘리지 않도록 */
-        border-radius: 8px; /* 모서리 약간 둥글게 */
-        border: 1px solid var(--border-color);
-        background: #f8f9fa; /* 로딩 배경 */
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* 부드러운 그림자 */
-    }
-</style>
 {% endblock %}
 
 {% block content %}
