@@ -2177,7 +2177,7 @@ if __name__ == '__main__':
     # scheduler.add_job(manage_semesters_job, 'cron', month=12, day=1, hour=3, id='semester_management_job')
 
     # 테스트용: 1시간마다 실행
-    scheduler.add_job(manage_semesters_job, 'interval', minutes=60, id='semester_management_job_test')
+    scheduler.add_job(manage_semesters_job, 'interval', minutes=600, id='semester_management_job_test')
 
     try:
         scheduler.start()

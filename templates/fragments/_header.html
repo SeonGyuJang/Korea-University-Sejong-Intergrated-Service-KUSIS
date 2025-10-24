@@ -28,9 +28,11 @@
             <div class="notification-content">
                 {# --- 수정: 공지사항 목록 ID 추가, 초기 내용 제거 --- #}
                 <div class="tab-content active" id="notices">
-                    <ul id="noticeList">
+                    {# --- 수정: UL에 CSS 클래스 추가 --- #}
+                    <ul id="noticeList" class="notice-list-ul">
                         {# JS를 통해 동적으로 채워짐 #}
-                        <li>공지사항 로딩 중...</li>
+                        {# --- 수정: LI에 CSS 클래스 추가 --- #}
+                        <li class="notice-empty">공지사항 로딩 중...</li>
                     </ul>
                 </div>
                 {# --- 사용법 탭 (기존 유지) --- #}

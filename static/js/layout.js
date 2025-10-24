@@ -53,17 +53,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (notices.length > 0) {
                         notices.forEach(notice => {
                             const li = document.createElement('li');
-                            // 요구사항 2: 카테고리 아이콘 추가
+                            // *** 수정: li에 클래스 추가 및 내부 구조 변경 ***
+                            li.className = 'notice-item';
                             const iconClass = categoryIcons[notice.category] || categoryIcons['일반'];
                             li.innerHTML = `
                                 <a href="/post/${notice.id}" class="notification-link">
-                                    <i class="${iconClass}" style="margin-right: 8px; color: var(--korea-red-light);"></i>
-                                    ${notice.title}
+                                    <div class="notice-icon-wrapper">
+                                        <i class="${iconClass}"></i>
+                                    </div>
+                                    <div class="notice-text-wrapper">
+                                        <span class="notice-title">${notice.title}</span>
+                                    </div>
                                 </a>`;
                             noticeListUl.appendChild(li);
                         });
                     } else {
-                        noticeListUl.innerHTML = '<li>새로운 공지사항이 없습니다.</li>';
+                        // *** 수정: 내용 없을 때 클래스 추가 ***
+                        noticeListUl.innerHTML = '<li class="notice-empty">새로운 공지사항이 없습니다.</li>';
                     }
                 }
             } else {
@@ -71,7 +77,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('알림 로드 중 오류:', error);
-            if (noticeListUl) noticeListUl.innerHTML = '<li>알림을 불러오는데 실패했습니다.</li>';
+            // *** 수정: 오류 발생 시 클래스 추가 ***
+            if (noticeListUl) noticeListUl.innerHTML = '<li class="notice-empty">알림을 불러오는데 실패했습니다.</li>';
             if (notificationBadge) notificationBadge.style.display = 'none'; // 오류 시 뱃지 숨김
         }
     }
