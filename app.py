@@ -361,10 +361,10 @@ def register():
             return render_template('register.html', colleges=COLLEGES)
 
         try:
-            hashed_password = generate_password_hash(password)
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
             new_user = User(
                 id=student_id,
-                name=name,
+                name=name,  
                 dob=dob,
                 college=college,
                 department=department,
