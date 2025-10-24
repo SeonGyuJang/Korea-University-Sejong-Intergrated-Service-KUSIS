@@ -1839,7 +1839,14 @@ def create_calendar_event():
 
     try:
         title = data['title'].strip()
-        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+
+        # 날짜 파싱 (ISO datetime 형식도 지원)
+        start_date_str = data['start_date']
+        if 'T' in start_date_str:
+            start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00')).date()
+        else:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+
         category_id = int(data['category_id'])
 
         # 카테고리 유효성 검사
@@ -1850,7 +1857,11 @@ def create_calendar_event():
         # 종료 날짜
         end_date = None
         if 'end_date' in data and data['end_date']:
-            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+            end_date_str = data['end_date']
+            if 'T' in end_date_str:
+                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00')).date()
+            else:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
         # 시간
         start_time = None
@@ -1867,7 +1878,11 @@ def create_calendar_event():
         recurrence_type = data.get('recurrence_type', None)
         recurrence_end_date = None
         if recurrence_type and 'recurrence_end_date' in data and data['recurrence_end_date']:
-            recurrence_end_date = datetime.strptime(data['recurrence_end_date'], '%Y-%m-%d').date()
+            rec_end_str = data['recurrence_end_date']
+            if 'T' in rec_end_str:
+                recurrence_end_date = datetime.fromisoformat(rec_end_str.replace('Z', '+00:00')).date()
+            else:
+                recurrence_end_date = datetime.strptime(rec_end_str, '%Y-%m-%d').date()
 
         new_event = CalendarEvent(
             user_id=user_id,
@@ -1915,10 +1930,18 @@ def update_calendar_event(event_id):
         if 'description' in data:
             event.description = data['description']
         if 'start_date' in data:
-            event.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+            start_date_str = data['start_date']
+            if 'T' in start_date_str:
+                event.start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00')).date()
+            else:
+                event.start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         if 'end_date' in data:
             if data['end_date']:
-                event.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+                end_date_str = data['end_date']
+                if 'T' in end_date_str:
+                    event.end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00')).date()
+                else:
+                    event.end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
             else:
                 event.end_date = None
         if 'start_time' in data:
@@ -1944,7 +1967,11 @@ def update_calendar_event(event_id):
             event.recurrence_type = data['recurrence_type'] if data['recurrence_type'] else None
         if 'recurrence_end_date' in data:
             if data['recurrence_end_date']:
-                event.recurrence_end_date = datetime.strptime(data['recurrence_end_date'], '%Y-%m-%d').date()
+                rec_end_str = data['recurrence_end_date']
+                if 'T' in rec_end_str:
+                    event.recurrence_end_date = datetime.fromisoformat(rec_end_str.replace('Z', '+00:00')).date()
+                else:
+                    event.recurrence_end_date = datetime.strptime(rec_end_str, '%Y-%m-%d').date()
             else:
                 event.recurrence_end_date = None
         if 'recurrence_interval' in data:

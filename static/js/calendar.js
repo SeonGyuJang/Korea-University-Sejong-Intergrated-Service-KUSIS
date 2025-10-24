@@ -7,6 +7,8 @@ let allEvents = [];
 let visibleCategories = new Set();
 let currentMiniCalendarDate = new Date();
 let selectedEventId = null;
+let touchStartX = 0;
+let touchEndX = 0;
 
 // ==================== 초기화 ====================
 document.addEventListener('DOMContentLoaded', function() {
@@ -35,9 +37,27 @@ function initializeCalendar() {
         slotMinTime: '00:00:00',
         slotMaxTime: '24:00:00',
 
-        // 날짜 클릭 (빈 공간)
+        // 날짜 클릭 (빈 공간) - 우측 패널로 변경
         dateClick: function(info) {
-            showQuickEventModal(info.dateStr);
+            openSidePanel(null, info.dateStr);
+        },
+
+        // 드래그로 범위 선택 - 우측 패널 열기
+        select: function(info) {
+            const startDate = formatDate(info.start);
+            let endDate = null;
+
+            // 종료일이 시작일보다 크면 범위 선택
+            const daysDiff = Math.ceil((info.end - info.start) / (1000 * 60 * 60 * 24));
+            if (daysDiff > 1) {
+                // FullCalendar는 종일 이벤트의 end를 다음날로 설정하므로 1일 빼기
+                const adjustedEnd = new Date(info.end);
+                adjustedEnd.setDate(adjustedEnd.getDate() - 1);
+                endDate = formatDate(adjustedEnd);
+            }
+
+            openSidePanel(null, startDate, '', null, endDate);
+            calendar.unselect(); // 선택 해제
         },
 
         // 이벤트 클릭
@@ -269,6 +289,17 @@ function setupEventListeners() {
             closeQuickEventModal();
         }
     });
+
+    // 터치 스와이프 이벤트 (주간 뷰에서 좌우 이동)
+    const calendarEl = document.getElementById('calendar');
+    calendarEl.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    calendarEl.addEventListener('touchend', function(e) {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, false);
 }
 
 // ==================== 키보드 단축키 ====================
@@ -456,7 +487,7 @@ async function quickAddEvent() {
 }
 
 // ==================== 사이드 패널 ====================
-function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null) {
+function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null, endDateStr = null) {
     const panel = document.getElementById('sidePanel');
     const form = document.getElementById('eventForm');
     const deleteBtn = document.getElementById('deleteEventBtn');
@@ -472,6 +503,9 @@ function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = 
         // 추가 모드
         const today = dateStr || formatDate(new Date());
         document.getElementById('eventStartDate').value = today;
+        if (endDateStr) {
+            document.getElementById('eventEndDate').value = endDateStr;
+        }
         if (title) document.getElementById('eventTitle').value = title;
         if (categoryId) document.getElementById('eventCategory').value = categoryId;
         deleteBtn.style.display = 'none';
@@ -753,4 +787,20 @@ function showEventPreview(event) {
     // 시스템 이벤트 미리보기
     const desc = event.extendedProps.description || '설명 없음';
     alert(`${event.title}\n\n${desc}`);
+}
+
+// ==================== 스와이프 핸들러 ====================
+function handleSwipe() {
+    const swipeThreshold = 50; // 최소 스와이프 거리 (픽셀)
+    const swipeDistance = touchEndX - touchStartX;
+
+    if (Math.abs(swipeDistance) > swipeThreshold) {
+        if (swipeDistance > 0) {
+            // 오른쪽으로 스와이프 - 이전 주
+            calendar.prev();
+        } else {
+            // 왼쪽으로 스와이프 - 다음 주
+            calendar.next();
+        }
+    }
 }

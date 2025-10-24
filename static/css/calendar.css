@@ -1,17 +1,20 @@
 /* ==================== 노션 스타일 캘린더 CSS ==================== */
 
 :root {
-    --notion-bg: #ffffff;
-    --notion-sidebar-bg: #f7f6f3;
-    --notion-border: #e9e9e7;
-    --notion-text: #37352f;
-    --notion-text-light: #787774;
-    --notion-hover: #f1f1ef;
-    --notion-active: #e9e9e7;
-    --notion-primary: #2383e2;
-    --notion-danger: #eb5757;
-    --notion-shadow: rgba(15, 15, 15, 0.05);
-    --notion-shadow-lg: rgba(15, 15, 15, 0.1);
+    --notion-bg: #fafafa;
+    --notion-sidebar-bg: #f7f8fa;
+    --notion-border: #e3e5e8;
+    --notion-text: #1f2937;
+    --notion-text-light: #6b7280;
+    --notion-hover: #f0f1f3;
+    --notion-active: #e5e7eb;
+    --notion-primary: #3b82f6;
+    --notion-primary-hover: #2563eb;
+    --notion-danger: #ef4444;
+    --notion-success: #10b981;
+    --notion-shadow: rgba(0, 0, 0, 0.04);
+    --notion-shadow-lg: rgba(0, 0, 0, 0.1);
+    --notion-shadow-xl: rgba(0, 0, 0, 0.15);
 }
 
 * {
@@ -307,6 +310,18 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 사이드 패널이 열렸을 때 캘린더 영역 조정 */
+.notion-calendar-container:has(.side-panel.active) .calendar-main {
+    margin-right: 400px;
+}
+
+@media (max-width: 1024px) {
+    .notion-calendar-container:has(.side-panel.active) .calendar-main {
+        margin-right: 350px;
+    }
 }
 
 .calendar-toolbar {
@@ -315,6 +330,10 @@
     justify-content: space-between;
     padding: 20px 24px;
     border-bottom: 1px solid var(--notion-border);
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .calendar-main-title {
@@ -358,6 +377,10 @@
     flex: 1;
     padding: 24px;
     overflow: auto;
+    background: white;
+    margin: 8px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px var(--notion-shadow);
 }
 
 /* ==================== FullCalendar 커스터마이징 ==================== */
@@ -408,19 +431,20 @@
 
 .fc-event {
     border: none !important;
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: 6px;
+    padding: 5px 8px;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     margin-bottom: 2px;
+    box-shadow: 0 1px 2px var(--notion-shadow);
 }
 
 .fc-event:hover {
-    opacity: 0.85;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px var(--notion-shadow-lg);
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--notion-shadow-lg);
 }
 
 .fc-event-title {
@@ -465,8 +489,8 @@
     width: 400px;
     height: calc(100vh - 60px);
     background: white;
-    border-left: 1px solid var(--notion-border);
-    box-shadow: -4px 0 12px var(--notion-shadow-lg);
+    border-left: 2px solid var(--notion-border);
+    box-shadow: -8px 0 24px var(--notion-shadow-xl);
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 100;
@@ -646,8 +670,9 @@
 }
 
 .btn-save:hover {
-    background: #1a6fc7;
-    box-shadow: 0 2px 4px var(--notion-shadow-lg);
+    background: var(--notion-primary-hover);
+    box-shadow: 0 4px 8px var(--notion-shadow-lg);
+    transform: translateY(-1px);
 }
 
 .btn-cancel {
@@ -668,46 +693,9 @@
     background: rgba(235, 87, 87, 0.1);
 }
 
-/* ==================== 빠른 일정 추가 팝업 ==================== */
-.quick-add-popup {
-    position: absolute;
-    display: none;
-    background: white;
-    border: 1px solid var(--notion-border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--notion-shadow-lg);
-    padding: 4px;
-    z-index: 1000;
-    min-width: 250px;
-}
-
-.quick-add-popup.active {
-    display: block;
-    animation: popupFadeIn 0.2s ease;
-}
-
-@keyframes popupFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.quick-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: none;
-    font-size: 14px;
-    color: var(--notion-text);
-    outline: none;
-}
-
-.quick-input::placeholder {
-    color: var(--notion-text-light);
+/* ==================== 빠른 일정 추가 모달 (사용 안 함 - 우측 패널 사용) ==================== */
+#quickEventModal {
+    display: none !important;
 }
 
 /* ==================== 모달 오버레이 ==================== */
@@ -860,6 +848,10 @@
         flex-direction: column;
         gap: 12px;
         align-items: flex-start;
+    }
+
+    .notion-calendar-container:has(.side-panel.active) .calendar-main {
+        margin-right: 0;
     }
 }
 
