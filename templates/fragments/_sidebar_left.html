@@ -15,7 +15,7 @@
         {% if session.student_id %}
         <a href="{{ url_for('timetable_management') }}" class="nav-item {% if request.path == '/timetable-management' %}active{% endif %}" data-page="timetable">
             <i class="fas fa-calendar-alt"></i>
-            <span class="nav-text">시간표관리</span>
+            <span class="nav-text">시간표 관리</span>
         </a>
         {# --- 게시물 관리 탭 추가 (Req 4) --- #}
         {% if user and user.can_manage_posts %} {# 관리자 또는 협력직원 #}
