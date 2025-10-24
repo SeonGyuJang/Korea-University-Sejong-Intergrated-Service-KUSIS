@@ -106,7 +106,10 @@
 
 .input-group input[type="text"],
 .input-group textarea,
-.input-group input[type="file"] {
+.input-group input[type="file"],
+.input-group select, /* [추가] select 스타일 통일 */
+.input-group input[type="datetime-local"] /* [추가] datetime-local 스타일 통일 */
+{
     width: 100%;
     padding: 10px 14px;
     border-radius: 8px;
@@ -116,10 +119,14 @@
     color: var(--text-primary);
     transition: border-color 0.2s, box-shadow 0.2s;
     box-sizing: border-box; /* 패딩 포함 크기 계산 */
+    font-family: inherit; /* [추가] 폰트 통일 */
 }
 
 .input-group input[type="text"]:focus,
-.input-group textarea:focus {
+.input-group textarea:focus,
+.input-group select:focus, /* [추가] */
+.input-group input[type="datetime-local"]:focus /* [추가] */
+{
     outline: none;
     border-color: var(--korea-red);
     box-shadow: 0 0 0 3px rgba(165, 0, 52, 0.1);
@@ -228,7 +235,7 @@
     font-size: 15px;
     line-height: 1.7;
     color: #444;
-    white-space: pre-wrap; /* JS에서 <br>로 변환하므로 필요 없을 수 있음 */
+    /* white-space: pre-wrap; JS에서 <br>로 변환 */
     word-wrap: break-word;
 }
 .preview-content p:first-child {
@@ -257,6 +264,113 @@
 .btn-primary i {
     margin-right: 5px;
 }
+
+/* --- [신규] 이미지 미리보기 공통 스타일 --- */
+.image-preview-container {
+    margin-top: 15px;
+    border: 1px dashed var(--border-color);
+    padding: 15px;
+    border-radius: 8px;
+    background: #fdfafb;
+    min-height: 100px; /* 최소 높이 */
+    display: flex;
+    flex-direction: column;
+}
+
+.image-preview-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* [신규] 미리보기 그리드 (create, edit 공통) */
+.image-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* 반응형 그리드 */
+    gap: 15px;
+}
+
+/* [신규] 미리보기 아이템 (create, edit 공통) */
+.image-preview-item {
+    position: relative;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.image-preview-item img {
+    display: block;
+    width: 100%;
+    height: 100px; /* 고정 높이 */
+    object-fit: cover; /* 비율 유지하며 채우기 */
+}
+
+/* [신규] 미리보기 아이템 - 파일명 */
+.image-preview-item .image-filename {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 파일명 길면 ... 처리 */
+}
+
+/* [신규] edit_post.html - 기존 이미지 삭제 UI */
+.current-image-item .delete-checkbox-wrapper {
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.current-image-item .delete-checkbox-wrapper input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--color-danger);
+    cursor: pointer;
+}
+.current-image-item .delete-checkbox-wrapper label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-danger);
+    cursor: pointer;
+    flex-grow: 1; /* 라벨 영역 클릭 가능하도록 */
+}
+
+/* [신규] '이미지 없음' 텍스트 */
+#noImageText {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 20px 0;
+    display: none; /* JS로 제어 */
+    width: 100%;
+}
+#noImageText.visible {
+    display: block;
+}
+
+/* [신규] 이미지 제한 메시지 */
+.image-limit-message {
+    font-size: 12px;
+    color: var(--color-danger);
+    margin-top: 8px;
+    display: none; /* JS로 제어 */
+    font-weight: 500;
+}
+.image-limit-message.visible {
+    display: block;
+}
+
 
 /* 반응형 */
 @media (max-width: 992px) {

@@ -4,60 +4,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/create_post.css') }}">
-{# 미리보기 이미지 스타일 (수정됨) #}
-<style>
-    /* --- 새 이미지 미리보기 스타일 --- */
-    #newImagePreviewContainer {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* 반응형 그리드 */
-        gap: 10px;
-        margin-top: 15px;
-        border-top: 1px dashed var(--border-color); /* 구분선 추가 */
-        padding-top: 15px; /* 위쪽 여백 */
-    }
-    .new-preview-item {
-        position: relative;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    .new-preview-item img {
-        display: block;
-        width: 100%;
-        height: 100px; /* 고정 높이 */
-        object-fit: cover; /* 비율 유지하며 채우기 */
-    }
-    /* 이미지 없음 텍스트 */
-    #noImageText {
-        color: var(--text-secondary);
-        font-style: italic;
-        font-size: 13px;
-        margin-top: 10px;
-        display: block; /* 기본 표시 */
-        text-align: center;
-    }
-     /* 이미지 제한 메시지 */
-    .image-limit-message {
-        font-size: 12px;
-        color: var(--color-danger);
-        margin-top: 5px;
-        display: none; /* 초기 숨김 */
-    }
 
-     /* 추가: 노출 기한 입력 필드 스타일 */
-     #expires_at {
-         font-family: inherit; /* 폰트 통일 */
-         color: var(--text-primary);
-         background-color: #fdfdfd;
-         padding: 9px 14px; /* 패딩 조정 */
-     }
-     /* Firefox에서 기본 아이콘 숨기기 */
-     #expires_at::-webkit-calendar-picker-indicator {
-        opacity: 0.5;
-        cursor: pointer;
-     }
-
-</style>
 {% endblock %}
 
 {% block content %}
@@ -90,7 +37,6 @@
                         <input type="text" id="title" name="title" required placeholder="게시물 제목을 입력하세요" value="{{ title or '' }}">
                     </div>
 
-                    {# --- 요구사항 2: 카테고리 선택 추가 --- #}
                     <div class="input-group">
                         <label for="category"><i class="fas fa-tags"></i> 카테고리</label>
                         <select id="category" name="category" required>
@@ -99,36 +45,43 @@
                             {% endfor %}
                         </select>
                     </div>
-                    {# ----------------------------------- #}
 
                     <div class="input-group">
                         <label for="content"><i class="fas fa-paragraph"></i> 내용</label>
-                        <textarea id="content" name="content" rows="10" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea> {# 행 수 조정 #}
+                        <textarea id="content" name="content" rows="10" required placeholder="게시물 내용을 입력하세요">{{ content or '' }}</textarea>
                     </div>
 
-                    {# --- 이미지 첨부 수정 --- #}
+                    {# --- [수정] 이미지 첨부 UI/UX 개선 --- #}
                     <div class="input-group">
                         <label for="imageUpload"><i class="fas fa-images"></i> 이미지 첨부 (최대 {{ config.MAX_IMAGE_UPLOADS }}개)</label>
-                        {# --- multiple 속성 추가, name 변경 ('image' -> 'images') --- #}
+                        
+                        {# [수정] multiple 추가, name="images"로 변경 #}
                         <input type="file" id="imageUpload" name="images" accept="image/*" multiple>
+                        
                         <small class="form-text">이미지 파일(jpg, png, gif 등)을 선택하세요. 최대 {{ config.MAX_IMAGE_UPLOADS }}개까지 첨부 가능합니다.</small>
-                        <small id="imageLimitMessage" class="image-limit-message">이미지는 최대 {{ config.MAX_IMAGE_UPLOADS }}개까지만 첨부 가능합니다.</small>
+                        
+                        {# [신규] 이미지 제한 경고 메시지 #}
+                        <small id="imageLimitMessage" class="image-limit-message">
+                            이미지는 최대 {{ config.MAX_IMAGE_UPLOADS }}개까지만 첨부 가능합니다. 초과된 파일은 제외됩니다.
+                        </small>
 
-                        {# --- 새 이미지 미리보기 컨테이너 --- #}
-                        <div id="newImagePreviewContainer">
+                        {# [신규] 이미지 미리보기 컨테이너 (그리드) #}
+                        <div class="image-preview-container">
+                            <label class="image-preview-label">첨부할 이미지 미리보기</label>
+                            <div id="imagePreviewGrid" class="image-preview-grid">
+                                {# JS에 의해 동적으로 채워짐 #}
                             </div>
-                        <span id="noImageText">첨부된 이미지가 없습니다.</span>
+                            <span id="noImageText" class="visible">첨부된 이미지가 없습니다.</span>
+                        </div>
                     </div>
                     {# --- 이미지 첨부 수정 끝 --- #}
 
 
-                    {# --- 요구사항 3: 노출 기한 설정 추가 --- #}
                     <div class="input-group">
                         <label for="expires_at"><i class="far fa-calendar-times"></i> 알림 노출 기한 (선택)</label>
                         <input type="datetime-local" id="expires_at" name="expires_at" value="{{ expires_at or '' }}">
                         <small class="form-text">설정하지 않으면 계속 노출됩니다. 설정된 시간 이후에는 알림 목록에서 자동으로 제거됩니다.</small>
                     </div>
-                    {# ----------------------------------- #}
 
                     <div class="input-group checkbox-group">
                         <input type="checkbox" id="is_notice" name="is_notice" {% if is_notice %}checked{% endif %}>
@@ -136,14 +89,14 @@
                     </div>
                 </div>
 
-                {# --- 우측: 미리보기 (이미지 관련 텍스트 제거) --- #}
+                {# --- 우측: 미리보기 (기존 유지) --- #}
                 <div class="form-right-column">
                     <h4><i class="fas fa-eye"></i> 미리보기</h4>
                     <div class="preview-container">
                         <h1 id="previewTitle" class="preview-title">제목이 여기에 표시됩니다</h1>
                         <div id="previewContent" class="preview-content">
                             <p>내용이 여기에 표시됩니다.</p>
-                            {# 이미지 관련 텍스트 제거됨 #}
+                            {# [수정] 이미지 관련 텍스트 제거 -> JS로 내용 변환 #}
                         </div>
                     </div>
                 </div>
@@ -162,79 +115,96 @@
 {% block page_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // 미리보기 업데이트 로직 (텍스트)
+    // --- 텍스트 미리보기 로직 ---
     const titleInput = document.getElementById('title');
     const contentInput = document.getElementById('content');
     const previewTitle = document.getElementById('previewTitle');
     const previewContent = document.getElementById('previewContent');
 
     function updateTextPreview() {
-        if (previewTitle) previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
+        if (previewTitle) {
+            previewTitle.textContent = titleInput.value.trim() || '제목이 여기에 표시됩니다';
+        }
         if (previewContent) {
-            // HTML 렌더링을 위해 innerHTML 사용 (XSS 주의 필요)
-            // \n을 <br>로 변환
-            const contentHtml = contentInput.value.replace(/\n/g, '<br>');
+            // [수정] \n을 <br>로 변환하여 미리보기에 즉시 반영
+            const contentHtml = contentInput.value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;')
+                .replace(/\n/g, '<br>');
             previewContent.innerHTML = contentHtml || '<p>내용이 여기에 표시됩니다.</p>';
         }
     }
 
     if (titleInput) titleInput.addEventListener('input', updateTextPreview);
     if (contentInput) contentInput.addEventListener('input', updateTextPreview);
+    
+    // 초기 로드 시 텍스트 미리보기 실행
+    updateTextPreview();
 
-    // --- 이미지 미리보기 로직 (수정됨) ---
+    // --- [신규] 이미지 미리보기 로직 (UI/UX 개선) ---
     const imageInput = document.getElementById('imageUpload');
-    const newImagePreviewContainer = document.getElementById('newImagePreviewContainer');
+    const previewGrid = document.getElementById('imagePreviewGrid');
     const noImageText = document.getElementById('noImageText');
-    const imageLimitMessage = document.getElementById('imageLimitMessage');
+    const limitMessage = document.getElementById('imageLimitMessage');
     const MAX_IMAGES = parseInt("{{ config.MAX_IMAGE_UPLOADS }}", 10) || 3;
 
+    if (imageInput && previewGrid && noImageText && limitMessage) {
+        imageInput.addEventListener('change', handleImagePreview);
+    }
+
     function handleImagePreview(event) {
-        if (!newImagePreviewContainer || !noImageText || !imageLimitMessage) return;
+        // 1. 상태 초기화
+        previewGrid.innerHTML = '';
+        limitMessage.classList.remove('visible');
+        noImageText.classList.remove('visible');
 
-        const files = event.target.files;
-        newImagePreviewContainer.innerHTML = ''; // 미리보기 초기화
-        imageLimitMessage.style.display = 'none'; // 경고 메시지 숨김
-        noImageText.style.display = 'block'; // '이미지 없음' 텍스트 기본 표시
+        let files = Array.from(event.target.files);
 
-        let filesToPreview = Array.from(files);
-
-        // 이미지 개수 제한 검사
-        if (filesToPreview.length > MAX_IMAGES) {
-            imageLimitMessage.style.display = 'block';
-            // 허용 개수만큼만 잘라서 미리보기
-            filesToPreview = filesToPreview.slice(0, MAX_IMAGES);
-            // 사용자에게 알림
-             alert(`이미지는 최대 ${MAX_IMAGES}개까지 첨부 가능합니다. 초과된 파일은 제외됩니다.`);
-             // 실제 파일 목록은 서버에서 최종 처리
+        // 2. 이미지 개수 제한 검사
+        if (files.length > MAX_IMAGES) {
+            limitMessage.classList.add('visible');
+            // 허용된 개수만큼 파일 배열을 자름
+            files = files.slice(0, MAX_IMAGES);
         }
 
-        if (filesToPreview.length > 0) {
-            noImageText.style.display = 'none'; // 이미지가 있으면 텍스트 숨김
+        // 3. 파일이 없는 경우
+        if (files.length === 0) {
+            noImageText.classList.add('visible');
+            return;
         }
 
-        // 새 이미지 미리보기 생성
-        filesToPreview.forEach(file => {
+        // 4. 선택된 파일 미리보기 생성
+        files.forEach(file => {
             if (file && file.type.startsWith('image/')) {
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
-                    const previewItem = document.createElement('div');
-                    previewItem.classList.add('new-preview-item');
+                    // 프리뷰 아이템 컨테이너
+                    const item = document.createElement('div');
+                    item.classList.add('image-preview-item');
+                    
+                    // 이미지 태그
                     const img = document.createElement('img');
                     img.src = e.target.result;
-                    img.alt = "새 이미지 미리보기";
-                    previewItem.appendChild(img);
-                    newImagePreviewContainer.appendChild(previewItem);
+                    img.alt = file.name;
+                    
+                    // 파일명 표시
+                    const filename = document.createElement('span');
+                    filename.classList.add('image-filename');
+                    filename.textContent = file.name;
+
+                    item.appendChild(img);
+                    item.appendChild(filename);
+                    previewGrid.appendChild(item);
                 }
+                
                 reader.readAsDataURL(file);
             }
         });
     }
-
-    if (imageInput) imageInput.addEventListener('change', handleImagePreview);
-
-    // 초기 미리보기 실행
-    updateTextPreview();
-    handleImagePreview({ target: imageInput }); // 페이지 로드 시 파일 상태 반영
 
 });
 </script>
