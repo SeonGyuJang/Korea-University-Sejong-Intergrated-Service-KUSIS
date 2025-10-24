@@ -44,6 +44,12 @@ class CalendarEvent(db.Model):
     end_time = db.Column(db.Time)  # NULL for all-day events
     all_day = db.Column(db.Boolean, default=True, nullable=False)
     is_system = db.Column(db.Boolean, default=False, nullable=False)  # True for 학사일정, 공휴일
+
+    # 반복 일정 필드
+    recurrence_type = db.Column(db.String(20))  # 'daily', 'weekly', 'monthly', 'yearly', None
+    recurrence_end_date = db.Column(db.Date)  # 반복 종료 날짜
+    recurrence_interval = db.Column(db.Integer, default=1)  # 반복 간격 (예: 2주마다 = 2)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -61,13 +67,23 @@ class CalendarEvent(db.Model):
                 'category_id': self.category_id,
                 'category_name': self.category.name if self.category else '',
                 'is_system': self.is_system,
-                'user_id': self.user_id
+                'user_id': self.user_id,
+                'recurrence_type': self.recurrence_type,
+                'recurrence_end_date': self.recurrence_end_date.isoformat() if self.recurrence_end_date else None,
+                'recurrence_interval': self.recurrence_interval
             }
         }
 
         # 종료 날짜가 있으면 추가
         if self.end_date:
-            event_dict['end'] = self.end_date.isoformat()
+            # FullCalendar는 종일 이벤트의 end를 exclusive로 처리 (다음날 00:00)
+            # 그래서 DB에 저장된 end_date에 1일을 더해야 함
+            if self.all_day:
+                from datetime import timedelta
+                end_date_adjusted = self.end_date + timedelta(days=1)
+                event_dict['end'] = end_date_adjusted.isoformat()
+            else:
+                event_dict['end'] = self.end_date.isoformat()
 
         # 시간이 있으면 추가
         if not self.all_day and self.start_time:

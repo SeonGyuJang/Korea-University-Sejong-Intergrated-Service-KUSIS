@@ -51,8 +51,8 @@
             </div>
             <div class="toolbar-right">
                 <div class="view-switcher">
-                    <button class="view-btn active" data-view="dayGridMonth">월</button>
-                    <button class="view-btn" data-view="timeGridWeek">주</button>
+                    <button class="view-btn" data-view="dayGridMonth">월</button>
+                    <button class="view-btn active" data-view="timeGridWeek">주</button>
                     <button class="view-btn" data-view="timeGridDay">일</button>
                 </div>
             </div>
@@ -109,6 +109,25 @@
                     </label>
                 </div>
 
+                <!-- 반복 일정 -->
+                <div class="form-field">
+                    <label class="field-label">
+                        <i class="fas fa-redo"></i>
+                        반복
+                    </label>
+                    <select id="eventRecurrence" class="field-select">
+                        <option value="">반복 안 함</option>
+                        <option value="daily">매일</option>
+                        <option value="weekly">매주</option>
+                        <option value="monthly">매월</option>
+                        <option value="yearly">매년</option>
+                    </select>
+                    <div id="recurrenceOptions" style="display: none; margin-top: 10px;">
+                        <label class="field-label" style="margin-bottom: 5px;">반복 종료 날짜</label>
+                        <input type="date" id="eventRecurrenceEndDate" class="field-input">
+                    </div>
+                </div>
+
                 <!-- 설명 -->
                 <div class="form-field">
                     <label class="field-label">
@@ -134,12 +153,35 @@
     </div>
 </div>
 
-<!-- 빠른 일정 추가 팝업 -->
-<div class="quick-add-popup" id="quickAddPopup">
-    <form id="quickAddForm">
-        <input type="text" id="quickEventTitle" class="quick-input" placeholder="일정 제목 입력 (Enter로 저장)" autocomplete="off">
-        <input type="hidden" id="quickEventDate">
-    </form>
+<!-- 중앙 일정 추가 모달 (간단 버전) -->
+<div class="modal-overlay" id="quickEventModal">
+    <div class="modal-content small">
+        <div class="modal-header">
+            <h3>새 일정 추가</h3>
+            <button class="icon-btn" id="closeQuickModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="quickEventForm">
+                <input type="hidden" id="quickEventDate">
+                <div class="form-field">
+                    <label class="field-label">일정 제목</label>
+                    <input type="text" id="quickEventTitle" class="field-input" placeholder="일정 제목 입력" required autofocus>
+                </div>
+                <div class="form-field">
+                    <label class="field-label">카테고리</label>
+                    <select id="quickEventCategory" class="field-select" required>
+                        <!-- JavaScript로 동적 생성 -->
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="quickDetailBtn">상세 설정</button>
+                    <button type="submit" class="btn btn-save">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- 카테고리 추가 모달 -->

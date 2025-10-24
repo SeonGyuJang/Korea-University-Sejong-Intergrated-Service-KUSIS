@@ -22,7 +22,7 @@ function initializeCalendar() {
     const calendarEl = document.getElementById('calendar');
 
     calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
+        initialView: 'timeGridWeek', // 주간 뷰가 디폴트
         locale: 'ko',
         headerToolbar: false, // 커스텀 툴바 사용
         editable: true,
@@ -31,10 +31,13 @@ function initializeCalendar() {
         dayMaxEvents: 3,
         weekends: true,
         height: 'auto',
+        nowIndicator: true, // 현재 시간 표시
+        slotMinTime: '00:00:00',
+        slotMaxTime: '24:00:00',
 
         // 날짜 클릭 (빈 공간)
         dateClick: function(info) {
-            showQuickAddPopup(info.jsEvent, info.dateStr);
+            showQuickEventModal(info.dateStr);
         },
 
         // 이벤트 클릭
@@ -57,7 +60,7 @@ function initializeCalendar() {
 
             if (isSystem) {
                 info.revert();
-                showNotification('시스템 일정은 이동할 수 없습니다.', 'warning');
+                showNotification('시스템 일정은 이동할 수 없습니다.');
                 return;
             }
 
@@ -71,7 +74,7 @@ function initializeCalendar() {
 
             if (isSystem) {
                 info.revert();
-                showNotification('시스템 일정은 수정할 수 없습니다.', 'warning');
+                showNotification('시스템 일정은 수정할 수 없습니다.');
                 return;
             }
 
@@ -215,10 +218,26 @@ function setupEventListeners() {
         document.getElementById('eventEndTime').style.display = isAllDay ? 'none' : 'block';
     });
 
-    // 빠른 추가 폼
-    document.getElementById('quickAddForm').addEventListener('submit', function(e) {
+    // 반복 일정 선택
+    document.getElementById('eventRecurrence').addEventListener('change', function() {
+        const hasRecurrence = this.value !== '';
+        document.getElementById('recurrenceOptions').style.display = hasRecurrence ? 'block' : 'none';
+    });
+
+    // 빠른 추가 모달
+    document.getElementById('closeQuickModalBtn').addEventListener('click', closeQuickEventModal);
+    document.getElementById('quickEventForm').addEventListener('submit', function(e) {
         e.preventDefault();
         quickAddEvent();
+    });
+    document.getElementById('quickDetailBtn').addEventListener('click', function() {
+        // 빠른 추가에서 상세 설정으로 전환
+        const dateStr = document.getElementById('quickEventDate').value;
+        const title = document.getElementById('quickEventTitle').value;
+        const categoryId = document.getElementById('quickEventCategory').value;
+
+        closeQuickEventModal();
+        openSidePanel(null, dateStr, title, categoryId);
     });
 
     // 카테고리 모달
@@ -244,6 +263,12 @@ function setupEventListeners() {
             closeCategoryModal();
         }
     });
+
+    document.getElementById('quickEventModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeQuickEventModal();
+        }
+    });
 }
 
 // ==================== 키보드 단축키 ====================
@@ -253,7 +278,7 @@ function setupKeyboardShortcuts() {
         if (e.key === 'Escape') {
             closeSidePanel();
             closeCategoryModal();
-            hideQuickAddPopup();
+            closeQuickEventModal();
         }
     });
 }
@@ -276,7 +301,7 @@ async function loadCategories() {
         }
     } catch (error) {
         console.error('카테고리 로드 실패:', error);
-        showNotification('카테고리를 불러오는 중 오류가 발생했습니다.', 'error');
+        showNotification('카테고리를 불러오는 중 오류가 발생했습니다.');
     }
 }
 
@@ -326,14 +351,21 @@ function toggleCategoryVisibility(categoryId) {
 }
 
 function renderCategorySelect() {
-    const select = document.getElementById('eventCategory');
-    select.innerHTML = '';
+    const selects = [
+        document.getElementById('eventCategory'),
+        document.getElementById('quickEventCategory')
+    ];
 
-    categories.filter(cat => !cat.is_system).forEach(category => {
-        const option = document.createElement('option');
-        option.value = category.id;
-        option.textContent = category.name;
-        select.appendChild(option);
+    selects.forEach(select => {
+        if (!select) return;
+        select.innerHTML = '';
+
+        categories.filter(cat => !cat.is_system).forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            select.appendChild(option);
+        });
     });
 }
 
@@ -356,8 +388,75 @@ async function loadEventsInRange(start, end) {
     }
 }
 
+// ==================== 중앙 빠른 추가 모달 ====================
+function showQuickEventModal(dateStr) {
+    const modal = document.getElementById('quickEventModal');
+    document.getElementById('quickEventDate').value = dateStr;
+    document.getElementById('quickEventTitle').value = '';
+
+    // 첫 번째 카테고리 선택
+    const firstUserCategory = categories.find(cat => !cat.is_system);
+    if (firstUserCategory) {
+        document.getElementById('quickEventCategory').value = firstUserCategory.id;
+    }
+
+    modal.classList.add('active');
+    setTimeout(() => {
+        document.getElementById('quickEventTitle').focus();
+    }, 100);
+}
+
+function closeQuickEventModal() {
+    document.getElementById('quickEventModal').classList.remove('active');
+}
+
+async function quickAddEvent() {
+    const title = document.getElementById('quickEventTitle').value.trim();
+    const dateStr = document.getElementById('quickEventDate').value;
+    const categoryId = document.getElementById('quickEventCategory').value;
+
+    if (!title || !categoryId) {
+        showNotification('제목과 카테고리를 입력해주세요.');
+        return;
+    }
+
+    const eventData = {
+        title: title,
+        category_id: parseInt(categoryId),
+        description: '',
+        start_date: dateStr,
+        end_date: null,
+        all_day: true,
+        start_time: null,
+        end_time: null,
+        recurrence_type: null,
+        recurrence_end_date: null
+    };
+
+    try {
+        const response = await fetch('/api/calendar/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData)
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            closeQuickEventModal();
+            refreshEvents();
+            showNotification('일정이 추가되었습니다.');
+        } else {
+            showNotification('오류: ' + data.message);
+        }
+    } catch (error) {
+        console.error('빠른 추가 실패:', error);
+        showNotification('일정 추가 중 오류가 발생했습니다.');
+    }
+}
+
 // ==================== 사이드 패널 ====================
-function openSidePanel(eventId = null) {
+function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null) {
     const panel = document.getElementById('sidePanel');
     const form = document.getElementById('eventForm');
     const deleteBtn = document.getElementById('deleteEventBtn');
@@ -371,9 +470,15 @@ function openSidePanel(eventId = null) {
         deleteBtn.style.display = 'flex';
     } else {
         // 추가 모드
-        const today = formatDate(new Date());
+        const today = dateStr || formatDate(new Date());
         document.getElementById('eventStartDate').value = today;
+        if (title) document.getElementById('eventTitle').value = title;
+        if (categoryId) document.getElementById('eventCategory').value = categoryId;
         deleteBtn.style.display = 'none';
+
+        // 종일 체크
+        document.getElementById('eventStartTime').style.display = 'none';
+        document.getElementById('eventEndTime').style.display = 'none';
     }
 
     panel.classList.add('active');
@@ -393,6 +498,15 @@ async function loadEventToForm(eventId) {
     document.getElementById('eventCategory').value = event.extendedProps.category_id;
     document.getElementById('eventDescription').value = event.extendedProps.description || '';
     document.getElementById('eventAllDay').checked = event.allDay;
+
+    // 반복 일정
+    document.getElementById('eventRecurrence').value = event.extendedProps.recurrence_type || '';
+    if (event.extendedProps.recurrence_type) {
+        document.getElementById('recurrenceOptions').style.display = 'block';
+        if (event.extendedProps.recurrence_end_date) {
+            document.getElementById('eventRecurrenceEndDate').value = event.extendedProps.recurrence_end_date;
+        }
+    }
 
     // 날짜 파싱
     const startDate = event.start.split('T')[0];
@@ -439,9 +553,11 @@ async function saveEvent() {
     const endDate = document.getElementById('eventEndDate').value;
     const startTime = document.getElementById('eventStartTime').value;
     const endTime = document.getElementById('eventEndTime').value;
+    const recurrenceType = document.getElementById('eventRecurrence').value || null;
+    const recurrenceEndDate = document.getElementById('eventRecurrenceEndDate').value || null;
 
     if (!title || !categoryId || !startDate) {
-        showNotification('필수 항목을 입력해주세요.', 'warning');
+        showNotification('필수 항목을 입력해주세요.');
         return;
     }
 
@@ -453,7 +569,9 @@ async function saveEvent() {
         end_date: endDate || null,
         all_day: allDay,
         start_time: allDay ? null : startTime,
-        end_time: allDay ? null : endTime
+        end_time: allDay ? null : endTime,
+        recurrence_type: recurrenceType,
+        recurrence_end_date: recurrenceEndDate
     };
 
     try {
@@ -475,15 +593,15 @@ async function saveEvent() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification(eventId ? '일정이 수정되었습니다.' : '일정이 추가되었습니다.', 'success');
+            showNotification(eventId ? '일정이 수정되었습니다.' : '일정이 추가되었습니다.');
             closeSidePanel();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message, 'error');
+            showNotification('오류: ' + data.message);
         }
     } catch (error) {
         console.error('일정 저장 실패:', error);
-        showNotification('일정 저장 중 오류가 발생했습니다.', 'error');
+        showNotification('일정 저장 중 오류가 발생했습니다.');
     }
 }
 
@@ -496,15 +614,15 @@ async function deleteEvent(eventId) {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('일정이 삭제되었습니다.', 'success');
+            showNotification('일정이 삭제되었습니다.');
             closeSidePanel();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message, 'error');
+            showNotification('오류: ' + data.message);
         }
     } catch (error) {
         console.error('일정 삭제 실패:', error);
-        showNotification('일정 삭제 중 오류가 발생했습니다.', 'error');
+        showNotification('일정 삭제 중 오류가 발생했습니다.');
     }
 }
 
@@ -529,76 +647,12 @@ async function updateEventDate(eventId, start, end) {
         if (data.status === 'success') {
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message, 'error');
+            showNotification('오류: ' + data.message);
             calendar.refetchEvents();
         }
     } catch (error) {
         console.error('일정 업데이트 실패:', error);
         calendar.refetchEvents();
-    }
-}
-
-// ==================== 빠른 일정 추가 ====================
-function showQuickAddPopup(event, dateStr) {
-    const popup = document.getElementById('quickAddPopup');
-    const input = document.getElementById('quickEventTitle');
-
-    popup.style.left = `${event.pageX}px`;
-    popup.style.top = `${event.pageY}px`;
-    popup.classList.add('active');
-
-    document.getElementById('quickEventDate').value = dateStr;
-    input.value = '';
-    input.focus();
-}
-
-function hideQuickAddPopup() {
-    document.getElementById('quickAddPopup').classList.remove('active');
-}
-
-async function quickAddEvent() {
-    const title = document.getElementById('quickEventTitle').value.trim();
-    const dateStr = document.getElementById('quickEventDate').value;
-
-    if (!title) return;
-
-    // 첫 번째 사용자 카테고리 사용
-    const userCategory = categories.find(cat => !cat.is_system);
-    if (!userCategory) {
-        showNotification('카테고리를 먼저 추가해주세요.', 'warning');
-        return;
-    }
-
-    const eventData = {
-        title: title,
-        category_id: userCategory.id,
-        description: '',
-        start_date: dateStr,
-        end_date: null,
-        all_day: true,
-        start_time: null,
-        end_time: null
-    };
-
-    try {
-        const response = await fetch('/api/calendar/events', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(eventData)
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            hideQuickAddPopup();
-            refreshEvents();
-            showNotification('일정이 추가되었습니다.', 'success');
-        } else {
-            showNotification('오류: ' + data.message, 'error');
-        }
-    } catch (error) {
-        console.error('빠른 추가 실패:', error);
-        showNotification('일정 추가 중 오류가 발생했습니다.', 'error');
     }
 }
 
@@ -621,7 +675,7 @@ async function saveCategory() {
     const color = document.getElementById('categoryColor').value;
 
     if (!name) {
-        showNotification('카테고리 이름을 입력해주세요.', 'warning');
+        showNotification('카테고리 이름을 입력해주세요.');
         return;
     }
 
@@ -635,15 +689,15 @@ async function saveCategory() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('카테고리가 추가되었습니다.', 'success');
+            showNotification('카테고리가 추가되었습니다.');
             closeCategoryModal();
             loadCategories();
         } else {
-            showNotification('오류: ' + data.message, 'error');
+            showNotification('오류: ' + data.message);
         }
     } catch (error) {
         console.error('카테고리 저장 실패:', error);
-        showNotification('카테고리 저장 중 오류가 발생했습니다.', 'error');
+        showNotification('카테고리 저장 중 오류가 발생했습니다.');
     }
 }
 
@@ -660,15 +714,15 @@ async function deleteCategory(categoryId) {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('카테고리가 삭제되었습니다.', 'success');
+            showNotification('카테고리가 삭제되었습니다.');
             loadCategories();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message, 'error');
+            showNotification('오류: ' + data.message);
         }
     } catch (error) {
         console.error('카테고리 삭제 실패:', error);
-        showNotification('카테고리 삭제 중 오류가 발생했습니다.', 'error');
+        showNotification('카테고리 삭제 중 오류가 발생했습니다.');
     }
 }
 
@@ -690,13 +744,13 @@ function refreshEvents() {
     loadEventsInRange(view.activeStart, view.activeEnd);
 }
 
-function showNotification(message, type = 'info') {
-    // 간단한 알림 (나중에 Toast UI로 개선 가능)
-    console.log(`[${type.toUpperCase()}] ${message}`);
+function showNotification(message) {
+    // 간단한 알림
     alert(message);
 }
 
 function showEventPreview(event) {
-    // 시스템 이벤트 미리보기 (간단한 alert, 나중에 툴팁으로 개선 가능)
-    alert(`${event.title}\n\n${event.extendedProps.description || '설명 없음'}`);
+    // 시스템 이벤트 미리보기
+    const desc = event.extendedProps.description || '설명 없음';
+    alert(`${event.title}\n\n${desc}`);
 }

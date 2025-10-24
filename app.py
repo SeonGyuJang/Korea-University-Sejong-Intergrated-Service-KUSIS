@@ -191,6 +191,16 @@ def create_initial_data():
             db.session.execute(text("ALTER TABLE posts ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE"))
             print("--- [MIGRATION] 'is_visible' column added with default TRUE. ---")
 
+        # --- CalendarEvent 테이블 마이그레이션 (반복 일정 필드) ---
+        if inspector.has_table('calendar_events'):
+            calendar_event_columns = [col['name'] for col in inspector.get_columns('calendar_events')]
+            if 'recurrence_type' not in calendar_event_columns:
+                print("--- [MIGRATION] Adding recurrence fields to 'calendar_events' table... ---")
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_end_date DATE NULL"))
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_interval INTEGER DEFAULT 1"))
+                print("--- [MIGRATION] Recurrence fields added to 'calendar_events' table. ---")
+
         # --- 마이그레이션 끝 ---
 
         # DailyMemo 테이블 삭제 (존재할 경우)
@@ -1853,6 +1863,12 @@ def create_calendar_event():
             if 'end_time' in data and data['end_time']:
                 end_time = datetime.strptime(data['end_time'], '%H:%M').time()
 
+        # 반복 일정
+        recurrence_type = data.get('recurrence_type', None)
+        recurrence_end_date = None
+        if recurrence_type and 'recurrence_end_date' in data and data['recurrence_end_date']:
+            recurrence_end_date = datetime.strptime(data['recurrence_end_date'], '%Y-%m-%d').date()
+
         new_event = CalendarEvent(
             user_id=user_id,
             category_id=category_id,
@@ -1863,7 +1879,10 @@ def create_calendar_event():
             start_time=start_time,
             end_time=end_time,
             all_day=all_day,
-            is_system=False
+            is_system=False,
+            recurrence_type=recurrence_type,
+            recurrence_end_date=recurrence_end_date,
+            recurrence_interval=data.get('recurrence_interval', 1)
         )
         db.session.add(new_event)
         db.session.commit()
@@ -1919,6 +1938,17 @@ def update_calendar_event(event_id):
             category = db.session.get(CalendarCategory, category_id)
             if category and (category.user_id == user_id or category.is_system):
                 event.category_id = category_id
+
+        # 반복 일정 업데이트
+        if 'recurrence_type' in data:
+            event.recurrence_type = data['recurrence_type'] if data['recurrence_type'] else None
+        if 'recurrence_end_date' in data:
+            if data['recurrence_end_date']:
+                event.recurrence_end_date = datetime.strptime(data['recurrence_end_date'], '%Y-%m-%d').date()
+            else:
+                event.recurrence_end_date = None
+        if 'recurrence_interval' in data:
+            event.recurrence_interval = int(data['recurrence_interval']) if data['recurrence_interval'] else 1
 
         db.session.commit()
         return jsonify({'status': 'success', 'event': event.to_dict()})
