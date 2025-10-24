@@ -210,37 +210,70 @@ def create_initial_data():
             db.session.execute(text("ALTER TABLE posts ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE"))
             print("--- [MIGRATION] 'is_visible' column added with default TRUE. ---")
 
-        # --- CalendarEvent 테이블 마이그레이션 ---
+        # --- CalendarEvent 테이블 마이그레이션 (강화 버전) ---
         if inspector.has_table('calendar_events'):
             calendar_event_columns = [col['name'] for col in inspector.get_columns('calendar_events')]
+            print(f"--- [MIGRATION] Current calendar_events columns: {[c for c in calendar_event_columns]} ---")
+
+            migration_needed = False
 
             # category -> category_id 마이그레이션
             if 'category' in calendar_event_columns and 'category_id' not in calendar_event_columns:
-                print("--- [MIGRATION] Renaming 'category' to 'category_id' in 'calendar_events' table... ---")
-                try:
-                    db.session.execute(text("ALTER TABLE calendar_events RENAME COLUMN category TO category_id"))
-                    db.session.execute(text("ALTER TABLE calendar_events ALTER COLUMN category_id TYPE INTEGER USING category_id::INTEGER"))
-                    print("--- [MIGRATION] 'category' renamed to 'category_id'. ---")
-                except Exception as e:
-                    print(f"--- [MIGRATION] Error renaming category column: {e} ---")
+                migration_needed = True
             elif 'category_id' not in calendar_event_columns:
-                print("--- [MIGRATION] Adding 'category_id' to 'calendar_events' table... ---")
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN category_id INTEGER NOT NULL REFERENCES calendar_categories(id) ON DELETE CASCADE"))
-                print("--- [MIGRATION] 'category_id' column added. ---")
+                migration_needed = True
 
-            # is_system 컬럼 추가
+            # is_system 체크
             if 'is_system' not in calendar_event_columns:
-                print("--- [MIGRATION] Adding 'is_system' to 'calendar_events' table... ---")
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT FALSE"))
-                print("--- [MIGRATION] 'is_system' column added. ---")
+                migration_needed = True
 
-            # 반복 일정 필드 추가
-            if 'recurrence_type' not in calendar_event_columns:
-                print("--- [MIGRATION] Adding recurrence fields to 'calendar_events' table... ---")
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_end_date DATE NULL"))
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_interval INTEGER DEFAULT 1"))
-                print("--- [MIGRATION] Recurrence fields added to 'calendar_events' table. ---")
+            if migration_needed:
+                print("--- [MIGRATION] Calendar events table needs migration. Dropping and recreating... ---")
+                try:
+                    # 기존 테이블 삭제 (모든 이벤트 데이터 삭제)
+                    db.session.execute(text("DROP TABLE IF EXISTS calendar_events CASCADE"))
+                    db.session.commit()
+                    print("--- [MIGRATION] Old calendar_events table dropped. ---")
+
+                    # 테이블 재생성
+                    db.session.execute(text("""
+                        CREATE TABLE calendar_events (
+                            id SERIAL PRIMARY KEY,
+                            user_id VARCHAR(10) REFERENCES users(id) ON DELETE CASCADE,
+                            category_id INTEGER NOT NULL REFERENCES calendar_categories(id) ON DELETE CASCADE,
+                            title VARCHAR(200) NOT NULL,
+                            description TEXT,
+                            start_date DATE NOT NULL,
+                            end_date DATE,
+                            start_time TIME,
+                            end_time TIME,
+                            all_day BOOLEAN NOT NULL DEFAULT TRUE,
+                            is_system BOOLEAN NOT NULL DEFAULT FALSE,
+                            recurrence_type VARCHAR(20),
+                            recurrence_end_date DATE,
+                            recurrence_interval INTEGER DEFAULT 1,
+                            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                    db.session.commit()
+                    print("--- [MIGRATION] calendar_events table recreated successfully. ---")
+                except Exception as e:
+                    print(f"--- [MIGRATION] ERROR: {e} ---")
+                    db.session.rollback()
+            else:
+                # 반복 일정 필드만 추가
+                if 'recurrence_type' not in calendar_event_columns:
+                    print("--- [MIGRATION] Adding recurrence fields... ---")
+                    try:
+                        db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))
+                        db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_end_date DATE NULL"))
+                        db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_interval INTEGER DEFAULT 1"))
+                        db.session.commit()
+                        print("--- [MIGRATION] Recurrence fields added. ---")
+                    except Exception as e:
+                        print(f"--- [MIGRATION] Error: {e} ---")
+                        db.session.rollback()
 
         # --- 마이그레이션 끝 ---
 
