@@ -8,131 +8,182 @@
 {% endblock %}
 
 {% block content %}
-<div class="calendar-container">
-    <div class="calendar-header">
-        <h1>📅 캘린더</h1>
-        <div class="calendar-actions">
-            <button class="btn btn-primary" id="addEventBtn">
-                <i class="fas fa-plus"></i> 일정 추가
+<div class="notion-calendar-container">
+    <!-- 왼쪽 사이드바 -->
+    <div class="calendar-sidebar">
+        <!-- 미니 캘린더 -->
+        <div class="mini-calendar-wrapper">
+            <div class="mini-calendar-header">
+                <button class="mini-nav-btn" id="miniPrevMonth">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="mini-calendar-title" id="miniCalendarTitle">2025년 10월</span>
+                <button class="mini-nav-btn" id="miniNextMonth">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div id="miniCalendar" class="mini-calendar"></div>
+            <button class="today-btn" id="todayBtn">
+                <i class="fas fa-calendar-day"></i> 오늘
             </button>
-            <button class="btn btn-secondary" id="manageCategoriesBtn">
-                <i class="fas fa-tags"></i> 카테고리 관리
-            </button>
+        </div>
+
+        <!-- 카테고리 섹션 -->
+        <div class="sidebar-section">
+            <div class="section-header">
+                <h3>내 캘린더</h3>
+                <button class="icon-btn" id="addCategoryBtn" title="카테고리 추가">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="category-list" id="categoryList">
+                <!-- JavaScript로 동적 생성 -->
+            </div>
         </div>
     </div>
 
-    <!-- 카테고리 필터 -->
-    <div class="category-filter" id="categoryFilter">
-        <div class="filter-header">
-            <h3>카테고리</h3>
+    <!-- 메인 캘린더 영역 -->
+    <div class="calendar-main">
+        <!-- 상단 툴바 -->
+        <div class="calendar-toolbar">
+            <div class="toolbar-left">
+                <h1 class="calendar-main-title" id="calendarMainTitle">2025년 10월</h1>
+            </div>
+            <div class="toolbar-right">
+                <div class="view-switcher">
+                    <button class="view-btn active" data-view="dayGridMonth">월</button>
+                    <button class="view-btn" data-view="timeGridWeek">주</button>
+                    <button class="view-btn" data-view="timeGridDay">일</button>
+                </div>
+            </div>
         </div>
-        <div class="filter-list" id="categoryList">
-            <!-- JavaScript로 동적 생성 -->
-        </div>
+
+        <!-- FullCalendar -->
+        <div id="calendar" class="main-calendar"></div>
     </div>
 
-    <!-- 캘린더 -->
-    <div id="calendar"></div>
-</div>
-
-<!-- 일정 추가/수정 모달 -->
-<div class="modal" id="eventModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="modalTitle">일정 추가</h2>
-            <button class="close-btn" id="closeModalBtn">&times;</button>
+    <!-- 오른쪽 사이드 패널 (일정 상세 정보) -->
+    <div class="side-panel" id="sidePanel">
+        <div class="side-panel-header">
+            <h2>일정 정보</h2>
+            <button class="icon-btn close-panel-btn" id="closePanelBtn">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
-        <div class="modal-body">
+        <div class="side-panel-body">
             <form id="eventForm">
                 <input type="hidden" id="eventId">
 
-                <div class="form-group">
-                    <label for="eventTitle">제목 <span class="required">*</span></label>
-                    <input type="text" id="eventTitle" class="form-control" required>
+                <!-- 제목 -->
+                <div class="form-field">
+                    <input type="text" id="eventTitle" class="title-input" placeholder="일정 제목 입력" required>
                 </div>
 
-                <div class="form-group">
-                    <label for="eventCategory">카테고리 <span class="required">*</span></label>
-                    <select id="eventCategory" class="form-control" required>
+                <!-- 카테고리 -->
+                <div class="form-field">
+                    <label class="field-label">
+                        <i class="fas fa-tag"></i>
+                        카테고리
+                    </label>
+                    <select id="eventCategory" class="field-select" required>
                         <!-- JavaScript로 동적 생성 -->
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="eventDescription">설명</label>
-                    <textarea id="eventDescription" class="form-control" rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>
+                <!-- 날짜 및 시간 -->
+                <div class="form-field">
+                    <label class="field-label">
+                        <i class="fas fa-clock"></i>
+                        날짜 및 시간
+                    </label>
+                    <div class="date-time-grid">
+                        <input type="date" id="eventStartDate" class="field-input" required>
+                        <input type="time" id="eventStartTime" class="field-input time-input">
+                        <span class="date-separator">→</span>
+                        <input type="date" id="eventEndDate" class="field-input">
+                        <input type="time" id="eventEndTime" class="field-input time-input">
+                    </div>
+                    <label class="checkbox-label">
                         <input type="checkbox" id="eventAllDay" checked>
-                        종일 일정
+                        <span>종일</span>
                     </label>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="eventStartDate">시작 날짜 <span class="required">*</span></label>
-                        <input type="date" id="eventStartDate" class="form-control" required>
-                    </div>
-                    <div class="form-group" id="startTimeGroup" style="display: none;">
-                        <label for="eventStartTime">시작 시간</label>
-                        <input type="time" id="eventStartTime" class="form-control">
-                    </div>
+                <!-- 설명 -->
+                <div class="form-field">
+                    <label class="field-label">
+                        <i class="fas fa-align-left"></i>
+                        설명
+                    </label>
+                    <textarea id="eventDescription" class="field-textarea" placeholder="일정에 대한 설명을 입력하세요" rows="4"></textarea>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="eventEndDate">종료 날짜</label>
-                        <input type="date" id="eventEndDate" class="form-control">
+                <!-- 버튼 -->
+                <div class="panel-actions">
+                    <button type="button" class="btn btn-delete" id="deleteEventBtn">
+                        <i class="fas fa-trash"></i>
+                        삭제
+                    </button>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-cancel" id="cancelEventBtn">취소</button>
+                        <button type="submit" class="btn btn-save">저장</button>
                     </div>
-                    <div class="form-group" id="endTimeGroup" style="display: none;">
-                        <label for="eventEndTime">종료 시간</label>
-                        <input type="time" id="eventEndTime" class="form-control">
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" id="deleteEventBtn" style="display: none;">삭제</button>
-                    <button type="button" class="btn btn-secondary" id="cancelEventBtn">취소</button>
-                    <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- 카테고리 관리 모달 -->
-<div class="modal" id="categoryModal">
-    <div class="modal-content">
+<!-- 빠른 일정 추가 팝업 -->
+<div class="quick-add-popup" id="quickAddPopup">
+    <form id="quickAddForm">
+        <input type="text" id="quickEventTitle" class="quick-input" placeholder="일정 제목 입력 (Enter로 저장)" autocomplete="off">
+        <input type="hidden" id="quickEventDate">
+    </form>
+</div>
+
+<!-- 카테고리 추가 모달 -->
+<div class="modal-overlay" id="categoryModalOverlay">
+    <div class="modal-content small">
         <div class="modal-header">
-            <h2>카테고리 관리</h2>
-            <button class="close-btn" id="closeCategoryModalBtn">&times;</button>
+            <h3>새 카테고리 추가</h3>
+            <button class="icon-btn" id="closeCategoryModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="modal-body">
-            <div class="category-add-form">
-                <h3>새 카테고리 추가</h3>
-                <form id="categoryForm">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="categoryName">카테고리 이름</label>
-                            <input type="text" id="categoryName" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="categoryColor">색상</label>
-                            <input type="color" id="categoryColor" class="form-control" value="#1976D2">
-                        </div>
-                        <button type="submit" class="btn btn-primary">추가</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="category-list-management">
-                <h3>카테고리 목록</h3>
-                <div id="categoryManagementList">
-                    <!-- JavaScript로 동적 생성 -->
+            <form id="categoryForm">
+                <div class="form-field">
+                    <label class="field-label">카테고리 이름</label>
+                    <input type="text" id="categoryName" class="field-input" placeholder="예: 개인, 공부, 운동" required>
                 </div>
-            </div>
+                <div class="form-field">
+                    <label class="field-label">색상 선택</label>
+                    <div class="color-picker" id="colorPicker">
+                        <button type="button" class="color-option" data-color="#D32F2F" style="background: #D32F2F"></button>
+                        <button type="button" class="color-option" data-color="#C2185B" style="background: #C2185B"></button>
+                        <button type="button" class="color-option" data-color="#7B1FA2" style="background: #7B1FA2"></button>
+                        <button type="button" class="color-option" data-color="#512DA8" style="background: #512DA8"></button>
+                        <button type="button" class="color-option" data-color="#303F9F" style="background: #303F9F"></button>
+                        <button type="button" class="color-option active" data-color="#1976D2" style="background: #1976D2"></button>
+                        <button type="button" class="color-option" data-color="#0288D1" style="background: #0288D1"></button>
+                        <button type="button" class="color-option" data-color="#0097A7" style="background: #0097A7"></button>
+                        <button type="button" class="color-option" data-color="#00796B" style="background: #00796B"></button>
+                        <button type="button" class="color-option" data-color="#388E3C" style="background: #388E3C"></button>
+                        <button type="button" class="color-option" data-color="#689F38" style="background: #689F38"></button>
+                        <button type="button" class="color-option" data-color="#F57C00" style="background: #F57C00"></button>
+                        <button type="button" class="color-option" data-color="#E64A19" style="background: #E64A19"></button>
+                        <button type="button" class="color-option" data-color="#5D4037" style="background: #5D4037"></button>
+                        <button type="button" class="color-option" data-color="#616161" style="background: #616161"></button>
+                        <button type="button" class="color-option" data-color="#455A64" style="background: #455A64"></button>
+                    </div>
+                    <input type="hidden" id="categoryColor" value="#1976D2">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" id="cancelCategoryBtn">취소</button>
+                    <button type="submit" class="btn btn-save">추가</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
