@@ -15,10 +15,6 @@
     padding: 30px 40px; /* 내부 여백 조정 */
     box-shadow: var(--shadow);
     width: 100%;
-    
-    /* --- [수정] 아래 2줄을 제거하여 전체 너비를 사용 --- */
-    /* max-width: 900px; */ /* 최대 너비 설정 (제거) */
-    /* margin: 0 auto; */ /* 가운데 정렬 (제거) */
 }
 
 /* 게시물 헤더 (제목 + 목록 버튼) */
@@ -37,13 +33,6 @@
     align-items: center;
     gap: 10px;
     flex-grow: 1; /* 제목 영역이 남는 공간 차지 */
-}
-
-.notice-badge-view {
-    color: var(--korea-red);
-    font-size: 1.1em; /* 제목 크기에 비례 */
-    font-weight: 700;
-    flex-shrink: 0; /* 줄어들지 않음 */
 }
 
 .post-title {
@@ -90,7 +79,8 @@
 /* 게시물 메타 정보 */
 .post-meta {
     display: flex;
-    gap: 25px; /* 간격 늘림 */
+    flex-wrap: wrap; /* 작은 화면에서 줄바꿈 */
+    gap: 15px 25px; /* 행간, 열간 간격 */
     font-size: 14px;
     color: var(--text-secondary);
     margin-bottom: 30px; /* 본문과의 간격 */
@@ -111,26 +101,34 @@
     font-weight: 500;
 }
 
-/* 게시물 본문 영역 */
-.post-body {
-    /* 특별한 스타일 불필요 */
+/* --- [신규/수정] 이미지 갤러리 스타일 --- */
+.post-image-gallery {
+    display: grid;
+    /* 반응형 그리드: 최소 150px, 최대 1fr 크기의 열 자동 생성 */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px; /* 이미지 간격 */
+    margin-bottom: 30px; /* 갤러리와 본문 간격 */
 }
 
-/* 이미지 컨테이너 */
-.post-image-container {
+.post-image-item {
     width: 100%;
-    margin-bottom: 30px; /* 이미지와 내용 간격 */
-    text-align: center;
-}
-
-.post-image {
-    max-width: 100%;
-    height: auto;
+    height: auto; /* 이미지 비율 유지 */
+    max-height: 300px; /* 최대 높이 제한 (필요에 따라 조정) */
+    object-fit: contain; /* 이미지가 잘리지 않고 전체 보이도록 */
     border-radius: 8px; /* 모서리 약간 둥글게 */
     border: 1px solid var(--border-color);
-    background: #f8f9fa; /* 로딩 배경 */
+    background: #f8f9fa; /* 이미지 로딩 중 배경색 */
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* 부드러운 그림자 */
+    cursor: pointer; /* 클릭 가능 표시 (라이트박스 등 확장 고려) */
+    transition: transform 0.2s ease-in-out;
 }
+.post-image-item:hover {
+    transform: scale(1.03); /* 약간 확대 효과 */
+}
+
+/* --- [제거] 기존 단일 이미지 스타일 제거 --- */
+/* .post-image-container { ... } */
+/* .post-image { ... } */
 
 /* 게시물 내용 */
 .post-content {
@@ -139,7 +137,7 @@
     line-height: 1.8; /* 줄간격 조정 */
     min-height: 150px; /* 최소 높이 */
     padding: 10px 0;
-    word-break: break-word;
+    word-break: break-word; /* 긴 단어 줄바꿈 */
     white-space: normal; /* <br> 태그가 있으므로 pre-wrap 불필요 */
 }
 
@@ -169,12 +167,20 @@
         font-size: 22px; /* 모바일 제목 크기 조정 */
     }
     .post-meta {
-        flex-direction: column; /* 세로 배치 */
-        gap: 10px; /* 간격 줄임 */
+        /* flex-direction: column; <- flex-wrap으로 변경됨 */
+        gap: 10px 15px; /* 간격 줄임 */
         font-size: 13px;
         margin-bottom: 25px;
     }
     .post-content {
         font-size: 15px;
+    }
+    .post-image-gallery {
+        /* 그리드 컬럼 수 조정 (예: 최대 2개) */
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    .post-image-item {
+        max-height: 200px; /* 모바일 최대 높이 조정 */
     }
 }
