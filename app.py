@@ -71,6 +71,25 @@ db.init_app(app)
 # --- 시간대 설정 ---
 KST = pytz.timezone('Asia/Seoul')
 
+# --- 학기 시작 날짜 추정 함수 ---
+def _get_semester_start_date_fallback(year, season):
+    """학기 시작 날짜를 추정하는 함수 (start_date가 없을 경우 사용)"""
+    if season == '1학기':
+        # 1학기는 보통 3월 첫째 주 월요일
+        return date(year, 3, 2)
+    elif season == '여름학기':
+        # 여름학기는 보통 6월 중순
+        return date(year, 6, 15)
+    elif season == '2학기':
+        # 2학기는 보통 9월 첫째 주 월요일
+        return date(year, 9, 1)
+    elif season == '겨울학기':
+        # 겨울학기는 보통 12월 중순
+        return date(year, 12, 15)
+    else:
+        # 기본값: 해당 연도 3월 2일
+        return date(year, 3, 2)
+
 # --- Jinja2 필터 추가 ---
 @app.template_filter('kst')
 def format_datetime_kst(value, format='%Y-%m-%d %H:%M'):
@@ -191,9 +210,31 @@ def create_initial_data():
             db.session.execute(text("ALTER TABLE posts ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE"))
             print("--- [MIGRATION] 'is_visible' column added with default TRUE. ---")
 
-        # --- CalendarEvent 테이블 마이그레이션 (반복 일정 필드) ---
+        # --- CalendarEvent 테이블 마이그레이션 ---
         if inspector.has_table('calendar_events'):
             calendar_event_columns = [col['name'] for col in inspector.get_columns('calendar_events')]
+
+            # category -> category_id 마이그레이션
+            if 'category' in calendar_event_columns and 'category_id' not in calendar_event_columns:
+                print("--- [MIGRATION] Renaming 'category' to 'category_id' in 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events RENAME COLUMN category TO category_id"))
+                    db.session.execute(text("ALTER TABLE calendar_events ALTER COLUMN category_id TYPE INTEGER USING category_id::INTEGER"))
+                    print("--- [MIGRATION] 'category' renamed to 'category_id'. ---")
+                except Exception as e:
+                    print(f"--- [MIGRATION] Error renaming category column: {e} ---")
+            elif 'category_id' not in calendar_event_columns:
+                print("--- [MIGRATION] Adding 'category_id' to 'calendar_events' table... ---")
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN category_id INTEGER NOT NULL REFERENCES calendar_categories(id) ON DELETE CASCADE"))
+                print("--- [MIGRATION] 'category_id' column added. ---")
+
+            # is_system 컬럼 추가
+            if 'is_system' not in calendar_event_columns:
+                print("--- [MIGRATION] Adding 'is_system' to 'calendar_events' table... ---")
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT FALSE"))
+                print("--- [MIGRATION] 'is_system' column added. ---")
+
+            # 반복 일정 필드 추가
             if 'recurrence_type' not in calendar_event_columns:
                 print("--- [MIGRATION] Adding recurrence fields to 'calendar_events' table... ---")
                 db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))

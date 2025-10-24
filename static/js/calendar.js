@@ -42,7 +42,7 @@ function initializeCalendar() {
             openSidePanel(null, info.dateStr);
         },
 
-        // 드래그로 범위 선택 - 우측 패널 열기
+        // 드래그로 범위 선택 - 하단 패널 열기
         select: function(info) {
             const startDate = formatDate(info.start);
             let endDate = null;
@@ -57,7 +57,7 @@ function initializeCalendar() {
             }
 
             openSidePanel(null, startDate, '', null, endDate);
-            calendar.unselect(); // 선택 해제
+            // 드래그 영역 유지를 위해 unselect() 호출하지 않음
         },
 
         // 이벤트 클릭
@@ -486,9 +486,9 @@ async function quickAddEvent() {
     }
 }
 
-// ==================== 사이드 패널 ====================
+// ==================== 하단 패널 ====================
 function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null, endDateStr = null) {
-    const panel = document.getElementById('sidePanel');
+    const panel = document.getElementById('bottomPanel');
     const form = document.getElementById('eventForm');
     const deleteBtn = document.getElementById('deleteEventBtn');
 
@@ -516,11 +516,107 @@ function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = 
     }
 
     panel.classList.add('active');
+    updatePreview(); // 미리보기 업데이트
+    setupPreviewListeners(); // 실시간 미리보기 이벤트 리스너
 }
 
 function closeSidePanel() {
-    document.getElementById('sidePanel').classList.remove('active');
+    document.getElementById('bottomPanel').classList.remove('active');
     selectedEventId = null;
+    // 드래그 선택은 유지
+}
+
+// ==================== 실시간 미리보기 ====================
+function setupPreviewListeners() {
+    // 이미 설정되었으면 리턴
+    if (document.getElementById('eventTitle').dataset.previewSetup) return;
+    document.getElementById('eventTitle').dataset.previewSetup = 'true';
+
+    // 제목 변경
+    document.getElementById('eventTitle').addEventListener('input', updatePreview);
+
+    // 날짜 변경
+    document.getElementById('eventStartDate').addEventListener('change', updatePreview);
+    document.getElementById('eventEndDate').addEventListener('change', updatePreview);
+
+    // 시간 변경
+    document.getElementById('eventStartTime').addEventListener('change', updatePreview);
+    document.getElementById('eventEndTime').addEventListener('change', updatePreview);
+
+    // 종일 체크박스
+    document.getElementById('eventAllDay').addEventListener('change', updatePreview);
+
+    // 카테고리 변경
+    document.getElementById('eventCategory').addEventListener('change', updatePreview);
+
+    // 설명 변경
+    document.getElementById('eventDescription').addEventListener('input', updatePreview);
+}
+
+function updatePreview() {
+    const title = document.getElementById('eventTitle').value || '일정 제목';
+    const startDate = document.getElementById('eventStartDate').value;
+    const endDate = document.getElementById('eventEndDate').value;
+    const startTime = document.getElementById('eventStartTime').value;
+    const endTime = document.getElementById('eventEndTime').value;
+    const allDay = document.getElementById('eventAllDay').checked;
+    const categoryId = document.getElementById('eventCategory').value;
+    const description = document.getElementById('eventDescription').value;
+
+    // 제목 업데이트
+    document.getElementById('previewTitle').textContent = title;
+
+    // 날짜 업데이트
+    let dateText = '';
+    if (startDate) {
+        const startD = new Date(startDate);
+        const startFormatted = `${startD.getMonth() + 1}월 ${startD.getDate()}일`;
+
+        if (endDate && endDate !== startDate) {
+            const endD = new Date(endDate);
+            const endFormatted = `${endD.getMonth() + 1}월 ${endD.getDate()}일`;
+            dateText = `${startFormatted} - ${endFormatted}`;
+        } else {
+            dateText = startFormatted;
+        }
+    } else {
+        dateText = '날짜를 선택하세요';
+    }
+    document.getElementById('previewDate').textContent = dateText;
+
+    // 시간 업데이트
+    let timeText = '';
+    if (allDay) {
+        timeText = '종일';
+    } else if (startTime) {
+        timeText = startTime;
+        if (endTime) {
+            timeText += ` - ${endTime}`;
+        }
+    } else {
+        timeText = '시간을 선택하세요';
+    }
+    document.getElementById('previewTime').textContent = timeText;
+
+    // 카테고리 업데이트
+    if (categoryId) {
+        const category = categories.find(cat => cat.id == categoryId);
+        if (category) {
+            document.getElementById('previewCategory').textContent = category.name;
+            document.getElementById('previewEvent').style.borderLeftColor = category.color;
+        }
+    } else {
+        document.getElementById('previewCategory').textContent = '카테고리를 선택하세요';
+    }
+
+    // 설명 업데이트
+    const descContainer = document.getElementById('previewDescContainer');
+    if (description) {
+        document.getElementById('previewDescription').textContent = description;
+        descContainer.style.display = 'flex';
+    } else {
+        descContainer.style.display = 'none';
+    }
 }
 
 async function loadEventToForm(eventId) {

@@ -310,18 +310,12 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: margin-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 사이드 패널이 열렸을 때 캘린더 영역 조정 */
-.notion-calendar-container:has(.side-panel.active) .calendar-main {
-    margin-right: 400px;
-}
-
-@media (max-width: 1024px) {
-    .notion-calendar-container:has(.side-panel.active) .calendar-main {
-        margin-right: 350px;
-    }
+/* 하단 패널이 열렸을 때 캘린더 영역 조정 */
+.notion-calendar-container:has(.bottom-panel.active) .calendar-main {
+    margin-bottom: 400px;
 }
 
 .calendar-toolbar {
@@ -481,36 +475,58 @@
     border-color: var(--notion-primary) !important;
 }
 
-/* ==================== 사이드 패널 ==================== */
-.side-panel {
+/* ==================== 하단 패널 ==================== */
+.bottom-panel {
     position: fixed;
+    left: 0;
     right: 0;
-    top: 60px;
-    width: 400px;
-    height: calc(100vh - 60px);
+    bottom: 0;
+    height: 400px;
     background: white;
-    border-left: 2px solid var(--notion-border);
-    box-shadow: -8px 0 24px var(--notion-shadow-xl);
-    transform: translateX(100%);
+    border-top: 2px solid var(--notion-border);
+    box-shadow: 0 -8px 24px var(--notion-shadow-xl);
+    transform: translateY(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 100;
     display: flex;
     flex-direction: column;
 }
 
-.side-panel.active {
-    transform: translateX(0);
+.bottom-panel.active {
+    transform: translateY(0);
 }
 
-.side-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
+.bottom-panel-header {
     border-bottom: 1px solid var(--notion-border);
 }
 
-.side-panel-header h2 {
+.panel-drag-handle {
+    width: 100%;
+    padding: 8px 0;
+    display: flex;
+    justify-content: center;
+    cursor: grab;
+}
+
+.panel-drag-handle:active {
+    cursor: grabbing;
+}
+
+.drag-indicator {
+    width: 40px;
+    height: 4px;
+    background: var(--notion-border);
+    border-radius: 2px;
+}
+
+.panel-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+}
+
+.panel-header-content h2 {
     font-size: 18px;
     font-weight: 600;
     color: var(--notion-text);
@@ -523,19 +539,79 @@
     font-size: 16px;
 }
 
-.side-panel-body {
+.bottom-panel-body {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
 }
 
-.side-panel-body::-webkit-scrollbar {
+.bottom-panel-body::-webkit-scrollbar {
     width: 6px;
 }
 
-.side-panel-body::-webkit-scrollbar-thumb {
+.bottom-panel-body::-webkit-scrollbar-thumb {
     background: var(--notion-border);
     border-radius: 3px;
+}
+
+/* 폼 영역 */
+.bottom-panel-body form {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 미리보기 영역 */
+.preview-area {
+    grid-column: 2;
+    background: var(--notion-sidebar-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--notion-border);
+}
+
+.preview-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--notion-text);
+    margin-bottom: 16px;
+}
+
+.preview-event {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 4px solid var(--notion-primary);
+    box-shadow: 0 2px 4px var(--notion-shadow);
+}
+
+.preview-event-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--notion-text);
+    margin-bottom: 12px;
+}
+
+.preview-event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.preview-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--notion-text-light);
+}
+
+.preview-detail-item i {
+    width: 16px;
+    color: var(--notion-text-light);
 }
 
 /* ==================== 폼 필드 ==================== */
@@ -817,8 +893,12 @@
         width: 220px;
     }
 
-    .side-panel {
-        width: 350px;
+    .bottom-panel {
+        height: 350px;
+    }
+
+    .notion-calendar-container:has(.bottom-panel.active) .calendar-main {
+        margin-bottom: 350px;
     }
 }
 
@@ -838,10 +918,16 @@
         display: none;
     }
 
-    .side-panel {
-        width: 100%;
-        top: 0;
-        height: 100vh;
+    .bottom-panel {
+        height: 60vh;
+    }
+
+    .bottom-panel-body {
+        grid-template-columns: 1fr;
+    }
+
+    .preview-area {
+        display: none; /* 모바일에서는 미리보기 숨김 */
     }
 
     .calendar-toolbar {
@@ -850,8 +936,8 @@
         align-items: flex-start;
     }
 
-    .notion-calendar-container:has(.side-panel.active) .calendar-main {
-        margin-right: 0;
+    .notion-calendar-container:has(.bottom-panel.active) .calendar-main {
+        margin-bottom: 60vh;
     }
 }
 
