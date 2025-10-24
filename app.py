@@ -572,13 +572,16 @@ def create_post():
                     return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
 
             # --- 이미지 파일 처리 (여러 개, 최대 MAX_UPLOADS개) ---
-            valid_files = [f for f in image_files if f and f.filename != '' and allowed_file(f.filename)]
+            # 실제로 파일이 선택된 것만 필터링
+            actual_files = [f for f in image_files if f and f.filename != '']
+            valid_files = [f for f in actual_files if allowed_file(f.filename)]
 
             if len(valid_files) > MAX_UPLOADS:
                 flash(f'이미지는 최대 {MAX_UPLOADS}개까지 첨부할 수 있습니다.', 'warning')
                 return render_template('create_post.html', user=user, title=title, content=content, is_notice=is_notice, categories=post_categories, category=category, expires_at=expires_at_str, config=app.config)
 
-            if len(image_files) > len(valid_files) and len(valid_files) < len(image_files):
+            # 실제 파일이 있고, 유효하지 않은 파일이 있는 경우에만 경고
+            if actual_files and len(actual_files) > len(valid_files):
                  flash('허용되지 않는 파일 형식(png, jpg, jpeg, gif)이 포함되어 제외되었습니다.', 'warning')
 
 
@@ -751,9 +754,12 @@ def edit_post(post_id):
             files_to_delete_physically = [f for f in current_filenames if f in images_to_delete]
 
             # 2. 새로 업로드된 유효한 파일 필터링
-            valid_new_files = [f for f in new_image_files if f and f.filename != '' and allowed_file(f.filename)]
+            # 실제로 파일이 선택된 것만 필터링
+            actual_new_files = [f for f in new_image_files if f and f.filename != '']
+            valid_new_files = [f for f in actual_new_files if allowed_file(f.filename)]
 
-            if len(new_image_files) > len(valid_new_files) and len(valid_new_files) < len(new_image_files):
+            # 실제 파일이 있고, 유효하지 않은 파일이 있는 경우에만 경고
+            if actual_new_files and len(actual_new_files) > len(valid_new_files):
                  flash('허용되지 않는 파일 형식(png, jpg, jpeg, gif)이 포함되어 제외되었습니다.', 'warning')
 
             # 3. 총 이미지 개수 확인 (유지될 기존 이미지 + 새 이미지)
