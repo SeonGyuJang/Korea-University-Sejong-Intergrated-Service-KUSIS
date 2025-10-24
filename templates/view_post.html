@@ -40,12 +40,12 @@
 
         {# 메타 정보 #}
         <div class="post-meta">
-            <span class="meta-item"><i class="fas fa-user"></i> 작성자: <strong>{{ post.author.name }}</strong></span>
+            <span class="meta-item"><i class="fas fa-user"></i> 작성자 : <strong>{{ post.author.name }}</strong></span>
             {# kst 필터 사용하여 KST로 표시 #}
-            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일: <strong>{{ post.created_at | kst }}</strong> (KST)</span>
+            <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일 : <strong>{{ post.created_at | kst }}</strong> (KST)</span>
             {% if post.expires_at %}
                 {# kst 필터 사용하여 KST로 표시 #}
-                <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감: <strong>{{ post.expires_at | kst }}</strong> (KST)</span>
+                <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감 : <strong>{{ post.expires_at | kst }}</strong> (KST)</span>
             {% endif %}
         </div>
 
