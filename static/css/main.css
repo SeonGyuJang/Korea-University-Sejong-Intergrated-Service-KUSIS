@@ -223,12 +223,12 @@
 
 /* 콘텐츠 영역 */
 .content-area {
-    display: grid;
-    grid-template-columns: 280px 1fr 550px; /* 3단 그리드 - 중앙 줄이고 우측(시간표) 늘림 */
+    display: flex; /* [수정] grid에서 flex로 변경 */
+    /* [삭제] grid-template-columns: 280px 1fr 550px; */
     gap: 20px;
     padding: 20px;
     width: 100%;
-    height: 100%;
+    /* [삭제] height: 100%; */
     overflow-y: auto;
 }
 
@@ -249,6 +249,8 @@
     transition: all 0.3s;
     position: relative; /* (신규) 비로그인 오버레이 기준점 */
     overflow: hidden; /* (신규) 오버레이가 밖으로 나가지 않도록 */
+    display: flex; /* [추가] 위젯 내부를 flex로 설정 */
+    flex-direction: column; /* [추가] 위젯 내부 요소를 세로로 정렬 */
 }
 
 .widget:hover {
@@ -351,6 +353,8 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    width: 280px; /* [추가] 고정 너비 */
+    flex-shrink: 0; /* [추가] 축소 방지 */
 }
 
 .profile-widget {
@@ -535,12 +539,17 @@
 }
 
 /* 일정 위젯 */
+.schedule-widget {
+    flex-grow: 1; /* [추가] 남은 공간 채우기 */
+}
+
 .schedule-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-height: 100px; /* (신규) 비로그인 시 높이 확보 */
     position: relative;
+    flex-grow: 1; /* [추가] 위젯 내부에서 남은 공간 채우기 */
 }
 
 .schedule-item {
@@ -583,6 +592,8 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    flex-grow: 1; /* [추가] 남은 공간 차지 */
+    min-width: 0; /* [추가] 축소 허용 */
 }
 
 /* 셔틀버스 위젯 */
@@ -691,11 +702,16 @@
 }
 
 /* 식단 위젯 */
+.meal-widget {
+    flex-grow: 1; /* [추가] 남은 공간 채우기 */
+}
+
 .meal-content {
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding-top: 8px;
+    flex-grow: 1; /* [추가] 위젯 내부에서 남은 공간 채우기 */
 }
 
 /* FIX: 식단 위젯 헤더 스타일 재정의 */
@@ -792,19 +808,22 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    width: 550px; /* [추가] 고정 너비 */
+    flex-shrink: 0; /* [추가] 축소 방지 */
 }
 
 /* 시간표 위젯 */
 .timetable-widget {
-    height: fit-content;
+    /* [삭제] height: fit-content; */
+    flex-grow: 1; /* [추가] 남은 공간 채우기 */
 }
 
 .timetable-container {
     overflow-x: auto;
     min-height: 300px; /* (신규) 비로그인 시 높이 확보 */
     position: relative;
-    /* (수정) index.html의 시간표 높이를 timetable_management와 맞춤 */
-    height: 700px;
+    /* [삭제] height: 700px; */
+    flex-grow: 1; /* [추가] 위젯 내부에서 남은 공간 채우기 */
     /* (신규) 동적 시간표 스크롤 */
     overflow-y: auto;
 }
@@ -1918,10 +1937,27 @@
         margin-right: 0;
     }
     .content-area {
-        grid-template-columns: 300px 1fr;
+        /* [삭제] grid-template-columns: 300px 1fr; */
+    }
+    /* [추가] 1200px 반응형용 left-widgets 너비 조정 */
+    .left-widgets {
+        width: 300px;
     }
     .right-widgets {
         display: none;
+    }
+    /* [추가] 1200px 반응형에서 flex-grow 리셋 */
+    .schedule-widget, .meal-widget, .timetable-widget {
+        flex-grow: 0;
+    }
+    .schedule-list, .meal-content, .timetable-container {
+        flex-grow: 0;
+    }
+    .timetable-widget {
+        height: fit-content; /* [추가] 원래대로 복구 */
+    }
+    .timetable-container {
+        height: 700px; /* [추가] 원래대로 복구 */
     }
     /* 관리자 페이지 반응형 */
     .stat-card {
@@ -1960,7 +1996,17 @@
     }
 
     .content-area {
-        grid-template-columns: 1fr;
+        /* [삭제] grid-template-columns: 1fr; */
+        flex-direction: column; /* [추가] 세로 배치 */
+    }
+    
+    /* [추가] 768px 반응형 열 너비/표시 설정 */
+    .left-widgets, .center-widgets, .right-widgets {
+        width: 100%;
+        flex-shrink: 1;
+    }
+    .right-widgets {
+        display: flex; /* [추가] 숨김 해제 */
     }
 
     .search-box {
