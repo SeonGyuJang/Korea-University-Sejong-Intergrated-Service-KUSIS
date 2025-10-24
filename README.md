@@ -535,7 +535,7 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 
 **Seon Gyu Jang**
 - GitHub: [@SeonGyuJang](https://github.com/SeonGyuJang)
-- Email: your.email@example.com
+- Email: dsng3419@korea.ac.kr
 
 ---
 
