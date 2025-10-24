@@ -1,6 +1,6 @@
 # app.py
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash, abort, send_from_directory
-from datetime import datetime, timedelta, date, timezone # timezone 임포트
+from datetime import datetime, timedelta, date
 import json
 import csv
 import os
@@ -12,15 +12,18 @@ import urllib.parse
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-from sqlalchemy import inspect, func, cast, Date as SQLDate, text, desc, or_ # desc, or_ 임포트
-import pytz # 시간대 변환을 위해 추가
+from sqlalchemy import inspect, func, text, desc, or_
+import pytz
 
 load_dotenv()
 
 app = Flask(__name__)
 
 # --- Configuration ---
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your_super_secret_key_for_session_management')
+FLASK_SECRET_KEY = os.getenv('FLASK_SECRET_KEY')
+if not FLASK_SECRET_KEY:
+    raise RuntimeError("FLASK_SECRET_KEY environment variable must be set for security")
+app.secret_key = FLASK_SECRET_KEY
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
 app.config['SESSION_TYPE'] = 'filesystem'
 
@@ -38,9 +41,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # --- 파일 업로드 설정 ---
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+MAX_IMAGE_UPLOADS = 3
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# --- 최대 업로드 파일 개수 설정 ---
-app.config['MAX_IMAGE_UPLOADS'] = 3 # 추가됨
+app.config['MAX_IMAGE_UPLOADS'] = MAX_IMAGE_UPLOADS
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -88,13 +92,29 @@ def init_db_command():
 
 
 # --- File Paths ---
-BUS_TIME_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'bus_time.csv')
-STUDENT_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'student_menu.json')
-STAFF_MENU_PATH = os.path.join(os.path.dirname(__file__), 'menu_data', 'staff_menu.json')
-CALENDAR_PATH = os.path.join(os.path.dirname(__file__), 'schedules', 'Calendar.csv')
+BASE_DIR = os.path.dirname(__file__)
+BUS_TIME_PATH = os.path.join(BASE_DIR, 'schedules', 'bus_time.csv')
+STUDENT_MENU_PATH = os.path.join(BASE_DIR, 'menu_data', 'student_menu.json')
+STAFF_MENU_PATH = os.path.join(BASE_DIR, 'menu_data', 'staff_menu.json')
+CALENDAR_PATH = os.path.join(BASE_DIR, 'schedules', 'Calendar.csv')
 
+# --- Constants ---
+SEASONS = ["1학기", "여름학기", "2학기", "겨울학기"]
+SEASON_ORDER = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+SEMESTER_YEAR_RANGE = (2020, 2025)
 
-# --- Data Structures for Users/Admin ---
+PERMISSIONS = ['general', 'associate', 'admin']
+PERMISSION_MAP = {'general': '일반회원', 'associate': '협력회원', 'admin': '관리자'}
+
+POST_CATEGORIES = ['공지', '홍보', '안내', '업데이트', '일반']
+
+GRADE_MAP = {
+    "A+": 4.5, "A0": 4.0, "B+": 3.5, "B0": 3.0,
+    "C+": 2.5, "C0": 2.0, "D+": 1.5, "D0": 1.0, "F": 0.0
+}
+
+DEFAULT_TOTAL_CREDITS = 130
+
 COLLEGES = {
     "과학기술대학": ["응용수리과학부 데이터계산과학전공", "인공지능사이버보안학과", "컴퓨터융합소프트웨어학과", "전자및정보공학과", "전자기계융합공학과", "환경시스템공학과", "지능형반도체공학과", "반도체물리학부", "생명정보공학과", "신소재화학과", "식품생명공학과", "미래모빌리티학과", "디지털헬스케어공학과", "자유공학부"],
     "글로벌비즈니스대학": ["글로벌학부 한국학전공", "글로벌학부 중국학전공", "글로벌학부 영미학전공", "글로벌학부 독일학전공", "융합경영학부 글로벌경영전공", "융합경영학부 디지털경영전공", "표준지식학과"],
@@ -110,12 +130,12 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.String(10), primary_key=True)
     name = db.Column(db.String(50), nullable=False)
-    dob = db.Column(db.String(10), nullable=False) # Date 타입 사용 고려
+    dob = db.Column(db.String(10), nullable=False)
     college = db.Column(db.String(100), nullable=False)
     department = db.Column(db.String(100), nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    permission = db.Column(db.String(20), default='general', nullable=False) # 'general', 'associate', 'admin'
-    total_credits_goal = db.Column(db.Integer, default=130, nullable=False)
+    permission = db.Column(db.String(20), default='general', nullable=False)
+    total_credits_goal = db.Column(db.Integer, default=DEFAULT_TOTAL_CREDITS, nullable=False)
 
     semesters = db.relationship('Semester', backref='user', lazy=True, cascade="all, delete-orphan")
     subjects = db.relationship('Subject', backref='user', lazy=True, cascade="all, delete-orphan")
@@ -166,9 +186,9 @@ class TimeSlot(db.Model):
     __tablename__ = 'timeslots'
     id = db.Column(db.Integer, primary_key=True)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=False) # 1:월, 2:화, ... 5:금
-    start_time = db.Column(db.String(5), nullable=False) # 예: "09:00"
-    end_time = db.Column(db.String(5), nullable=False) # 예: "10:15"
+    day_of_week = db.Column(db.Integer, nullable=False)
+    start_time = db.Column(db.String(5), nullable=False)
+    end_time = db.Column(db.String(5), nullable=False)
     room = db.Column(db.String(50))
 
 
@@ -197,7 +217,7 @@ class Todo(db.Model):
     task = db.Column(db.String(500), nullable=False)
     done = db.Column(db.Boolean, default=False, nullable=False)
     due_date = db.Column(db.Date, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow) # UTC 시간으로 저장
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -208,39 +228,36 @@ class Todo(db.Model):
             'semester_id': self.semester_id
         }
 
-# --- Post 모델 수정 ---
 class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
-    content = db.Column(db.Text, nullable=False) # 저장 시 <br> 처리됨
+    content = db.Column(db.Text, nullable=False)
     author_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # UTC
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     is_approved = db.Column(db.Boolean, default=False, nullable=False)
     is_notice = db.Column(db.Boolean, default=False, nullable=False)
-    # --- image_filename -> image_filenames 로 변경, Text 타입 사용 ---
-    image_filenames = db.Column(db.Text, nullable=True) # 쉼표로 구분된 파일명 리스트 저장
+    image_filenames = db.Column(db.Text, nullable=True)
     category = db.Column(db.String(50), nullable=True, default='일반')
-    expires_at = db.Column(db.DateTime, nullable=True) # UTC
+    expires_at = db.Column(db.DateTime, nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
 
     def to_dict(self, include_content=False):
-        # --- image_filename -> image_filenames 로 변경 ---
         image_list = self.image_filenames.split(',') if self.image_filenames else []
         data = {
             'id': self.id,
             'title': self.title,
             'author_name': self.author.name if self.author else 'Unknown',
-            'created_at': self.created_at.isoformat(), # UTC ISO 형식
+            'created_at': self.created_at.isoformat(),
             'is_approved': self.is_approved,
             'is_notice': self.is_notice,
-            'image_filenames': image_list, # 리스트로 반환
+            'image_filenames': image_list,
             'category': self.category,
             'expires_at': self.expires_at.isoformat() if self.expires_at else None,
             'is_visible': self.is_visible
         }
         if include_content:
-            data['content'] = self.content # HTML <br> 포함된 내용
+            data['content'] = self.content
             data['author_id'] = self.author_id
         return data
 
@@ -250,18 +267,17 @@ def load_academic_calendar():
     try:
         with open(CALENDAR_PATH, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
-            # next(reader, None) # 헤더 건너뛰기 (파일 형식에 따라)
             for row in reader:
                 if len(row) >= 4:
                     year, month, day, event_name = row[0:4]
                     try:
                         event_date = date(int(year), int(month), int(day))
                         if "개강" in event_name:
-                            semester_key = f"{year}-{month.zfill(2)}" # 예: "2025-03"
+                            semester_key = f"{year}-{month.zfill(2)}"
                             if semester_key not in calendar_data or event_date < calendar_data[semester_key]:
                                 calendar_data[semester_key] = event_date
                     except ValueError:
-                        continue # 날짜 변환 실패 시 건너뛰기
+                        continue
     except Exception as e:
         print(f"Error loading academic calendar: {e}")
     return calendar_data
@@ -270,31 +286,57 @@ ACADEMIC_CALENDAR = load_academic_calendar()
 
 def get_semester_start_date_from_calendar(year, season):
     month_key = ""
-    if "1학기" in season: month_key = f"{year}-03"
-    elif "2학기" in season: month_key = f"{year}-09"
-    elif "여름학기" in season: month_key = f"{year}-06"
-    elif "겨울학기" in season: month_key = f"{year}-12"
+    if "1학기" in season:
+        month_key = f"{year}-03"
+    elif "2학기" in season:
+        month_key = f"{year}-09"
+    elif "여름학기" in season:
+        month_key = f"{year}-06"
+    elif "겨울학기" in season:
+        month_key = f"{year}-12"
 
     start_date = ACADEMIC_CALENDAR.get(month_key)
-
-    # fallback (기본 날짜)
     return start_date if start_date else _get_semester_start_date_fallback(year, season)
 
 def _get_semester_start_date_fallback(year, season):
-    if "1학기" in season: return date(year, 3, 1)
-    elif "2학기" in season: return date(year, 9, 1)
-    elif "여름학기" in season: return date(year, 6, 20)
-    elif "겨울학기" in season: return date(year, 12, 20)
-    return date(year, 1, 1) # 기본값
+    if "1학기" in season:
+        return date(year, 3, 1)
+    elif "2학기" in season:
+        return date(year, 9, 1)
+    elif "여름학기" in season:
+        return date(year, 6, 20)
+    elif "겨울학기" in season:
+        return date(year, 12, 20)
+    return date(year, 1, 1)
+
+def sort_semesters(semesters, reverse=True):
+    """학기 리스트를 연도와 계절 순서로 정렬"""
+    return sorted(semesters, key=lambda s: (s.year, SEASON_ORDER.get(s.season, 99)), reverse=reverse)
+
+def calculate_gpa(subjects):
+    """과목 리스트에서 GPA 계산"""
+    total_credits = 0
+    total_score = 0
+    earned_credits = sum(s.credits for s in subjects)
+
+    for subject in subjects:
+        grade_score = GRADE_MAP.get(subject.grade)
+        if grade_score is not None:
+            total_credits += subject.credits
+            total_score += (grade_score * subject.credits)
+
+    gpa = (total_score / total_credits) if total_credits > 0 else 0.0
+    return {
+        'gpa': round(gpa, 2),
+        'total_credits': total_credits,
+        'earned_credits': earned_credits
+    }
 
 def _create_semesters_for_user(user_id):
     try:
-        start_year = 2020 # 시작 연도
-        end_year = 2025 # 종료 연도
-        seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
-
+        start_year, end_year = SEMESTER_YEAR_RANGE
         for year in range(start_year, end_year + 1):
-            for season in seasons:
+            for season in SEASONS:
                 semester_name = f"{year}년 {season}"
                 existing_semester = Semester.query.filter_by(user_id=user_id, name=semester_name).first()
                 if not existing_semester:
@@ -306,27 +348,21 @@ def _create_semesters_for_user(user_id):
         db.session.rollback()
         print(f"Error creating semesters for user {user_id}: {e}")
 
-# --- 학기 자동 관리 스케줄 작업 ---
 def manage_semesters_job():
+    """매년 12월 1일에 다음 년도 학기 데이터 자동 생성"""
     with app.app_context():
         print(f"[{datetime.now()}] Starting semester management job...")
         try:
-            # 예시: 특정 날짜가 되면 새 학기 생성
             today = date.today()
-            current_year = today.year
-
-            # 매년 12월 1일에 다음 년도 학기 데이터가 없는 경우 생성
             if today.month == 12 and today.day == 1:
-                next_year = current_year + 1
+                next_year = today.year + 1
                 users = User.query.all()
                 for user in users:
-                    # 다음 년도 1학기 데이터 확인
                     semester_name_check = f"{next_year}년 1학기"
                     exists = Semester.query.filter_by(user_id=user.id, name=semester_name_check).first()
                     if not exists:
                         print(f"Generating future semesters ({next_year}) for user {user.id}...")
-                        seasons = ["1학기", "여름학기", "2학기", "겨울학기"]
-                        for season in seasons:
+                        for season in SEASONS:
                             semester_name = f"{next_year}년 {season}"
                             start_date = get_semester_start_date_from_calendar(next_year, season)
                             new_semester = Semester(user_id=user.id, name=semester_name, year=next_year, season=season, start_date=start_date)
@@ -439,24 +475,25 @@ def create_initial_data():
         print(f"--- [MIGRATION] CRITICAL: Error during schema migration: {e} ---")
         # 마이그레이션 실패 시에도 앱은 계속 실행되도록 함
 
-    # --- 초기 데이터 생성 로직 ---
     try:
-        # 1. 관리자 계정 (admin)
         admin_id = "9999999999"
         if not db.session.get(User, admin_id):
-            admin_user = User(
-                id=admin_id,
-                name="관리자",
-                dob="1900-01-01",
-                college="관리팀",
-                department="시스템 관리",
-                password_hash=generate_password_hash("kusis_admin_99!"), # 실제 운영 시 .env 등으로 관리
-                permission='admin'
-            )
-            db.session.add(admin_user)
-            print(f"Admin user '{admin_id}' created.")
+            admin_password = os.getenv('ADMIN_DEFAULT_PASSWORD')
+            if not admin_password:
+                print("WARNING: ADMIN_DEFAULT_PASSWORD not set. Skipping admin user creation.")
+            else:
+                admin_user = User(
+                    id=admin_id,
+                    name="관리자",
+                    dob="1900-01-01",
+                    college="관리팀",
+                    department="시스템 관리",
+                    password_hash=generate_password_hash(admin_password),
+                    permission='admin'
+                )
+                db.session.add(admin_user)
+                print(f"Admin user '{admin_id}' created.")
 
-        # 2. 샘플 학생 계정 (sample)
         sample_user_id = "2023390822"
         if not db.session.get(User, sample_user_id):
             sample_user = User(
@@ -474,13 +511,11 @@ def create_initial_data():
 
         db.session.commit()
 
-        # 3. 샘플 계정용 학기/과목/데이터 생성
         if db.session.get(User, sample_user_id):
-             _create_semesters_for_user(sample_user_id) # 학기 생성
-             # (필요 시 과목, 투두 등 추가 데이터 생성)
+            _create_semesters_for_user(sample_user_id)
 
         if db.session.get(User, admin_id):
-            _create_semesters_for_user(admin_id) # 관리자 계정용 학기 생성
+            _create_semesters_for_user(admin_id)
 
         db.session.commit()
     except Exception as e:
@@ -488,57 +523,50 @@ def create_initial_data():
         print(f"Error creating initial data: {e}")
 
 
-# --- Authentication Decorators ---
+# --- Authentication Helpers and Decorators ---
+def _get_current_user():
+    """현재 세션의 사용자 객체 반환"""
+    from flask import g
+    if 'student_id' not in session:
+        return None
+    g.user = db.session.get(User, session['student_id'])
+    if not g.user:
+        session.clear()
+    return g.user
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'student_id' not in session:
+        user = _get_current_user()
+        if not user:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login', next=request.url))
-
-        # g 객체에 사용자 정보 저장
-        from flask import g
-        g.user = db.session.get(User, session['student_id'])
-
-        if not g.user:
-            session.clear()
-            flash("사용자 정보가 유효하지 않습니다. 다시 로그인해주세요.", "danger")
-            return redirect(url_for('login'))
-
         return f(*args, **kwargs)
     return decorated_function
 
 def post_manager_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'student_id' not in session:
+        user = _get_current_user()
+        if not user:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
-
-        from flask import g
-        g.user = db.session.get(User, session['student_id'])
-
-        if not g.user or not g.user.can_manage_posts:
+        if not user.can_manage_posts:
             flash("게시물 관리 권한이 없습니다.", "danger")
             return redirect(url_for('index'))
-
         return f(*args, **kwargs)
     return decorated_function
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'student_id' not in session:
+        user = _get_current_user()
+        if not user:
             flash("로그인이 필요합니다.", "warning")
             return redirect(url_for('login'))
-
-        from flask import g
-        g.user = db.session.get(User, session['student_id'])
-
-        if not g.user or not g.user.is_admin:
+        if not user.is_admin:
             flash("접근 권한이 없습니다. 관리자만 접근 가능합니다.", "danger")
             return redirect(url_for('index'))
-
         return f(*args, **kwargs)
     return decorated_function
 
