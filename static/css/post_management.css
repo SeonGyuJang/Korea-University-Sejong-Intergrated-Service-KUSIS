@@ -224,6 +224,59 @@
     font-size: 14px;
 }
 
+/* 토글 스위치 스타일 */
+.visibility-toggle-label {
+    position: relative;
+    display: inline-block;
+    width: 40px; /* 너비 조정 */
+    height: 20px; /* 높이 조정 */
+    cursor: pointer;
+}
+.visibility-toggle-label input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.visibility-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px; /* 높이에 맞게 조정 */
+}
+.visibility-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px; /* 높이 조정 */
+    width: 16px; /* 너비 조정 */
+    left: 2px; /* 위치 조정 */
+    bottom: 2px; /* 위치 조정 */
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .visibility-toggle-slider {
+    background-color: var(--color-success);
+}
+input:checked + .visibility-toggle-slider:before {
+    transform: translateX(20px); /* 이동 거리 조정 */
+}
+
+/* 수정 버튼 스타일 */
+.btn-edit {
+    background-color: #3498db; /* 파란색 계열 */
+    color: white;
+    border-color: #3498db;
+}
+.btn-edit:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
 /* --- 반응형 --- */
 @media (max-width: 768px) {
     .post-management-container { /* 컨테이너 패딩 조정 */

@@ -3,19 +3,7 @@
 {% block title %}KUSIS - 관리자 대시보드{% endblock %}
 
 {% block styles %}
-{# 필요하다면 admin 페이지 전용 CSS 추가 #}
-<style>
-    .admin-dashboard-widget { max-width: 1200px; margin: 0 auto; }
-    .form-grid-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-    .actions-cell { white-space: nowrap; text-align: center; }
-    .actions-cell .btn-sm { padding: 5px 10px; font-size: 13px; margin-left: 5px; }
-    .permission-select { padding: 4px 8px; font-size: 13px; border-radius: 6px; }
-    .user-table th a { color: inherit; text-decoration: none; }
-    .user-table th a:hover { text-decoration: underline; }
-    .user-table th .sort-icon { margin-left: 4px; font-size: 0.8em; }
-    .form-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color); }
-    .form-section h4 { margin-bottom: 15px; font-size: 18px; color: var(--text-primary); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 {% endblock %}
 
 
