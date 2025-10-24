@@ -13,3 +13,4 @@ Flask-SQLAlchemy==3.0.3
 psycopg2-binary==2.9.3
 python-dotenv==0.21.0
 pytz
+scrypt # <--- 이 줄이 추가되었습니다
