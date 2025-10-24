@@ -25,7 +25,7 @@
         </a>
         {% endif %}
         {# ----------------------------------- #}
-        <a href="#" class="nav-item" data-page="calendar">
+        <a href="{{ url_for('calendar_page') }}" class="nav-item {% if request.path == '/calendar' %}active{% endif %}" data-page="calendar">
             <i class="fas fa-calendar"></i>
             <span class="nav-text">캘린더</span>
         </a>

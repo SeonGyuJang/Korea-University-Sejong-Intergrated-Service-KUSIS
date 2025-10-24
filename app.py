@@ -13,7 +13,7 @@ from sqlalchemy import inspect, func, text, desc, or_
 import pytz
 
 # 모듈 import
-from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post
+from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post, CalendarCategory, CalendarEvent
 from utils.constants import *
 from utils.decorators import login_required, post_manager_required, admin_required
 from utils.helpers import sort_semesters, calculate_gpa, allowed_file as _allowed_file
@@ -26,7 +26,10 @@ from services import (
     get_today_meal_key,
     format_meal_for_client,
     format_weekly_meal_for_client,
-    load_bus_schedule
+    load_bus_schedule,
+    initialize_system_categories,
+    initialize_system_events,
+    create_default_categories_for_user
 )
 
 load_dotenv()
@@ -246,6 +249,21 @@ def create_initial_data():
             create_semesters_for_user(admin_id)
 
         db.session.commit()
+
+        # 캘린더 시스템 초기화
+        print("--- [CALENDAR] Initializing calendar system... ---")
+        initialize_system_categories()
+        initialize_system_events()
+
+        # 사용자에게 기본 카테고리 생성
+        if db.session.get(User, sample_user_id):
+            create_default_categories_for_user(sample_user_id)
+        if db.session.get(User, admin_id):
+            create_default_categories_for_user(admin_id)
+
+        db.session.commit()
+        print("--- [CALENDAR] Calendar system initialized. ---")
+
     except Exception as e:
         db.session.rollback()
         print(f"Error creating initial data: {e}")
@@ -377,6 +395,9 @@ def register():
 
             # 새 사용자를 위한 학기 데이터 생성
             create_semesters_for_user(new_user.id)
+
+            # 새 사용자를 위한 기본 캘린더 카테고리 생성
+            create_default_categories_for_user(new_user.id)
 
             flash("회원가입이 성공적으로 완료되었습니다. 로그인해주세요.", "success")
             return redirect(url_for('login'))
@@ -1642,6 +1663,292 @@ def update_credit_goal():
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
+
+# --- 캘린더 관련 엔드포인트 ---
+@app.route('/calendar')
+@login_required
+def calendar_page():
+    """캘린더 페이지"""
+    from flask import g
+    user = g.user
+    return render_template('calendar.html', user=user)
+
+@app.route('/api/calendar/categories', methods=['GET'])
+@login_required
+def get_calendar_categories():
+    """사용자의 카테고리 조회 (시스템 카테고리 포함)"""
+    from flask import g
+    user_id = g.user.id
+
+    try:
+        # 시스템 카테고리 + 사용자 카테고리
+        categories = CalendarCategory.query.filter(
+            or_(CalendarCategory.user_id == user_id, CalendarCategory.is_system == True)
+        ).all()
+
+        return jsonify({
+            'status': 'success',
+            'categories': [cat.to_dict() for cat in categories]
+        })
+    except Exception as e:
+        print(f"Error fetching categories: {e}")
+        return jsonify({'status': 'error', 'message': '카테고리 조회 중 오류 발생'}), 500
+
+@app.route('/api/calendar/categories', methods=['POST'])
+@login_required
+def create_calendar_category():
+    """새 카테고리 생성"""
+    from flask import g
+    user_id = g.user.id
+    data = request.get_json()
+
+    if not data or 'name' not in data or 'color' not in data:
+        return jsonify({'status': 'error', 'message': '카테고리 이름과 색상이 필요합니다.'}), 400
+
+    try:
+        name = data['name'].strip()
+        color = data['color'].strip()
+
+        if not name:
+            return jsonify({'status': 'error', 'message': '카테고리 이름이 없습니다.'}), 400
+
+        # 중복 체크
+        existing = CalendarCategory.query.filter_by(user_id=user_id, name=name).first()
+        if existing:
+            return jsonify({'status': 'error', 'message': '이미 존재하는 카테고리입니다.'}), 400
+
+        new_category = CalendarCategory(
+            user_id=user_id,
+            name=name,
+            color=color,
+            is_system=False
+        )
+        db.session.add(new_category)
+        db.session.commit()
+
+        return jsonify({'status': 'success', 'category': new_category.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating category: {e}")
+        return jsonify({'status': 'error', 'message': '카테고리 생성 중 오류 발생'}), 500
+
+@app.route('/api/calendar/categories/<int:category_id>', methods=['PUT'])
+@login_required
+def update_calendar_category(category_id):
+    """카테고리 수정"""
+    from flask import g
+    user_id = g.user.id
+    data = request.get_json()
+
+    try:
+        category = db.session.get(CalendarCategory, category_id)
+        if not category or category.user_id != user_id:
+            return jsonify({'status': 'error', 'message': '카테고리를 찾을 수 없습니다.'}), 404
+
+        if category.is_system:
+            return jsonify({'status': 'error', 'message': '시스템 카테고리는 수정할 수 없습니다.'}), 403
+
+        if 'name' in data:
+            category.name = data['name'].strip()
+        if 'color' in data:
+            category.color = data['color'].strip()
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'category': category.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating category: {e}")
+        return jsonify({'status': 'error', 'message': '카테고리 수정 중 오류 발생'}), 500
+
+@app.route('/api/calendar/categories/<int:category_id>', methods=['DELETE'])
+@login_required
+def delete_calendar_category(category_id):
+    """카테고리 삭제"""
+    from flask import g
+    user_id = g.user.id
+
+    try:
+        category = db.session.get(CalendarCategory, category_id)
+        if not category or category.user_id != user_id:
+            return jsonify({'status': 'error', 'message': '카테고리를 찾을 수 없습니다.'}), 404
+
+        if category.is_system:
+            return jsonify({'status': 'error', 'message': '시스템 카테고리는 삭제할 수 없습니다.'}), 403
+
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': '카테고리가 삭제되었습니다.'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting category: {e}")
+        return jsonify({'status': 'error', 'message': '카테고리 삭제 중 오류 발생'}), 500
+
+@app.route('/api/calendar/events', methods=['GET'])
+@login_required
+def get_calendar_events():
+    """이벤트 조회 (시스템 이벤트 + 사용자 이벤트)"""
+    from flask import g
+    user_id = g.user.id
+    start_date_str = request.args.get('start')
+    end_date_str = request.args.get('end')
+
+    try:
+        query = CalendarEvent.query.filter(
+            or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True)
+        )
+
+        # 날짜 범위 필터링 (선택적)
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            query = query.filter(CalendarEvent.start_date >= start_date)
+
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            query = query.filter(CalendarEvent.start_date <= end_date)
+
+        events = query.all()
+
+        return jsonify({
+            'status': 'success',
+            'events': [event.to_dict() for event in events]
+        })
+    except Exception as e:
+        print(f"Error fetching events: {e}")
+        return jsonify({'status': 'error', 'message': '이벤트 조회 중 오류 발생'}), 500
+
+@app.route('/api/calendar/events', methods=['POST'])
+@login_required
+def create_calendar_event():
+    """새 이벤트 생성"""
+    from flask import g
+    user_id = g.user.id
+    data = request.get_json()
+
+    if not data or 'title' not in data or 'start_date' not in data or 'category_id' not in data:
+        return jsonify({'status': 'error', 'message': '필수 데이터 누락'}), 400
+
+    try:
+        title = data['title'].strip()
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        category_id = int(data['category_id'])
+
+        # 카테고리 유효성 검사
+        category = db.session.get(CalendarCategory, category_id)
+        if not category or (category.user_id != user_id and not category.is_system):
+            return jsonify({'status': 'error', 'message': '유효하지 않은 카테고리입니다.'}), 404
+
+        # 종료 날짜
+        end_date = None
+        if 'end_date' in data and data['end_date']:
+            end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+
+        # 시간
+        start_time = None
+        end_time = None
+        all_day = data.get('all_day', True)
+
+        if not all_day:
+            if 'start_time' in data and data['start_time']:
+                start_time = datetime.strptime(data['start_time'], '%H:%M').time()
+            if 'end_time' in data and data['end_time']:
+                end_time = datetime.strptime(data['end_time'], '%H:%M').time()
+
+        new_event = CalendarEvent(
+            user_id=user_id,
+            category_id=category_id,
+            title=title,
+            description=data.get('description', ''),
+            start_date=start_date,
+            end_date=end_date,
+            start_time=start_time,
+            end_time=end_time,
+            all_day=all_day,
+            is_system=False
+        )
+        db.session.add(new_event)
+        db.session.commit()
+
+        return jsonify({'status': 'success', 'event': new_event.to_dict()}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating event: {e}")
+        return jsonify({'status': 'error', 'message': f'이벤트 생성 중 오류 발생: {str(e)}'}), 500
+
+@app.route('/api/calendar/events/<int:event_id>', methods=['PUT'])
+@login_required
+def update_calendar_event(event_id):
+    """이벤트 수정 (드래그 앤 드롭 포함)"""
+    from flask import g
+    user_id = g.user.id
+    data = request.get_json()
+
+    try:
+        event = db.session.get(CalendarEvent, event_id)
+        if not event or event.user_id != user_id:
+            return jsonify({'status': 'error', 'message': '이벤트를 찾을 수 없습니다.'}), 404
+
+        if event.is_system:
+            return jsonify({'status': 'error', 'message': '시스템 이벤트는 수정할 수 없습니다.'}), 403
+
+        # 업데이트
+        if 'title' in data:
+            event.title = data['title'].strip()
+        if 'description' in data:
+            event.description = data['description']
+        if 'start_date' in data:
+            event.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        if 'end_date' in data:
+            if data['end_date']:
+                event.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+            else:
+                event.end_date = None
+        if 'start_time' in data:
+            if data['start_time']:
+                event.start_time = datetime.strptime(data['start_time'], '%H:%M').time()
+            else:
+                event.start_time = None
+        if 'end_time' in data:
+            if data['end_time']:
+                event.end_time = datetime.strptime(data['end_time'], '%H:%M').time()
+            else:
+                event.end_time = None
+        if 'all_day' in data:
+            event.all_day = bool(data['all_day'])
+        if 'category_id' in data:
+            category_id = int(data['category_id'])
+            category = db.session.get(CalendarCategory, category_id)
+            if category and (category.user_id == user_id or category.is_system):
+                event.category_id = category_id
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'event': event.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating event: {e}")
+        return jsonify({'status': 'error', 'message': f'이벤트 수정 중 오류 발생: {str(e)}'}), 500
+
+@app.route('/api/calendar/events/<int:event_id>', methods=['DELETE'])
+@login_required
+def delete_calendar_event(event_id):
+    """이벤트 삭제"""
+    from flask import g
+    user_id = g.user.id
+
+    try:
+        event = db.session.get(CalendarEvent, event_id)
+        if not event or event.user_id != user_id:
+            return jsonify({'status': 'error', 'message': '이벤트를 찾을 수 없습니다.'}), 404
+
+        if event.is_system:
+            return jsonify({'status': 'error', 'message': '시스템 이벤트는 삭제할 수 없습니다.'}), 403
+
+        db.session.delete(event)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': '이벤트가 삭제되었습니다.'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting event: {e}")
+        return jsonify({'status': 'error', 'message': '이벤트 삭제 중 오류 발생'}), 500
 
 @app.route('/api/todos', methods=['GET'])
 @login_required

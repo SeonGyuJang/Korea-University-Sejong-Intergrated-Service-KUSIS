@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}캘린더 - KUSIS{% endblock %}
+
+{% block styles %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/calendar.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="calendar-container">
+    <div class="calendar-header">
+        <h1>📅 캘린더</h1>
+        <div class="calendar-actions">
+            <button class="btn btn-primary" id="addEventBtn">
+                <i class="fas fa-plus"></i> 일정 추가
+            </button>
+            <button class="btn btn-secondary" id="manageCategoriesBtn">
+                <i class="fas fa-tags"></i> 카테고리 관리
+            </button>
+        </div>
+    </div>
+
+    <!-- 카테고리 필터 -->
+    <div class="category-filter" id="categoryFilter">
+        <div class="filter-header">
+            <h3>카테고리</h3>
+        </div>
+        <div class="filter-list" id="categoryList">
+            <!-- JavaScript로 동적 생성 -->
+        </div>
+    </div>
+
+    <!-- 캘린더 -->
+    <div id="calendar"></div>
+</div>
+
+<!-- 일정 추가/수정 모달 -->
+<div class="modal" id="eventModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">일정 추가</h2>
+            <button class="close-btn" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="eventForm">
+                <input type="hidden" id="eventId">
+
+                <div class="form-group">
+                    <label for="eventTitle">제목 <span class="required">*</span></label>
+                    <input type="text" id="eventTitle" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="eventCategory">카테고리 <span class="required">*</span></label>
+                    <select id="eventCategory" class="form-control" required>
+                        <!-- JavaScript로 동적 생성 -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="eventDescription">설명</label>
+                    <textarea id="eventDescription" class="form-control" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="eventAllDay" checked>
+                        종일 일정
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eventStartDate">시작 날짜 <span class="required">*</span></label>
+                        <input type="date" id="eventStartDate" class="form-control" required>
+                    </div>
+                    <div class="form-group" id="startTimeGroup" style="display: none;">
+                        <label for="eventStartTime">시작 시간</label>
+                        <input type="time" id="eventStartTime" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eventEndDate">종료 날짜</label>
+                        <input type="date" id="eventEndDate" class="form-control">
+                    </div>
+                    <div class="form-group" id="endTimeGroup" style="display: none;">
+                        <label for="eventEndTime">종료 시간</label>
+                        <input type="time" id="eventEndTime" class="form-control">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="deleteEventBtn" style="display: none;">삭제</button>
+                    <button type="button" class="btn btn-secondary" id="cancelEventBtn">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 카테고리 관리 모달 -->
+<div class="modal" id="categoryModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>카테고리 관리</h2>
+            <button class="close-btn" id="closeCategoryModalBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="category-add-form">
+                <h3>새 카테고리 추가</h3>
+                <form id="categoryForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="categoryName">카테고리 이름</label>
+                            <input type="text" id="categoryName" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoryColor">색상</label>
+                            <input type="color" id="categoryColor" class="form-control" value="#1976D2">
+                        </div>
+                        <button type="submit" class="btn btn-primary">추가</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="category-list-management">
+                <h3>카테고리 목록</h3>
+                <div id="categoryManagementList">
+                    <!-- JavaScript로 동적 생성 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.10/index.global.min.js'></script>
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+{% endblock %}
