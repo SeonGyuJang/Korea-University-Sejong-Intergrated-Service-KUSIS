@@ -47,7 +47,15 @@
         <!-- 상단 툴바 -->
         <div class="calendar-toolbar">
             <div class="toolbar-left">
-                <h1 class="calendar-main-title" id="calendarMainTitle">2025년 10월</h1>
+                <div class="nav-controls">
+                    <button class="nav-btn" id="prevWeekBtn" title="이전 주">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="nav-btn" id="nextWeekBtn" title="다음 주">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <h1 class="calendar-main-title" id="calendarMainTitle">2025년 10월</h1>
+                </div>
             </div>
             <div class="toolbar-right">
                 <div class="view-switcher">
@@ -229,6 +237,10 @@
         </div>
     </div>
 </div>
+
+<!-- 토스트 알림 컨테이너 -->
+<div id="toastContainer" class="toast-container"></div>
+
 {% endblock %}
 
 {% block scripts %}

@@ -317,6 +317,41 @@
     border-bottom: 1px solid var(--notion-border);
 }
 
+.toolbar-left {
+    display: flex;
+    align-items: center;
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--notion-border);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--notion-text);
+    transition: all 0.15s ease;
+    font-size: 14px;
+}
+
+.nav-btn:hover {
+    background: var(--notion-hover);
+    border-color: var(--notion-text-light);
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
 .calendar-main-title {
     font-size: 22px;
     font-weight: 700;
@@ -863,6 +898,203 @@
     }
 }
 
+/* ==================== 토스트 알림 ==================== */
+.toast-container {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: white;
+    border: 1px solid var(--notion-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px var(--notion-shadow-lg);
+    min-width: 300px;
+    max-width: 500px;
+    transform: translateX(400px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    font-size: 14px;
+    color: var(--notion-text);
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast i {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.toast-success {
+    border-left: 3px solid #10b981;
+}
+
+.toast-success i {
+    color: #10b981;
+}
+
+.toast-error {
+    border-left: 3px solid var(--notion-danger);
+}
+
+.toast-error i {
+    color: var(--notion-danger);
+}
+
+.toast-info {
+    border-left: 3px solid var(--notion-primary);
+}
+
+.toast-info i {
+    color: var(--notion-primary);
+}
+
+/* ==================== 미리보기 이벤트 ==================== */
+.fc-event.preview-event {
+    opacity: 0.65 !important;
+    border-style: dashed !important;
+    border-width: 2px !important;
+    font-style: italic;
+}
+
+.fc-event.preview-event .fc-event-title::after {
+    content: ' ✨';
+}
+
+/* ==================== 애니메이션 개선 ==================== */
+.fc-event {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.fc-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--notion-shadow-lg) !important;
+}
+
+.fc-daygrid-day {
+    transition: background-color 0.2s ease;
+}
+
+.fc-timegrid-slot {
+    transition: background-color 0.15s ease;
+}
+
+.fc-highlight {
+    background: rgba(35, 131, 226, 0.1) !important;
+    animation: pulseHighlight 1s ease-in-out;
+}
+
+@keyframes pulseHighlight {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* ==================== 드래그 중 스타일 ==================== */
+.fc-event-dragging {
+    opacity: 0.75;
+    cursor: grabbing !important;
+}
+
+.fc-event-resizing {
+    opacity: 0.75;
+}
+
+/* ==================== 스크롤바 스타일 개선 ==================== */
+.main-calendar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.main-calendar::-webkit-scrollbar-track {
+    background: var(--notion-hover);
+    border-radius: 4px;
+}
+
+.main-calendar::-webkit-scrollbar-thumb {
+    background: var(--notion-border);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.main-calendar::-webkit-scrollbar-thumb:hover {
+    background: var(--notion-text-light);
+}
+
+/* ==================== 버튼 호버 효과 개선 ==================== */
+.btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+/* ==================== 로딩 애니메이션 ==================== */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--notion-border);
+    border-top-color: var(--notion-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* ==================== 패널 전환 애니메이션 ==================== */
+.side-panel {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+/* ==================== 카테고리 아이템 애니메이션 ==================== */
+.category-item {
+    animation: categoryFadeIn 0.2s ease;
+}
+
+@keyframes categoryFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== 모달 애니메이션 개선 ==================== */
+.modal-overlay {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-overlay.active {
+    backdrop-filter: blur(2px);
+}
+
 /* ==================== 유틸리티 클래스 ==================== */
 .hidden {
     display: none !important;
@@ -871,4 +1103,34 @@
 .loading {
     opacity: 0.5;
     pointer-events: none;
+}
+
+/* ==================== 포커스 스타일 개선 ==================== */
+*:focus-visible {
+    outline: 2px solid var(--notion-primary);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+.btn:focus-visible {
+    outline-offset: 3px;
+}
+
+/* ==================== 선택 영역 스타일 ==================== */
+::selection {
+    background: rgba(35, 131, 226, 0.2);
+    color: var(--notion-text);
+}
+
+/* ==================== 모바일 터치 최적화 ==================== */
+@media (hover: none) and (pointer: coarse) {
+    .fc-event:hover {
+        transform: none;
+        box-shadow: none !important;
+    }
+
+    .nav-btn:active,
+    .btn:active {
+        transform: scale(0.95);
+    }
 }

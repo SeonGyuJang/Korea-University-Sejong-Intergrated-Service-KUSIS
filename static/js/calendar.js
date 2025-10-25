@@ -1,4 +1,4 @@
-// ==================== 노션 스타일 캘린더 JavaScript ====================
+// ==================== 노션 스타일 캘린더 JavaScript (개선 버전) ====================
 
 // 전역 변수
 let calendar;
@@ -7,6 +7,7 @@ let allEvents = [];
 let visibleCategories = new Set();
 let currentMiniCalendarDate = new Date();
 let selectedEventId = null;
+let previewEventId = null; // 실시간 미리보기용 임시 이벤트 ID
 
 // ==================== 초기화 ====================
 document.addEventListener('DOMContentLoaded', function() {
@@ -15,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderMiniCalendar();
     setupEventListeners();
     setupKeyboardShortcuts();
+    setupSwipeNavigation();
 });
 
 // ==================== FullCalendar 초기화 ====================
@@ -31,13 +33,45 @@ function initializeCalendar() {
         dayMaxEvents: 3,
         weekends: true,
         height: 'auto',
-        nowIndicator: true, // 현재 시간 표시
+        nowIndicator: true,
         slotMinTime: '00:00:00',
         slotMaxTime: '24:00:00',
+        slotDuration: '00:30:00', // 30분 단위
+        snapDuration: '00:15:00', // 15분 단위로 스냅
 
-        // 날짜 클릭 (빈 공간)
+        // 드래그 가능한 시간 범위 선택 활성화
+        selectConstraint: {
+            start: '00:00',
+            end: '24:00'
+        },
+
+        // 날짜 클릭 (빈 공간 - 종일 이벤트용)
         dateClick: function(info) {
-            showQuickEventModal(info.dateStr);
+            // 월간 뷰에서만 빠른 추가 모달 표시
+            if (calendar.view.type === 'dayGridMonth') {
+                showQuickEventModal(info.dateStr);
+            }
+        },
+
+        // 드래그로 시간 범위 선택 시 (주간/일간 뷰)
+        select: function(info) {
+            const isAllDay = info.allDay;
+            const startDate = info.startStr.split('T')[0];
+            const endDate = info.endStr.split('T')[0];
+
+            let startTime = null;
+            let endTime = null;
+
+            if (!isAllDay && info.startStr.includes('T')) {
+                startTime = info.startStr.split('T')[1].substring(0, 5);
+                endTime = info.endStr.split('T')[1].substring(0, 5);
+            }
+
+            // 우측 패널 열고 정보 자동 입력
+            openSidePanel(null, startDate, '', null, endDate, startTime, endTime, isAllDay);
+
+            // 선택 해제
+            calendar.unselect();
         },
 
         // 이벤트 클릭
@@ -45,6 +79,11 @@ function initializeCalendar() {
             info.jsEvent.preventDefault();
             const eventId = info.event.id;
             const isSystem = info.event.extendedProps.is_system;
+            const isPreview = info.event.id === 'preview';
+
+            if (isPreview) {
+                return; // 미리보기 이벤트는 클릭 무시
+            }
 
             if (isSystem) {
                 showEventPreview(info.event);
@@ -60,11 +99,11 @@ function initializeCalendar() {
 
             if (isSystem) {
                 info.revert();
-                showNotification('시스템 일정은 이동할 수 없습니다.');
+                showToast('시스템 일정은 이동할 수 없습니다.', 'error');
                 return;
             }
 
-            updateEventDate(eventId, info.event.start, info.event.end);
+            updateEventDate(eventId, info.event.start, info.event.end, info.event.allDay);
         },
 
         // 리사이즈
@@ -74,11 +113,11 @@ function initializeCalendar() {
 
             if (isSystem) {
                 info.revert();
-                showNotification('시스템 일정은 수정할 수 없습니다.');
+                showToast('시스템 일정은 수정할 수 없습니다.', 'error');
                 return;
             }
 
-            updateEventDate(eventId, info.event.start, info.event.end);
+            updateEventDate(eventId, info.event.start, info.event.end, info.event.allDay);
         },
 
         // 날짜 변경 시
@@ -172,6 +211,15 @@ function setupEventListeners() {
         renderMiniCalendar();
     });
 
+    // 주 네비게이션 버튼
+    document.getElementById('prevWeekBtn').addEventListener('click', function() {
+        calendar.prev();
+    });
+
+    document.getElementById('nextWeekBtn').addEventListener('click', function() {
+        calendar.next();
+    });
+
     // 오늘 버튼
     document.getElementById('todayBtn').addEventListener('click', function() {
         const today = new Date();
@@ -216,12 +264,24 @@ function setupEventListeners() {
         const isAllDay = this.checked;
         document.getElementById('eventStartTime').style.display = isAllDay ? 'none' : 'block';
         document.getElementById('eventEndTime').style.display = isAllDay ? 'none' : 'block';
+
+        // 실시간 미리보기 업데이트
+        updateEventPreview();
     });
 
     // 반복 일정 선택
     document.getElementById('eventRecurrence').addEventListener('change', function() {
         const hasRecurrence = this.value !== '';
         document.getElementById('recurrenceOptions').style.display = hasRecurrence ? 'block' : 'none';
+    });
+
+    // 실시간 미리보기를 위한 입력 필드 변경 감지
+    ['eventTitle', 'eventStartDate', 'eventEndDate', 'eventStartTime', 'eventEndTime', 'eventCategory'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', debounce(updateEventPreview, 300));
+            element.addEventListener('change', updateEventPreview);
+        }
     });
 
     // 빠른 추가 모달
@@ -280,7 +340,54 @@ function setupKeyboardShortcuts() {
             closeCategoryModal();
             closeQuickEventModal();
         }
+
+        // 화살표 좌우 - 주 네비게이션
+        if (e.key === 'ArrowLeft' && !isInputFocused()) {
+            calendar.prev();
+        }
+        if (e.key === 'ArrowRight' && !isInputFocused()) {
+            calendar.next();
+        }
+
+        // T - 오늘로 이동
+        if (e.key === 't' && !isInputFocused()) {
+            const today = new Date();
+            currentMiniCalendarDate = new Date(today);
+            calendar.today();
+            renderMiniCalendar();
+        }
     });
+}
+
+// ==================== 스와이프 네비게이션 ====================
+function setupSwipeNavigation() {
+    const calendarEl = document.getElementById('calendar');
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    calendarEl.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    calendarEl.addEventListener('touchend', function(e) {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                // 왼쪽으로 스와이프 - 다음 주
+                calendar.next();
+            } else {
+                // 오른쪽으로 스와이프 - 이전 주
+                calendar.prev();
+            }
+        }
+    }
 }
 
 // ==================== 카테고리 관리 ====================
@@ -301,7 +408,7 @@ async function loadCategories() {
         }
     } catch (error) {
         console.error('카테고리 로드 실패:', error);
-        showNotification('카테고리를 불러오는 중 오류가 발생했습니다.');
+        showToast('카테고리를 불러오는 중 오류가 발생했습니다.', 'error');
     }
 }
 
@@ -416,7 +523,7 @@ async function quickAddEvent() {
     const categoryId = document.getElementById('quickEventCategory').value;
 
     if (!title || !categoryId) {
-        showNotification('제목과 카테고리를 입력해주세요.');
+        showToast('제목과 카테고리를 입력해주세요.', 'error');
         return;
     }
 
@@ -445,18 +552,18 @@ async function quickAddEvent() {
         if (data.status === 'success') {
             closeQuickEventModal();
             refreshEvents();
-            showNotification('일정이 추가되었습니다.');
+            showToast('일정이 추가되었습니다.', 'success');
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('빠른 추가 실패:', error);
-        showNotification('일정 추가 중 오류가 발생했습니다.');
+        showToast('일정 추가 중 오류가 발생했습니다.', 'error');
     }
 }
 
 // ==================== 사이드 패널 ====================
-function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null) {
+function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null, endDateStr = null, startTime = null, endTime = null, isAllDay = true) {
     const panel = document.getElementById('sidePanel');
     const form = document.getElementById('eventForm');
     const deleteBtn = document.getElementById('deleteEventBtn');
@@ -472,21 +579,52 @@ function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = 
         // 추가 모드
         const today = dateStr || formatDate(new Date());
         document.getElementById('eventStartDate').value = today;
+        if (endDateStr) document.getElementById('eventEndDate').value = endDateStr;
         if (title) document.getElementById('eventTitle').value = title;
-        if (categoryId) document.getElementById('eventCategory').value = categoryId;
+        if (categoryId) {
+            document.getElementById('eventCategory').value = categoryId;
+        } else {
+            // 첫 번째 사용자 카테고리 선택
+            const firstUserCategory = categories.find(cat => !cat.is_system);
+            if (firstUserCategory) {
+                document.getElementById('eventCategory').value = firstUserCategory.id;
+            }
+        }
+
+        // 시간 설정
+        const allDayCheckbox = document.getElementById('eventAllDay');
+        allDayCheckbox.checked = isAllDay;
+
+        if (!isAllDay && startTime && endTime) {
+            document.getElementById('eventStartTime').value = startTime;
+            document.getElementById('eventEndTime').value = endTime;
+            document.getElementById('eventStartTime').style.display = 'block';
+            document.getElementById('eventEndTime').style.display = 'block';
+        } else {
+            document.getElementById('eventStartTime').style.display = 'none';
+            document.getElementById('eventEndTime').style.display = 'none';
+        }
+
         deleteBtn.style.display = 'none';
 
-        // 종일 체크
-        document.getElementById('eventStartTime').style.display = 'none';
-        document.getElementById('eventEndTime').style.display = 'none';
+        // 실시간 미리보기 시작
+        updateEventPreview();
     }
 
     panel.classList.add('active');
+
+    // 제목 입력 필드에 포커스
+    setTimeout(() => {
+        document.getElementById('eventTitle').focus();
+    }, 100);
 }
 
 function closeSidePanel() {
     document.getElementById('sidePanel').classList.remove('active');
     selectedEventId = null;
+
+    // 미리보기 이벤트 제거
+    removeEventPreview();
 }
 
 async function loadEventToForm(eventId) {
@@ -557,7 +695,7 @@ async function saveEvent() {
     const recurrenceEndDate = document.getElementById('eventRecurrenceEndDate').value || null;
 
     if (!title || !categoryId || !startDate) {
-        showNotification('필수 항목을 입력해주세요.');
+        showToast('필수 항목을 입력해주세요.', 'error');
         return;
     }
 
@@ -593,15 +731,15 @@ async function saveEvent() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification(eventId ? '일정이 수정되었습니다.' : '일정이 추가되었습니다.');
+            showToast(eventId ? '일정이 수정되었습니다.' : '일정이 추가되었습니다.', 'success');
             closeSidePanel();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('일정 저장 실패:', error);
-        showNotification('일정 저장 중 오류가 발생했습니다.');
+        showToast('일정 저장 중 오류가 발생했습니다.', 'error');
     }
 }
 
@@ -614,25 +752,51 @@ async function deleteEvent(eventId) {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('일정이 삭제되었습니다.');
+            showToast('일정이 삭제되었습니다.', 'success');
             closeSidePanel();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('일정 삭제 실패:', error);
-        showNotification('일정 삭제 중 오류가 발생했습니다.');
+        showToast('일정 삭제 중 오류가 발생했습니다.', 'error');
     }
 }
 
-async function updateEventDate(eventId, start, end) {
+async function updateEventDate(eventId, start, end, allDay) {
     const startDate = formatDate(start);
-    const endDate = end ? formatDate(end) : null;
+    let endDate = null;
+    let startTime = null;
+    let endTime = null;
+
+    if (end) {
+        if (allDay) {
+            // 종일 이벤트: end는 exclusive이므로 1일 빼기
+            const endDateObj = new Date(end);
+            endDateObj.setDate(endDateObj.getDate() - 1);
+            endDate = formatDate(endDateObj);
+        } else {
+            endDate = formatDate(end);
+        }
+    }
+
+    // 시간 정보 추출
+    if (!allDay) {
+        if (start instanceof Date) {
+            startTime = start.toTimeString().substring(0, 5);
+        }
+        if (end instanceof Date) {
+            endTime = end.toTimeString().substring(0, 5);
+        }
+    }
 
     const eventData = {
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
+        all_day: allDay,
+        start_time: startTime,
+        end_time: endTime
     };
 
     try {
@@ -646,13 +810,86 @@ async function updateEventDate(eventId, start, end) {
 
         if (data.status === 'success') {
             refreshEvents();
+            showToast('일정이 이동되었습니다.', 'success');
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
             calendar.refetchEvents();
         }
     } catch (error) {
         console.error('일정 업데이트 실패:', error);
+        showToast('일정 이동 중 오류가 발생했습니다.', 'error');
         calendar.refetchEvents();
+    }
+}
+
+// ==================== 실시간 미리보기 ====================
+function updateEventPreview() {
+    // 수정 모드에서는 미리보기 하지 않음
+    if (selectedEventId) {
+        return;
+    }
+
+    const title = document.getElementById('eventTitle').value.trim();
+    const startDate = document.getElementById('eventStartDate').value;
+    const endDate = document.getElementById('eventEndDate').value;
+    const startTime = document.getElementById('eventStartTime').value;
+    const endTime = document.getElementById('eventEndTime').value;
+    const allDay = document.getElementById('eventAllDay').checked;
+    const categoryId = document.getElementById('eventCategory').value;
+
+    // 최소한 제목과 시작 날짜가 있어야 미리보기
+    if (!title || !startDate) {
+        removeEventPreview();
+        return;
+    }
+
+    // 카테고리 색상 찾기
+    const category = categories.find(cat => cat.id == categoryId);
+    const color = category ? category.color : '#3788d8';
+
+    // 기존 미리보기 제거
+    removeEventPreview();
+
+    // 미리보기 이벤트 생성
+    let eventStart = startDate;
+    let eventEnd = endDate || startDate;
+
+    if (!allDay && startTime) {
+        eventStart = `${startDate}T${startTime}`;
+        if (endTime) {
+            eventEnd = `${endDate || startDate}T${endTime}`;
+        }
+    } else if (allDay && endDate) {
+        // 종일 이벤트는 exclusive end
+        const endDateObj = new Date(endDate);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        eventEnd = formatDate(endDateObj);
+    }
+
+    const previewEvent = {
+        id: 'preview',
+        title: title + ' (미리보기)',
+        start: eventStart,
+        end: eventEnd,
+        allDay: allDay,
+        backgroundColor: color,
+        borderColor: color,
+        opacity: 0.6,
+        editable: false,
+        classNames: ['preview-event']
+    };
+
+    calendar.addEvent(previewEvent);
+    previewEventId = 'preview';
+}
+
+function removeEventPreview() {
+    if (previewEventId) {
+        const previewEvent = calendar.getEventById(previewEventId);
+        if (previewEvent) {
+            previewEvent.remove();
+        }
+        previewEventId = null;
     }
 }
 
@@ -675,7 +912,7 @@ async function saveCategory() {
     const color = document.getElementById('categoryColor').value;
 
     if (!name) {
-        showNotification('카테고리 이름을 입력해주세요.');
+        showToast('카테고리 이름을 입력해주세요.', 'error');
         return;
     }
 
@@ -689,15 +926,15 @@ async function saveCategory() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('카테고리가 추가되었습니다.');
+            showToast('카테고리가 추가되었습니다.', 'success');
             closeCategoryModal();
             loadCategories();
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('카테고리 저장 실패:', error);
-        showNotification('카테고리 저장 중 오류가 발생했습니다.');
+        showToast('카테고리 저장 중 오류가 발생했습니다.', 'error');
     }
 }
 
@@ -714,16 +951,43 @@ async function deleteCategory(categoryId) {
         const data = await response.json();
 
         if (data.status === 'success') {
-            showNotification('카테고리가 삭제되었습니다.');
+            showToast('카테고리가 삭제되었습니다.', 'success');
             loadCategories();
             refreshEvents();
         } else {
-            showNotification('오류: ' + data.message);
+            showToast('오류: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('카테고리 삭제 실패:', error);
-        showNotification('카테고리 삭제 중 오류가 발생했습니다.');
+        showToast('카테고리 삭제 중 오류가 발생했습니다.', 'error');
     }
+}
+
+// ==================== 토스트 알림 시스템 ====================
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    const icon = type === 'success' ? 'check-circle' :
+                 type === 'error' ? 'exclamation-circle' :
+                 'info-circle';
+
+    toast.innerHTML = `
+        <i class="fas fa-${icon}"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    // 애니메이션
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // 3초 후 제거
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // ==================== 유틸리티 함수 ====================
@@ -744,13 +1008,30 @@ function refreshEvents() {
     loadEventsInRange(view.activeStart, view.activeEnd);
 }
 
-function showNotification(message) {
-    // 간단한 알림
-    alert(message);
-}
-
 function showEventPreview(event) {
     // 시스템 이벤트 미리보기
     const desc = event.extendedProps.description || '설명 없음';
-    alert(`${event.title}\n\n${desc}`);
+    const category = event.extendedProps.category_name || '';
+    showToast(`${event.title}\n${category}\n${desc}`, 'info');
+}
+
+function isInputFocused() {
+    const activeElement = document.activeElement;
+    return activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.tagName === 'SELECT'
+    );
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
