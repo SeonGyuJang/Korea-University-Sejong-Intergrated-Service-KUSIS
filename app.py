@@ -193,20 +193,53 @@ def create_initial_data():
 
         # --- CalendarEvent 테이블 마이그레이션 (반복 일정 필드) ---
         if inspector.has_table('calendar_events'):
-            calendar_event_columns = [col['name'] for col in inspector.get_columns('calendar_events')]
+            # 매번 최신 컬럼 목록을 가져와야 함
+            def get_calendar_columns():
+                return [col['name'] for col in inspector.get_columns('calendar_events')]
 
-            # description 컬럼 추가
-            if 'description' not in calendar_event_columns:
+            # description 컬럼 추가 (개별 커밋)
+            if 'description' not in get_calendar_columns():
                 print("--- [MIGRATION] Adding 'description' column to 'calendar_events' table... ---")
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN description TEXT NULL"))
-                print("--- [MIGRATION] 'description' column added to 'calendar_events' table. ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN description TEXT NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'description' column added successfully! ---")
+                except Exception as desc_e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'description': {desc_e} ---")
 
-            if 'recurrence_type' not in calendar_event_columns:
-                print("--- [MIGRATION] Adding recurrence fields to 'calendar_events' table... ---")
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_end_date DATE NULL"))
-                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_interval INTEGER DEFAULT 1"))
-                print("--- [MIGRATION] Recurrence fields added to 'calendar_events' table. ---")
+            # recurrence_type 컬럼 추가 (개별 커밋)
+            if 'recurrence_type' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'recurrence_type' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'recurrence_type' column added successfully! ---")
+                except Exception as rec_e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'recurrence_type': {rec_e} ---")
+
+            # recurrence_end_date 컬럼 추가 (개별 커밋)
+            if 'recurrence_end_date' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'recurrence_end_date' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_end_date DATE NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'recurrence_end_date' column added successfully! ---")
+                except Exception as end_e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'recurrence_end_date': {end_e} ---")
+
+            # recurrence_interval 컬럼 추가 (개별 커밋)
+            if 'recurrence_interval' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'recurrence_interval' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_interval INTEGER DEFAULT 1"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'recurrence_interval' column added successfully! ---")
+                except Exception as int_e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'recurrence_interval': {int_e} ---")
 
         # --- 마이그레이션 끝 ---
 

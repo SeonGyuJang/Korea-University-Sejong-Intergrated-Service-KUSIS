@@ -134,6 +134,22 @@
     font-weight: 600;
 }
 
+/* 현재 주 표시 (반투명 배경) */
+.mini-calendar-day.current-week {
+    background: rgba(35, 131, 226, 0.08);
+    position: relative;
+}
+
+.mini-calendar-day.current-week:not(.today) {
+    font-weight: 600;
+}
+
+/* 오늘이면서 현재 주인 경우 */
+.mini-calendar-day.today.current-week {
+    background: var(--notion-primary);
+    color: white;
+}
+
 .mini-calendar-day.has-events::after {
     content: '';
     position: absolute;
@@ -144,6 +160,14 @@
     height: 4px;
     border-radius: 50%;
     background: var(--notion-primary);
+}
+
+.mini-calendar-day.current-week.has-events::after {
+    background: var(--notion-primary);
+}
+
+.mini-calendar-day.today.has-events::after {
+    background: white;
 }
 
 .today-btn {

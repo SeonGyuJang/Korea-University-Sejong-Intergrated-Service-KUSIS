@@ -119,6 +119,8 @@ function initializeCalendar() {
         datesSet: function(info) {
             updateMainTitle(info.view.title);
             loadEventsInRange(info.start, info.end);
+            // 미니 캘린더 업데이트 (현재 주 표시 반영)
+            renderMiniCalendar();
         },
 
         // 이벤트 소스
@@ -142,6 +144,9 @@ function renderMiniCalendar() {
     // 헤더 업데이트
     document.getElementById('miniCalendarTitle').textContent =
         `${year}년 ${month + 1}월`;
+
+    // 현재 주 계산 (메인 캘린더 기준)
+    const currentWeekRange = getCurrentWeekRange();
 
     // 그리드 생성
     const firstDay = new Date(year, month, 1).getDay();
@@ -168,9 +173,15 @@ function renderMiniCalendar() {
         const isToday = date.toDateString() === today.toDateString();
         const hasEvents = allEvents.some(e => e.start.startsWith(dateStr));
 
+        // 현재 주에 속하는지 확인
+        const isInCurrentWeek = currentWeekRange &&
+            date >= currentWeekRange.start &&
+            date <= currentWeekRange.end;
+
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
+        if (isInCurrentWeek) classes += ' current-week';
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -905,6 +916,51 @@ function formatTime(date) {
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
+}
+
+// 현재 주 범위 계산 (메인 캘린더 기준)
+function getCurrentWeekRange() {
+    if (!calendar) return null;
+
+    const view = calendar.view;
+
+    // 주간 뷰인 경우
+    if (view.type === 'timeGridWeek') {
+        return {
+            start: new Date(view.activeStart),
+            end: new Date(view.activeEnd)
+        };
+    }
+
+    // 일간 뷰인 경우 - 해당 날짜가 속한 주 계산
+    if (view.type === 'timeGridDay') {
+        const currentDate = new Date(view.currentStart);
+        const dayOfWeek = currentDate.getDay();
+
+        const weekStart = new Date(currentDate);
+        weekStart.setDate(currentDate.getDate() - dayOfWeek);
+        weekStart.setHours(0, 0, 0, 0);
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        return { start: weekStart, end: weekEnd };
+    }
+
+    // 월간 뷰인 경우 - 오늘이 속한 주 계산
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - dayOfWeek);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    return { start: weekStart, end: weekEnd };
 }
 
 // ==================== 드래그로 일정 생성 (NEW) ====================
