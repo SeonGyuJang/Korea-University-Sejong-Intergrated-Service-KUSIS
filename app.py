@@ -192,11 +192,66 @@ def create_initial_data():
             db.session.execute(text("ALTER TABLE posts ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE"))
             print("--- [MIGRATION] 'is_visible' column added with default TRUE. ---")
 
-        # --- CalendarEvent 테이블 마이그레이션 (반복 일정 필드) ---
+        # --- CalendarEvent 테이블 마이그레이션 (모든 필드) ---
         if inspector.has_table('calendar_events'):
             # 매번 최신 컬럼 목록을 가져와야 함
             def get_calendar_columns():
                 return [col['name'] for col in inspector.get_columns('calendar_events')]
+
+            # start_date 컬럼 추가 (개별 커밋)
+            if 'start_date' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'start_date' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN start_date DATE NOT NULL DEFAULT CURRENT_DATE"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'start_date' column added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'start_date': {e} ---")
+
+            # end_date 컬럼 추가 (개별 커밋)
+            if 'end_date' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'end_date' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN end_date DATE NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'end_date' column added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'end_date': {e} ---")
+
+            # start_time 컬럼 추가 (개별 커밋)
+            if 'start_time' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'start_time' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN start_time TIME NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'start_time' column added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'start_time': {e} ---")
+
+            # end_time 컬럼 추가 (개별 커밋)
+            if 'end_time' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'end_time' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN end_time TIME NULL"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'end_time' column added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'end_time': {e} ---")
+
+            # all_day 컬럼 추가 (개별 커밋)
+            if 'all_day' not in get_calendar_columns():
+                print("--- [MIGRATION] Adding 'all_day' column to 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN all_day BOOLEAN NOT NULL DEFAULT TRUE"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'all_day' column added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'all_day': {e} ---")
 
             # description 컬럼 추가 (개별 커밋)
             if 'description' not in get_calendar_columns():

@@ -165,6 +165,9 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${prevLastDate - i}</div>`;
     }
 
+    // 현재 주 정보 저장 (배경 추가를 위해)
+    let weekHighlightInfo = null;
+
     // 현재 달 날짜
     const today = new Date();
     for (let day = 1; day <= lastDate; day++) {
@@ -178,16 +181,33 @@ function renderMiniCalendar() {
             date >= currentWeekRange.start &&
             date <= currentWeekRange.end;
 
+        // 현재 주의 첫 번째 날짜 정보 저장
+        if (isInCurrentWeek && !weekHighlightInfo) {
+            const gridPosition = firstDay + day;  // 그리드에서의 위치 (1-based)
+            const rowNumber = Math.ceil(gridPosition / 7) + 1;  // +1은 요일 헤더 때문
+            const colStart = date.getDay() + 1;  // 일요일=1, 토요일=7
+
+            // 주의 마지막 날짜가 같은 달인지 확인
+            let weekEndDay = day + (6 - date.getDay());
+            let colEnd = 8;  // 기본값: 토요일 다음 (전체 주)
+
+            // 만약 주가 다음 달로 넘어가면 이번 달 마지막까지만
+            if (weekEndDay > lastDate) {
+                weekEndDay = lastDate;
+                const endDate = new Date(year, month, weekEndDay);
+                colEnd = endDate.getDay() + 2;  // +2는 CSS Grid의 end가 exclusive이기 때문
+            }
+
+            weekHighlightInfo = {
+                row: rowNumber,
+                colStart: colStart,
+                colEnd: colEnd
+            };
+        }
+
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
-        if (isInCurrentWeek) {
-            classes += ' current-week';
-            // 주의 시작(일요일)과 끝(토요일)에 특별한 클래스 추가
-            const dayOfWeek = date.getDay();
-            if (dayOfWeek === 0) classes += ' week-start';
-            if (dayOfWeek === 6) classes += ' week-end';
-        }
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -196,6 +216,11 @@ function renderMiniCalendar() {
     const remainingDays = 42 - (firstDay + lastDate);
     for (let day = 1; day <= remainingDays; day++) {
         html += `<div class="mini-calendar-day other-month">${day}</div>`;
+    }
+
+    // 현재 주 배경 추가 (날짜들 위에 오버레이)
+    if (weekHighlightInfo) {
+        html += `<div class="current-week-highlight" style="grid-row: ${weekHighlightInfo.row}; grid-column: ${weekHighlightInfo.colStart} / ${weekHighlightInfo.colEnd};"></div>`;
     }
 
     html += '</div>';

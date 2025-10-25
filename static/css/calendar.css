@@ -91,6 +91,7 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
+    position: relative;
 }
 
 .mini-calendar-weekday {
@@ -134,32 +135,22 @@
     font-weight: 600;
 }
 
-/* 현재 주 표시 (하나의 연결된 박스) */
-.mini-calendar-day.current-week {
+/* 현재 주 하이라이트 (주 전체를 감싸는 배경) */
+.current-week-highlight {
     background: rgba(35, 131, 226, 0.12);
-    position: relative;
-    font-weight: 600;
-    border-radius: 0; /* 기본 둥근 모서리 제거 */
+    border-radius: 8px;
+    z-index: 0;
+    pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
 }
 
-/* 현재 주의 첫 날 (일요일) - 왼쪽 둥근 모서리 */
-.mini-calendar-day.current-week.week-start {
-    border-top-left-radius: 6px;
-    border-bottom-left-radius: 6px;
+/* 날짜 요소가 배경 위에 표시되도록 */
+.mini-calendar-day {
+    z-index: 1;
 }
 
-/* 현재 주의 마지막 날 (토요일) - 오른쪽 둥근 모서리 */
-.mini-calendar-day.current-week.week-end {
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
-}
-
-/* 오늘이면서 현재 주인 경우 */
-.mini-calendar-day.today.current-week {
-    background: var(--notion-primary);
-    color: white;
-    border-radius: 6px; /* 오늘은 완전히 둥글게 */
-    z-index: 1; /* 주간 배경 위에 표시 */
+/* 오늘 날짜는 더 위에 표시 */
+.mini-calendar-day.today {
+    z-index: 2;
 }
 
 .mini-calendar-day.has-events::after {
@@ -172,10 +163,7 @@
     height: 4px;
     border-radius: 50%;
     background: var(--notion-primary);
-}
-
-.mini-calendar-day.current-week.has-events::after {
-    background: var(--notion-primary);
+    z-index: 1;
 }
 
 .mini-calendar-day.today.has-events::after {
