@@ -134,20 +134,32 @@
     font-weight: 600;
 }
 
-/* 현재 주 표시 (반투명 배경) */
+/* 현재 주 표시 (하나의 연결된 박스) */
 .mini-calendar-day.current-week {
-    background: rgba(35, 131, 226, 0.08);
+    background: rgba(35, 131, 226, 0.12);
     position: relative;
+    font-weight: 600;
+    border-radius: 0; /* 기본 둥근 모서리 제거 */
 }
 
-.mini-calendar-day.current-week:not(.today) {
-    font-weight: 600;
+/* 현재 주의 첫 날 (일요일) - 왼쪽 둥근 모서리 */
+.mini-calendar-day.current-week.week-start {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+/* 현재 주의 마지막 날 (토요일) - 오른쪽 둥근 모서리 */
+.mini-calendar-day.current-week.week-end {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
 }
 
 /* 오늘이면서 현재 주인 경우 */
 .mini-calendar-day.today.current-week {
     background: var(--notion-primary);
     color: white;
+    border-radius: 6px; /* 오늘은 완전히 둥글게 */
+    z-index: 1; /* 주간 배경 위에 표시 */
 }
 
 .mini-calendar-day.has-events::after {

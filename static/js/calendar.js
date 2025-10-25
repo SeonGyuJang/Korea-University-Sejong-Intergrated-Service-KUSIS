@@ -181,7 +181,13 @@ function renderMiniCalendar() {
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
-        if (isInCurrentWeek) classes += ' current-week';
+        if (isInCurrentWeek) {
+            classes += ' current-week';
+            // 주의 시작(일요일)과 끝(토요일)에 특별한 클래스 추가
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0) classes += ' week-start';
+            if (dayOfWeek === 6) classes += ' week-end';
+        }
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
