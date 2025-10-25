@@ -20,6 +20,7 @@ from utils.helpers import sort_semesters, calculate_gpa, allowed_file as _allowe
 from services import (
     load_academic_calendar,
     get_semester_start_date,
+    _get_semester_start_date_fallback,
     create_semesters_for_user,
     manage_semesters_job,
     load_meal_data,

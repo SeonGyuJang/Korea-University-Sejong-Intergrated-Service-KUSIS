@@ -5,6 +5,7 @@
 from .semester_service import (
     load_academic_calendar,
     get_semester_start_date,
+    _get_semester_start_date_fallback,
     create_semesters_for_user,
     manage_semesters_job
 )
@@ -21,6 +22,7 @@ from .calendar_service import (
 __all__ = [
     'load_academic_calendar',
     'get_semester_start_date',
+    '_get_semester_start_date_fallback',
     'create_semesters_for_user',
     'manage_semesters_job',
     'load_meal_data',
