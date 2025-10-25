@@ -570,7 +570,6 @@ async function quickAddEvent() {
 
 // ==================== 사이드 패널 ====================
 function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = null) {
-    const panel = document.getElementById('sidePanel');
     const form = document.getElementById('eventForm');
     const deleteBtn = document.getElementById('deleteEventBtn');
 
@@ -594,7 +593,8 @@ function openSidePanel(eventId = null, dateStr = null, title = '', categoryId = 
         document.getElementById('eventEndTime').style.display = 'none';
     }
 
-    panel.classList.add('active');
+    // 패널 뷰 전환 (기본 → 편집)
+    showEditView();
 }
 
 function closeSidePanel() {
@@ -608,8 +608,21 @@ function closeSidePanel() {
         editingTempEvent = null;
     }
 
-    document.getElementById('sidePanel').classList.remove('active');
     selectedEventId = null;
+
+    // 패널 뷰 전환 (편집 → 기본)
+    showDefaultView();
+}
+
+// 패널 뷰 전환 함수
+function showEditView() {
+    document.getElementById('panelDefaultView').style.display = 'none';
+    document.getElementById('panelEditView').style.display = 'flex';
+}
+
+function showDefaultView() {
+    document.getElementById('panelDefaultView').style.display = 'flex';
+    document.getElementById('panelEditView').style.display = 'none';
 }
 
 async function loadEventToForm(eventId) {
@@ -941,7 +954,6 @@ function createTempEvent(start, end, allDay) {
 }
 
 function openSidePanelForEdit(tempEvent) {
-    const panel = document.getElementById('sidePanel');
     const form = document.getElementById('eventForm');
 
     // 폼 리셋
@@ -975,8 +987,8 @@ function openSidePanelForEdit(tempEvent) {
     // 삭제 버튼 숨김 (신규 생성이므로)
     document.getElementById('deleteEventBtn').style.display = 'none';
 
-    // 패널 열기
-    panel.classList.add('active');
+    // 패널 뷰 전환 (기본 → 편집)
+    showEditView();
 
     // 제목 입력에 포커스
     setTimeout(() => {

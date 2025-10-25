@@ -194,6 +194,13 @@ def create_initial_data():
         # --- CalendarEvent 테이블 마이그레이션 (반복 일정 필드) ---
         if inspector.has_table('calendar_events'):
             calendar_event_columns = [col['name'] for col in inspector.get_columns('calendar_events')]
+
+            # description 컬럼 추가
+            if 'description' not in calendar_event_columns:
+                print("--- [MIGRATION] Adding 'description' column to 'calendar_events' table... ---")
+                db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN description TEXT NULL"))
+                print("--- [MIGRATION] 'description' column added to 'calendar_events' table. ---")
+
             if 'recurrence_type' not in calendar_event_columns:
                 print("--- [MIGRATION] Adding recurrence fields to 'calendar_events' table... ---")
                 db.session.execute(text("ALTER TABLE calendar_events ADD COLUMN recurrence_type VARCHAR(20) NULL"))

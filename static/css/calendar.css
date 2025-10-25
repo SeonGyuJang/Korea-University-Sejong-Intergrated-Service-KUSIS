@@ -363,6 +363,7 @@
 /* ==================== FullCalendar 커스터마이징 ==================== */
 .fc {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
 }
 
 .fc-theme-standard td,
@@ -370,22 +371,41 @@
     border-color: var(--notion-border);
 }
 
+/* 요일 헤더 */
 .fc-col-header-cell {
-    padding: 12px 0;
-    font-size: 12px;
+    padding: 16px 0;
+    font-size: 13px;
     font-weight: 600;
-    color: var(--notion-text-light);
+    color: var(--notion-text);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    background: var(--notion-sidebar-bg);
 }
 
-.fc-daygrid-day-number {
-    font-size: 13px;
+.fc-col-header-cell-cushion {
+    padding: 8px 4px;
+}
+
+/* 시간 라벨 (주간/일간 뷰) */
+.fc-timegrid-slot-label {
+    font-size: 12px;
+    color: var(--notion-text-light);
     font-weight: 500;
-    color: var(--notion-text);
-    padding: 8px;
 }
 
+.fc-timegrid-axis-cushion {
+    padding: 0 8px;
+}
+
+/* 날짜 숫자 */
+.fc-daygrid-day-number {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--notion-text);
+    padding: 10px;
+}
+
+/* 오늘 날짜 */
 .fc-day-today {
     background: rgba(35, 131, 226, 0.05) !important;
 }
@@ -393,34 +413,59 @@
 .fc-day-today .fc-daygrid-day-number {
     background: var(--notion-primary);
     color: white;
-    border-radius: 6px;
-    width: 28px;
-    height: 28px;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 6px rgba(35, 131, 226, 0.3);
 }
 
+/* 날짜 셀 호버 */
 .fc-daygrid-day:hover {
     background: var(--notion-hover);
     cursor: pointer;
 }
 
+/* 이벤트 블록 */
 .fc-event {
     border: none !important;
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: 6px;
+    padding: 6px 10px;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
-    margin-bottom: 2px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .fc-event:hover {
-    opacity: 0.85;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px var(--notion-shadow-lg);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 시간 그리드 이벤트 */
+.fc-timegrid-event {
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.fc-timegrid-event .fc-event-main {
+    padding: 2px 0;
+}
+
+.fc-timegrid-event .fc-event-time {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.fc-timegrid-event .fc-event-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 2px;
 }
 
 .fc-event-title {
@@ -474,8 +519,24 @@
     flex-direction: column;
 }
 
+.side-panel.always-visible {
+    transform: translateX(0);
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: none;
+}
+
 .side-panel.active {
     transform: translateX(0);
+}
+
+/* 패널 뷰 전환 */
+.panel-default-view,
+.panel-edit-view {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
 }
 
 .side-panel-header {
@@ -610,6 +671,117 @@
 .checkbox-label span {
     font-size: 14px;
     color: var(--notion-text);
+}
+
+/* ==================== 기본 패널 (검색 & 단축키) ==================== */
+.search-box {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--notion-text-light);
+    font-size: 14px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--notion-border);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--notion-text);
+    background: var(--notion-sidebar-bg);
+    transition: all 0.2s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--notion-primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.1);
+}
+
+.shortcuts-section,
+.tips-section {
+    margin-bottom: 28px;
+}
+
+.shortcuts-section h3,
+.tips-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--notion-text);
+    margin: 0 0 16px 0;
+}
+
+.shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--notion-sidebar-bg);
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.shortcut-item:hover {
+    background: var(--notion-hover);
+}
+
+.shortcut-item kbd {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid var(--notion-border);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--notion-text);
+    box-shadow: 0 1px 2px var(--notion-shadow);
+}
+
+.shortcut-item span {
+    font-size: 13px;
+    color: var(--notion-text);
+    flex: 1;
+}
+
+.tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tips-list li {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--notion-text-light);
+    line-height: 1.6;
+    border-left: 3px solid var(--notion-primary);
+    background: rgba(35, 131, 226, 0.05);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.tips-list li strong {
+    color: var(--notion-text);
+    font-weight: 600;
 }
 
 /* ==================== 패널 액션 버튼 ==================== */
