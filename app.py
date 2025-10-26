@@ -1170,25 +1170,36 @@ def get_schedule():
         for s in user_schedules:
             schedule_list.append({"type": "schedule", "time": s.time, "title": s.title, "location": s.location})
 
-        # 2. 캘린더 이벤트 (시스템 + 사용자)
+        # 2. 캘린더 이벤트 (시스템 + 사용자) - 오늘이 시작일이거나 오늘이 포함되는 경우
         calendar_events = CalendarEvent.query.filter(
-            or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True),
-            CalendarEvent.start_date <= today_date,
-            or_(
-                CalendarEvent.end_date == None,
-                CalendarEvent.end_date >= today_date
-            )
+            or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True)
         ).all()
 
+        # 오늘 날짜에 직접 관련된 이벤트만 필터링 (시작일이 오늘이거나, 오늘이 기간에 포함)
         for event in calendar_events:
-            time_str = event.start_time.strftime('%H:%M') if event.start_time else '00:00'
-            location = event.category.name if event.category else ''
-            schedule_list.append({
-                "type": "calendar",
-                "time": time_str,
-                "title": event.title,
-                "location": location
-            })
+            # 단일 일자 이벤트 (end_date가 없거나 start_date와 같은 경우)
+            if event.end_date is None or event.start_date == event.end_date:
+                if event.start_date == today_date:
+                    time_str = event.start_time.strftime('%H:%M') if event.start_time else '종일'
+                    location = event.category.name if event.category else ''
+                    schedule_list.append({
+                        "type": "calendar",
+                        "time": time_str,
+                        "title": event.title,
+                        "location": location
+                    })
+            # 기간 이벤트 (start_date와 end_date가 다른 경우)
+            else:
+                # 오늘이 기간에 포함되는 경우에만 표시
+                if event.start_date <= today_date <= event.end_date:
+                    time_str = event.start_time.strftime('%H:%M') if event.start_time else '종일'
+                    location = event.category.name if event.category else ''
+                    schedule_list.append({
+                        "type": "calendar",
+                        "time": time_str,
+                        "title": event.title,
+                        "location": location
+                    })
 
         # 3. 오늘 요일의 시간표 (수업)
         current_semester = None

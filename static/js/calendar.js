@@ -7,6 +7,7 @@ let allEvents = [];
 let visibleCategories = new Set();
 let currentMiniCalendarDate = new Date();
 let selectedEventId = null;
+let selectedMiniCalendarDate = null; // 미니 캘린더에서 선택한 날짜
 
 // 편집 상태 (NEW)
 let editingTempEvent = null; // 임시 이벤트 객체
@@ -187,7 +188,20 @@ function renderMiniCalendar() {
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
         const isToday = date.toDateString() === today.toDateString();
-        const hasEvents = allEvents.some(e => e.start.startsWith(dateStr));
+
+        // 해당 날짜에 이벤트가 있는지 확인 (표시 중인 카테고리만)
+        const hasEvents = allEvents.some(e => {
+            if (!visibleCategories.has(e.extendedProps.category_id)) return false;
+
+            const eventStart = e.start.split('T')[0];
+            const eventEnd = e.end ? e.end.split('T')[0] : null;
+
+            // 시작 날짜가 일치하거나, 기간 이벤트의 범위 내에 있는 경우
+            if (eventStart === dateStr) return true;
+            if (eventEnd && eventStart <= dateStr && dateStr <= eventEnd) return true;
+
+            return false;
+        });
 
         // 현재 주에 속하는지 확인
         const isInCurrentWeek = currentWeekRange &&
@@ -218,9 +232,14 @@ function renderMiniCalendar() {
             };
         }
 
+        // 선택된 날짜인지 확인
+        const isSelected = selectedMiniCalendarDate &&
+            formatDate(selectedMiniCalendarDate) === dateStr;
+
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
+        if (isSelected) classes += ' selected';
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -243,7 +262,9 @@ function renderMiniCalendar() {
     miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
+            selectedMiniCalendarDate = new Date(dateStr);
             calendar.gotoDate(dateStr);
+            renderMiniCalendar(); // 선택 상태 업데이트
         });
     });
 }

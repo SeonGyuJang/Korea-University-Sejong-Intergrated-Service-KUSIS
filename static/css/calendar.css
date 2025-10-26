@@ -27,9 +27,18 @@
     overflow: hidden;
 }
 
+/* ==================== FullCalendar 이벤트 스타일 ==================== */
+.fc-event {
+    opacity: 1 !important;
+}
+
+.fc-event-main {
+    opacity: 1 !important;
+}
+
 /* ==================== 왼쪽 사이드바 ==================== */
 .calendar-sidebar {
-    width: 260px;
+    width: 240px;
     background: var(--notion-sidebar-bg);
     border-right: 1px solid var(--notion-border);
     padding: 20px 16px;
@@ -131,8 +140,10 @@
 }
 
 .mini-calendar-day.selected {
-    background: var(--notion-active);
+    background: var(--notion-primary);
+    color: white;
     font-weight: 600;
+    box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
 
 /* 현재 주 하이라이트 (주 전체를 감싸는 배경) */
@@ -533,7 +544,7 @@
     position: fixed;
     right: 0;
     top: 60px;
-    width: 400px;
+    width: 320px;
     height: calc(100vh - 60px);
     background: white;
     border-left: 1px solid var(--notion-border);
