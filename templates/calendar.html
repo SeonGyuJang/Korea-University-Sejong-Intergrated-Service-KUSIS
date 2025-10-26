@@ -62,16 +62,73 @@
         <div id="calendar" class="main-calendar"></div>
     </div>
 
-    <!-- 오른쪽 사이드 패널 (일정 상세 정보) -->
-    <div class="side-panel" id="sidePanel">
-        <div class="side-panel-header">
-            <h2>일정 정보</h2>
-            <button class="icon-btn close-panel-btn" id="closePanelBtn">
-                <i class="fas fa-times"></i>
-            </button>
+    <!-- 오른쪽 사이드 패널 (항상 표시) -->
+    <div class="side-panel always-visible" id="sidePanel">
+        <!-- 기본 뷰 (단축키 및 검색) -->
+        <div class="panel-default-view" id="panelDefaultView">
+            <div class="side-panel-header">
+                <h2>📌 바로가기</h2>
+            </div>
+            <div class="side-panel-body">
+                <!-- 검색 -->
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="일정 검색..." id="eventSearchInput">
+                </div>
+
+                <!-- 단축키 안내 -->
+                <div class="shortcuts-section">
+                    <h3>⌨️ 키보드 단축키</h3>
+                    <div class="shortcut-list">
+                        <div class="shortcut-item">
+                            <kbd>N</kbd>
+                            <span>새 일정</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>T</kbd>
+                            <span>오늘로 이동</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>W</kbd>
+                            <span>주간 뷰</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>M</kbd>
+                            <span>월간 뷰</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>D</kbd>
+                            <span>일간 뷰</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>←</kbd> <kbd>→</kbd>
+                            <span>이전/다음</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 팁 -->
+                <div class="tips-section">
+                    <h3>💡 사용 팁</h3>
+                    <ul class="tips-list">
+                        <li>빈 시간을 <strong>드래그</strong>하여 일정 생성</li>
+                        <li>일정을 <strong>드래그</strong>하여 이동</li>
+                        <li>일정 경계를 <strong>드래그</strong>하여 시간 조절</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div class="side-panel-body">
-            <form id="eventForm">
+
+        <!-- 편집 뷰 (일정 상세 정보) -->
+        <div class="panel-edit-view" id="panelEditView" style="display: none;">
+            <div class="side-panel-header">
+                <h2>일정 정보</h2>
+                <button class="icon-btn close-panel-btn" id="closePanelBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="side-panel-body">
+                <form id="eventForm">
                 <input type="hidden" id="eventId">
 
                 <!-- 제목 -->
@@ -149,6 +206,7 @@
                     </div>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 </div>
