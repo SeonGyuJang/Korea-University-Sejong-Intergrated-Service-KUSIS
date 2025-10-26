@@ -137,14 +137,16 @@
 
 /* 현재 주 하이라이트 (주 전체를 감싸는 배경) */
 .current-week-highlight {
-    background: rgba(35, 131, 226, 0.12);
-    border-radius: 8px;
-    z-index: 0;
+    background: rgba(35, 131, 226, 0.08);
+    border: 1.5px solid rgba(35, 131, 226, 0.25);
+    border-radius: 6px;
     pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
+    position: absolute;
 }
 
 /* 날짜 요소가 배경 위에 표시되도록 */
 .mini-calendar-day {
+    position: relative;
     z-index: 1;
 }
 
@@ -662,20 +664,38 @@
 }
 
 .date-time-grid {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 8px;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     margin-bottom: 12px;
 }
 
-.time-input {
-    grid-column: 2 / 4;
+.date-time-grid > * {
+    width: 100%;
 }
 
 .date-separator {
-    color: var(--notion-text-light);
-    font-size: 14px;
+    display: none;
+}
+
+/* 시작/종료 날짜를 구분하기 위한 레이블 */
+.date-time-grid input[type="date"],
+.date-time-grid input[type="time"] {
+    padding: 12px;
+    font-size: 15px;
+}
+
+/* 날짜 입력 아이콘 스타일 개선 */
+.date-time-grid input[type="date"]::-webkit-calendar-picker-indicator,
+.date-time-grid input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.date-time-grid input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.date-time-grid input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    background: var(--notion-hover);
 }
 
 .checkbox-label {

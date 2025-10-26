@@ -153,17 +153,16 @@
                         <i class="fas fa-clock"></i>
                         날짜 및 시간
                     </label>
-                    <div class="date-time-grid">
-                        <input type="date" id="eventStartDate" class="field-input" required>
-                        <input type="time" id="eventStartTime" class="field-input time-input">
-                        <span class="date-separator">→</span>
-                        <input type="date" id="eventEndDate" class="field-input">
-                        <input type="time" id="eventEndTime" class="field-input time-input">
-                    </div>
-                    <label class="checkbox-label">
+                    <label class="checkbox-label" style="margin-bottom: 10px;">
                         <input type="checkbox" id="eventAllDay" checked>
                         <span>종일</span>
                     </label>
+                    <div class="date-time-grid">
+                        <input type="date" id="eventStartDate" class="field-input" placeholder="시작 날짜" required>
+                        <input type="time" id="eventStartTime" class="field-input time-input" placeholder="시작 시간" style="display: none;">
+                        <input type="date" id="eventEndDate" class="field-input" placeholder="종료 날짜 (선택)">
+                        <input type="time" id="eventEndTime" class="field-input time-input" placeholder="종료 시간" style="display: none;">
+                    </div>
                 </div>
 
                 <!-- 반복 일정 -->
@@ -291,6 +290,5 @@
 
 {% block scripts %}
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
-<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.10/index.global.min.js'></script>
 <script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
 {% endblock %}

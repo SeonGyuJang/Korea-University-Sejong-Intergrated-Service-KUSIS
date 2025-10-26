@@ -1159,6 +1159,7 @@ def get_schedule():
 
     today_kst = datetime.now(KST) # KST 기준
     today_str = today_kst.strftime('%Y-%m-%d')
+    today_date = today_kst.date()
     today_day_of_week = today_kst.weekday() + 1 # 1:월 ~ 7:일
 
     schedule_list = []
@@ -1169,7 +1170,27 @@ def get_schedule():
         for s in user_schedules:
             schedule_list.append({"type": "schedule", "time": s.time, "title": s.title, "location": s.location})
 
-        # 2. 오늘 요일의 시간표 (수업)
+        # 2. 캘린더 이벤트 (시스템 + 사용자)
+        calendar_events = CalendarEvent.query.filter(
+            or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True),
+            CalendarEvent.start_date <= today_date,
+            or_(
+                CalendarEvent.end_date == None,
+                CalendarEvent.end_date >= today_date
+            )
+        ).all()
+
+        for event in calendar_events:
+            time_str = event.start_time.strftime('%H:%M') if event.start_time else '00:00'
+            location = event.category.name if event.category else ''
+            schedule_list.append({
+                "type": "calendar",
+                "time": time_str,
+                "title": event.title,
+                "location": location
+            })
+
+        # 3. 오늘 요일의 시간표 (수업)
         current_semester = None
         all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
         if all_semesters:
