@@ -198,6 +198,27 @@ def create_initial_data():
             def get_calendar_columns():
                 return [col['name'] for col in inspector.get_columns('calendar_events')]
 
+            # 기존 잘못된 컬럼 삭제 (개별 처리)
+            if 'start' in get_calendar_columns():
+                print("--- [MIGRATION] Removing old 'start' column from 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events DROP COLUMN start"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'start' column removed successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR removing 'start': {e} ---")
+
+            if 'end' in get_calendar_columns():
+                print("--- [MIGRATION] Removing old 'end' column from 'calendar_events' table... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE calendar_events DROP COLUMN end"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'end' column removed successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR removing 'end': {e} ---")
+
             # start_date 컬럼 추가 (개별 커밋)
             if 'start_date' not in get_calendar_columns():
                 print("--- [MIGRATION] Adding 'start_date' column to 'calendar_events' table... ---")
