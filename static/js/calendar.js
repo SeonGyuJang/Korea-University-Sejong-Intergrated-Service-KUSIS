@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderMiniCalendar();
     setupEventListeners();
     setupKeyboardShortcuts();
+    setupOutsideClickClose();
 });
 
 // ==================== FullCalendar 초기화 ====================
@@ -703,6 +704,26 @@ function closeSidePanel() {
 
     // 패널 뷰 전환 (편집 → 기본)
     showDefaultView();
+}
+
+// 외부 클릭으로 사이드 패널 닫기
+function setupOutsideClickClose() {
+    document.addEventListener('click', function(e) {
+        // 편집 중인 임시 이벤트가 없으면 무시
+        if (!editingTempEvent) return;
+
+        const panel = document.getElementById('panelEditView');
+        const calendar = document.getElementById('calendar');
+
+        // 패널 내부 클릭이면 무시
+        if (panel && panel.contains(e.target)) return;
+
+        // 캘린더 내부 클릭이면 무시 (드래그, 리사이즈 등)
+        if (calendar && calendar.contains(e.target)) return;
+
+        // 외부 클릭 시 패널 닫기
+        closeSidePanel();
+    });
 }
 
 // 패널 뷰 전환 함수
