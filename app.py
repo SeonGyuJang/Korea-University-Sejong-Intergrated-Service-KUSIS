@@ -212,7 +212,7 @@ def create_initial_data():
             if 'end' in get_calendar_columns():
                 print("--- [MIGRATION] Removing old 'end' column from 'calendar_events' table... ---")
                 try:
-                    db.session.execute(text("ALTER TABLE calendar_events DROP COLUMN end"))
+                    db.session.execute(text('ALTER TABLE calendar_events DROP COLUMN "end"'))
                     db.session.commit()
                     print("--- [MIGRATION] 'end' column removed successfully! ---")
                 except Exception as e:
@@ -317,6 +317,16 @@ def create_initial_data():
                 except Exception as int_e:
                     db.session.rollback()
                     print(f"--- [MIGRATION] ERROR adding 'recurrence_interval': {int_e} ---")
+
+            # user_id의 NOT NULL 제약 제거 (시스템 이벤트는 user_id가 NULL)
+            print("--- [MIGRATION] Removing NOT NULL constraint from 'user_id' column in 'calendar_events' table... ---")
+            try:
+                db.session.execute(text("ALTER TABLE calendar_events ALTER COLUMN user_id DROP NOT NULL"))
+                db.session.commit()
+                print("--- [MIGRATION] NOT NULL constraint removed from 'user_id' column successfully! ---")
+            except Exception as user_e:
+                db.session.rollback()
+                print(f"--- [MIGRATION] ERROR removing NOT NULL constraint from 'user_id': {user_e} ---")
 
         # --- 마이그레이션 끝 ---
 
