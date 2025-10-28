@@ -9,9 +9,7 @@
 
 {% block content %}
 <div class="notion-calendar-container">
-    <!-- 왼쪽 사이드바 -->
     <div class="calendar-sidebar">
-        <!-- 미니 캘린더 -->
         <div class="mini-calendar-wrapper">
             <div class="mini-calendar-header">
                 <button class="mini-nav-btn" id="miniPrevMonth">
@@ -28,7 +26,6 @@
             </button>
         </div>
 
-        <!-- 카테고리 섹션 -->
         <div class="sidebar-section">
             <div class="section-header">
                 <h3>내 캘린더</h3>
@@ -37,14 +34,11 @@
                 </button>
             </div>
             <div class="category-list" id="categoryList">
-                <!-- JavaScript로 동적 생성 -->
-            </div>
+                </div>
         </div>
     </div>
 
-    <!-- 메인 캘린더 영역 -->
     <div class="calendar-main">
-        <!-- 상단 툴바 -->
         <div class="calendar-toolbar">
             <div class="toolbar-left">
                 <h1 class="calendar-main-title" id="calendarMainTitle">2025년 10월</h1>
@@ -58,25 +52,15 @@
             </div>
         </div>
 
-        <!-- FullCalendar -->
         <div id="calendar" class="main-calendar"></div>
     </div>
 
-    <!-- 오른쪽 사이드 패널 (항상 표시) -->
     <div class="side-panel always-visible" id="sidePanel">
-        <!-- 기본 뷰 (단축키 및 검색) -->
         <div class="panel-default-view" id="panelDefaultView">
             <div class="side-panel-header">
                 <h2>📌 바로가기</h2>
             </div>
             <div class="side-panel-body">
-                <!-- 검색 -->
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="일정 검색..." id="eventSearchInput">
-                </div>
-
-                <!-- 단축키 안내 -->
                 <div class="shortcuts-section">
                     <h3>⌨️ 키보드 단축키</h3>
                     <div class="shortcut-list">
@@ -104,10 +88,9 @@
                             <kbd>←</kbd> <kbd>→</kbd>
                             <span>이전/다음</span>
                         </div>
-                    </div>
+                        </div>
                 </div>
 
-                <!-- 팁 -->
                 <div class="tips-section">
                     <h3>💡 사용 팁</h3>
                     <ul class="tips-list">
@@ -119,7 +102,6 @@
             </div>
         </div>
 
-        <!-- 편집 뷰 (일정 상세 정보) -->
         <div class="panel-edit-view" id="panelEditView" style="display: none;">
             <div class="side-panel-header">
                 <h2>일정 정보</h2>
@@ -131,23 +113,19 @@
                 <form id="eventForm">
                 <input type="hidden" id="eventId">
 
-                <!-- 제목 -->
                 <div class="form-field">
                     <input type="text" id="eventTitle" class="title-input" placeholder="일정 제목 입력" required>
                 </div>
 
-                <!-- 카테고리 -->
                 <div class="form-field">
                     <label class="field-label">
                         <i class="fas fa-tag"></i>
                         카테고리
                     </label>
                     <select id="eventCategory" class="field-select" required>
-                        <!-- JavaScript로 동적 생성 -->
-                    </select>
+                        </select>
                 </div>
 
-                <!-- 날짜 및 시간 -->
                 <div class="form-field">
                     <label class="field-label">
                         <i class="fas fa-clock"></i>
@@ -165,7 +143,6 @@
                     </div>
                 </div>
 
-                <!-- 반복 일정 -->
                 <div class="form-field">
                     <label class="field-label">
                         <i class="fas fa-redo"></i>
@@ -184,7 +161,6 @@
                     </div>
                 </div>
 
-                <!-- 설명 -->
                 <div class="form-field">
                     <label class="field-label">
                         <i class="fas fa-align-left"></i>
@@ -193,7 +169,6 @@
                     <textarea id="eventDescription" class="field-textarea" placeholder="일정에 대한 설명을 입력하세요" rows="4"></textarea>
                 </div>
 
-                <!-- 버튼 -->
                 <div class="panel-actions">
                     <button type="button" class="btn btn-delete" id="deleteEventBtn">
                         <i class="fas fa-trash"></i>
@@ -210,7 +185,6 @@
     </div>
 </div>
 
-<!-- 중앙 일정 추가 모달 (간단 버전) -->
 <div class="modal-overlay" id="quickEventModal">
     <div class="modal-content small">
         <div class="modal-header">
@@ -229,8 +203,7 @@
                 <div class="form-field">
                     <label class="field-label">카테고리</label>
                     <select id="quickEventCategory" class="field-select" required>
-                        <!-- JavaScript로 동적 생성 -->
-                    </select>
+                        </select>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="quickDetailBtn">상세 설정</button>
@@ -241,7 +214,6 @@
     </div>
 </div>
 
-<!-- 카테고리 추가 모달 -->
 <div class="modal-overlay" id="categoryModalOverlay">
     <div class="modal-content small">
         <div class="modal-header">
