@@ -300,7 +300,10 @@ function renderMiniCalendar() {
 
     // 선택된 날짜의 주 배경 추가 (알약형 하이라이트)
     if (selectedWeekHighlightInfo) {
+        console.log('주차 하이라이트 정보:', selectedWeekHighlightInfo);
         html += `<div class="selected-week-highlight" style="grid-row: ${selectedWeekHighlightInfo.row}; grid-column: ${selectedWeekHighlightInfo.colStart} / ${selectedWeekHighlightInfo.colEnd};"></div>`;
+    } else {
+        console.log('주차 하이라이트 없음. selectedWeekRange:', selectedWeekRange, 'selectedMiniCalendarDate:', selectedMiniCalendarDate);
     }
 
     html += '</div>';
@@ -311,6 +314,7 @@ function renderMiniCalendar() {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
             selectedMiniCalendarDate = new Date(dateStr);
+            console.log('날짜 선택:', dateStr, 'selectedMiniCalendarDate:', selectedMiniCalendarDate);
             calendar.gotoDate(dateStr);
             renderMiniCalendar(); // 선택 상태 업데이트
         });
@@ -454,8 +458,11 @@ function setupEventListeners() {
 
 // ==================== 키보드 단축키 ====================
 function setupKeyboardShortcuts() {
+    console.log('키보드 단축키 설정됨');
+
     // 키보드 이벤트 핸들러 (중복 등록 방지)
     const handleKeyDown = function(e) {
+        console.log('키 입력:', e.key, 'code:', e.code);
         // 입력 필드에 포커스가 있는지 확인
         const isInputFocused = document.activeElement && (
             document.activeElement.tagName === 'INPUT' ||
