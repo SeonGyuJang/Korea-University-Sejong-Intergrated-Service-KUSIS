@@ -144,6 +144,25 @@ function initializeCalendar() {
                 visibleCategories.has(event.extendedProps.category_id)
             );
             successCallback(filteredEvents);
+        },
+
+        // 이벤트가 DOM에 렌더링된 후 실행 (색상 강제 적용)
+        eventDidMount: function(info) {
+            const event = info.event;
+            const el = info.el;
+
+            // 배경색과 테두리색 강제 적용
+            if (event.backgroundColor) {
+                el.style.backgroundColor = event.backgroundColor;
+                el.style.borderColor = event.borderColor || event.backgroundColor;
+                el.style.opacity = '1';
+            }
+
+            // 시스템 이벤트인 경우 스타일 추가
+            if (event.extendedProps.is_system) {
+                el.style.fontWeight = '600';
+                el.style.cursor = 'pointer';
+            }
         }
     });
 
@@ -163,6 +182,9 @@ function renderMiniCalendar() {
     // 현재 주 계산 (메인 캘린더 기준)
     const currentWeekRange = getCurrentWeekRange();
 
+    // 선택된 날짜의 주 계산
+    const selectedWeekRange = selectedMiniCalendarDate ? getWeekRangeForDate(selectedMiniCalendarDate) : null;
+
     // 그리드 생성
     const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
@@ -180,11 +202,59 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${prevLastDate - i}</div>`;
     }
 
-    // 현재 주 정보 저장 (배경 추가를 위해)
-    let weekHighlightInfo = null;
-
     // 현재 달 날짜
     const today = new Date();
+
+    // 선택된 주의 하이라이트 정보를 계산
+    let selectedWeekHighlightInfo = null;
+    if (selectedWeekRange) {
+        const weekStart = selectedWeekRange.start;
+        const weekEnd = selectedWeekRange.end;
+
+        // 현재 표시 중인 월의 범위
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+
+        // 선택된 주가 현재 월과 겹치는지 확인
+        if (weekEnd >= monthStart && weekStart <= monthEnd) {
+            // 주의 각 날짜를 순회하며 현재 월에 속한 날짜 찾기
+            let firstDayInMonth = null;
+            let lastDayInMonth = null;
+
+            for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
+                if (d.getMonth() === month && d.getFullYear() === year) {
+                    if (!firstDayInMonth) firstDayInMonth = new Date(d);
+                    lastDayInMonth = new Date(d);
+                }
+            }
+
+            if (firstDayInMonth && lastDayInMonth) {
+                const startDay = firstDayInMonth.getDate();
+                const endDay = lastDayInMonth.getDate();
+                const startDayOfWeek = firstDayInMonth.getDay(); // 0=일요일, 6=토요일
+                const endDayOfWeek = lastDayInMonth.getDay();
+
+                // 그리드에서의 셀 인덱스 계산 (0-based)
+                // 첫 번째 날짜 = 이전 달 날짜 수(firstDay) + 현재 날짜 - 1
+                const startCellIndex = firstDay + startDay - 1;
+                const endCellIndex = firstDay + endDay - 1;
+
+                // 같은 행에 있는지 확인
+                const startRow = Math.floor(startCellIndex / 7);
+                const endRow = Math.floor(endCellIndex / 7);
+
+                if (startRow === endRow) {
+                    // 행 번호는 요일 헤더(1번 행) 다음부터 시작
+                    selectedWeekHighlightInfo = {
+                        row: startRow + 2, // +2는 CSS Grid가 1-based이고 요일 헤더가 1번 행이기 때문
+                        colStart: startDayOfWeek + 1, // CSS Grid는 1-based
+                        colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
+                    };
+                }
+            }
+        }
+    }
+
     for (let day = 1; day <= lastDate; day++) {
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
@@ -204,35 +274,6 @@ function renderMiniCalendar() {
             return false;
         });
 
-        // 현재 주에 속하는지 확인
-        const isInCurrentWeek = currentWeekRange &&
-            date >= currentWeekRange.start &&
-            date <= currentWeekRange.end;
-
-        // 현재 주의 첫 번째 날짜 정보 저장
-        if (isInCurrentWeek && !weekHighlightInfo) {
-            const gridPosition = firstDay + day;  // 그리드에서의 위치 (1-based)
-            const rowNumber = Math.ceil(gridPosition / 7) + 1;  // +1은 요일 헤더 때문
-            const colStart = date.getDay() + 1;  // 일요일=1, 토요일=7
-
-            // 주의 마지막 날짜가 같은 달인지 확인
-            let weekEndDay = day + (6 - date.getDay());
-            let colEnd = 8;  // 기본값: 토요일 다음 (전체 주)
-
-            // 만약 주가 다음 달로 넘어가면 이번 달 마지막까지만
-            if (weekEndDay > lastDate) {
-                weekEndDay = lastDate;
-                const endDate = new Date(year, month, weekEndDay);
-                colEnd = endDate.getDay() + 2;  // +2는 CSS Grid의 end가 exclusive이기 때문
-            }
-
-            weekHighlightInfo = {
-                row: rowNumber,
-                colStart: colStart,
-                colEnd: colEnd
-            };
-        }
-
         // 선택된 날짜인지 확인
         const isSelected = selectedMiniCalendarDate &&
             formatDate(selectedMiniCalendarDate) === dateStr;
@@ -251,9 +292,9 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${day}</div>`;
     }
 
-    // 현재 주 배경 추가 (날짜들 위에 오버레이)
-    if (weekHighlightInfo) {
-        html += `<div class="current-week-highlight" style="grid-row: ${weekHighlightInfo.row}; grid-column: ${weekHighlightInfo.colStart} / ${weekHighlightInfo.colEnd};"></div>`;
+    // 선택된 날짜의 주 배경 추가 (알약형 하이라이트)
+    if (selectedWeekHighlightInfo) {
+        html += `<div class="selected-week-highlight" style="grid-row: ${selectedWeekHighlightInfo.row}; grid-column: ${selectedWeekHighlightInfo.colStart} / ${selectedWeekHighlightInfo.colEnd};"></div>`;
     }
 
     html += '</div>';
@@ -1052,6 +1093,24 @@ function formatTime(date) {
     return `${hours}:${minutes}`;
 }
 
+// 특정 날짜가 속한 주 범위 계산
+function getWeekRangeForDate(date) {
+    if (!date) return null;
+
+    const targetDate = new Date(date);
+    const dayOfWeek = targetDate.getDay();
+
+    const weekStart = new Date(targetDate);
+    weekStart.setDate(targetDate.getDate() - dayOfWeek);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    return { start: weekStart, end: weekEnd };
+}
+
 // 현재 주 범위 계산 (메인 캘린더 기준)
 function getCurrentWeekRange() {
     if (!calendar) return null;
@@ -1069,32 +1128,12 @@ function getCurrentWeekRange() {
     // 일간 뷰인 경우 - 해당 날짜가 속한 주 계산
     if (view.type === 'timeGridDay') {
         const currentDate = new Date(view.currentStart);
-        const dayOfWeek = currentDate.getDay();
-
-        const weekStart = new Date(currentDate);
-        weekStart.setDate(currentDate.getDate() - dayOfWeek);
-        weekStart.setHours(0, 0, 0, 0);
-
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
-
-        return { start: weekStart, end: weekEnd };
+        return getWeekRangeForDate(currentDate);
     }
 
     // 월간 뷰인 경우 - 오늘이 속한 주 계산
     const today = new Date();
-    const dayOfWeek = today.getDay();
-
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - dayOfWeek);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    return { start: weekStart, end: weekEnd };
+    return getWeekRangeForDate(today);
 }
 
 // ==================== 드래그로 일정 생성 (NEW) ====================

@@ -28,32 +28,15 @@
 }
 
 /* ==================== FullCalendar 이벤트 스타일 ==================== */
-.fc-event {
-    opacity: 1 !important;
-    border: none !important;
-}
-
-.fc-event-main {
-    opacity: 1 !important;
-}
-
+/* 이벤트 투명도 제거 - 모든 요소를 불투명하게 */
+.fc-event,
+.fc-event-main,
+.fc-event-main-frame,
 .fc-event-title,
 .fc-event-time,
-.fc-daygrid-event-dot {
-    opacity: 1 !important;
-}
-
-/* 이벤트 배경색 강제 적용 */
-.fc .fc-daygrid-event,
-.fc .fc-timegrid-event {
-    opacity: 1 !important;
-}
-
-.fc-daygrid-event {
-    opacity: 1 !important;
-}
-
-.fc-timegrid-event {
+.fc-daygrid-event-dot,
+.fc-daygrid-event-harness,
+.fc-timegrid-event-harness {
     opacity: 1 !important;
 }
 
@@ -143,6 +126,7 @@
     color: var(--notion-text);
     transition: all 0.15s ease;
     position: relative;
+    z-index: 1; /* 배경 위에 표시 */
 }
 
 .mini-calendar-day:hover {
@@ -158,6 +142,7 @@
     background: var(--notion-primary);
     color: white;
     font-weight: 600;
+    z-index: 2; /* 오늘 날짜는 더 위에 표시 */
 }
 
 .mini-calendar-day.selected {
@@ -167,24 +152,29 @@
     box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
 
-/* 현재 주 하이라이트 (주 전체를 감싸는 배경) */
+/* 선택된 날짜의 주 하이라이트 (알약형 배경) */
+.selected-week-highlight {
+    background: rgba(35, 131, 226, 0.15);
+    border: 2px solid rgba(35, 131, 226, 0.4);
+    border-radius: 20px; /* 알약형으로 둥글게 */
+    pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
+    position: absolute;
+    box-shadow: 0 2px 8px rgba(35, 131, 226, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0; /* 날짜 뒤에 표시 */
+    /* 알약형 배경이 날짜를 감싸도록 여백 추가 */
+    margin: 2px 4px;
+    padding: 2px 0;
+}
+
+/* 현재 주 하이라이트 (메인 캘린더 기준 - 사용하지 않지만 유지) */
 .current-week-highlight {
     background: rgba(35, 131, 226, 0.08);
     border: 1.5px solid rgba(35, 131, 226, 0.25);
     border-radius: 6px;
     pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
     position: absolute;
-}
-
-/* 날짜 요소가 배경 위에 표시되도록 */
-.mini-calendar-day {
-    position: relative;
-    z-index: 1;
-}
-
-/* 오늘 날짜는 더 위에 표시 */
-.mini-calendar-day.today {
-    z-index: 2;
+    z-index: 0; /* 날짜 뒤에 표시 */
 }
 
 .mini-calendar-day.has-events::after {
@@ -538,10 +528,7 @@
     border-color: inherit;
 }
 
-.fc-h-event {
-    background: var(--event-color) !important;
-    border-left: 3px solid var(--event-color-dark) !important;
-}
+/* 제거: .fc-h-event 스타일이 배경색을 덮어쓰는 문제 발생 */
 
 .fc-button {
     background: var(--notion-hover) !important;
