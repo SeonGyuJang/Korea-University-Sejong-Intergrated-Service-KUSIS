@@ -48,6 +48,15 @@
     padding: 20px 16px;
     overflow-y: auto;
     flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.calendar-sidebar.hidden {
+    width: 0;
+    padding: 0;
+    border-right: none;
+    opacity: 0;
+    overflow: hidden;
 }
 
 .calendar-sidebar::-webkit-scrollbar {
