@@ -28,32 +28,39 @@
 }
 
 /* ==================== FullCalendar 이벤트 스타일 ==================== */
-.fc-event {
-    opacity: 1 !important;
-    border: none !important;
-}
-
-.fc-event-main {
-    opacity: 1 !important;
-}
-
+/* 이벤트 투명도 완전 제거 */
+.fc-event,
+.fc-event-main,
 .fc-event-title,
 .fc-event-time,
-.fc-daygrid-event-dot {
-    opacity: 1 !important;
-}
-
-/* 이벤트 배경색 강제 적용 */
+.fc-daygrid-event-dot,
 .fc .fc-daygrid-event,
-.fc .fc-timegrid-event {
-    opacity: 1 !important;
-}
-
-.fc-daygrid-event {
-    opacity: 1 !important;
-}
-
+.fc .fc-timegrid-event,
+.fc-daygrid-event,
 .fc-timegrid-event {
+    opacity: 1 !important;
+}
+
+/* 이벤트 배경색과 테두리가 제대로 보이도록 강제 */
+.fc-event {
+    border: none !important;
+    background-color: var(--fc-event-bg-color, inherit) !important;
+    border-color: var(--fc-event-border-color, inherit) !important;
+}
+
+.fc-daygrid-event,
+.fc-timegrid-event {
+    background-color: inherit !important;
+    border-color: inherit !important;
+}
+
+/* 이벤트 내부 텍스트도 불투명하게 */
+.fc-event-main-frame {
+    opacity: 1 !important;
+}
+
+.fc-daygrid-event-harness,
+.fc-timegrid-event-harness {
     opacity: 1 !important;
 }
 
@@ -167,7 +174,18 @@
     box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
 
-/* 현재 주 하이라이트 (주 전체를 감싸는 배경) */
+/* 선택된 날짜의 주 하이라이트 (알약형 배경) */
+.selected-week-highlight {
+    background: rgba(35, 131, 226, 0.12);
+    border: 2px solid rgba(35, 131, 226, 0.35);
+    border-radius: 16px; /* 알약형으로 더 둥글게 */
+    pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
+    position: absolute;
+    box-shadow: 0 2px 8px rgba(35, 131, 226, 0.15);
+    transition: all 0.3s ease;
+}
+
+/* 현재 주 하이라이트 (메인 캘린더 기준 - 사용하지 않지만 유지) */
 .current-week-highlight {
     background: rgba(35, 131, 226, 0.08);
     border: 1.5px solid rgba(35, 131, 226, 0.25);
