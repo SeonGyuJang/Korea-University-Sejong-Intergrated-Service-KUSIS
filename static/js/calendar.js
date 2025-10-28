@@ -454,7 +454,7 @@ function setupEventListeners() {
 // ==================== 키보드 단축키 ====================
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
-        // 입력 필드에 포커스가 있으면 단축키 무시 (ESC 제외)
+        // 입력 필드에 포커스가 있으면 단축키 무시 (ESC, Backslash 제외)
         const isInputFocused = document.activeElement && (
             document.activeElement.tagName === 'INPUT' ||
             document.activeElement.tagName === 'TEXTAREA' ||
@@ -462,7 +462,7 @@ function setupKeyboardShortcuts() {
         );
 
         // ESC 키 단축키는 항상 작동
-        if (e.code === 'Escape') {
+        if (e.key === 'Escape') { // 수정: e.code -> e.key (Escape는 일관됨)
             // 열려있는 모달이나 패널 확인 후 닫기
             if (document.getElementById('panelEditView').style.display !== 'none') {
                 closeSidePanel();
@@ -473,11 +473,13 @@ function setupKeyboardShortcuts() {
             }
             return; // ESC는 다른 단축키와 중복 실행되지 않도록 여기서 종료
         }
-        // --- 수정: '\' 키 (Backslash) 단축키 로직 수정 - 윈도우/맥 호환 ---
-        // Backslash 또는 Won 키는 입력 필드 포커스와 관계없이 작동
-        if (e.code === 'Backslash' || e.code === 'IntlBackslash') { // '\' 키 또는 '₩' 키 - 사이드바 토글
+
+        // --- 수정: '\' 키 (Backslash/Won) 단축키 로직 수정 ---
+        // Backslash 키는 키보드 레이아웃에 따라 e.key 값이 다를 수 있음 (Backslash 또는 WonSign)
+        // e.code === 'Backslash'는 레이아웃과 관계없이 물리적 키를 감지
+        if (e.code === 'Backslash') {
             e.preventDefault(); // 기본 동작(입력) 방지
-            toggleSidebar(); // 사이드바 토글 함수 호출 
+            toggleSidebar(); // 사이드바 토글 함수 호출
             return; // 사이드바 토글 후 다른 단축키 로직 실행 방지
         }
         // --- 수정 끝 ---
@@ -486,7 +488,7 @@ function setupKeyboardShortcuts() {
         // 나머지 단축키는 입력 필드 외부에서만 작동
         if (isInputFocused) return;
 
-        // 단축키 로직 (e.key 대신 e.code 사용)
+        // 단축키 로직 (e.key 또는 e.code 사용 - 일관성 위해 e.code 사용 권장)
         switch (e.code) {
             case 'KeyN': // N - 새 일정 (오늘 날짜)
                 e.preventDefault();
