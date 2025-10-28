@@ -16,6 +16,9 @@ let editingTempEvent = null; // 임시 이벤트 객체
 document.addEventListener('DOMContentLoaded', function() {
     initializeCalendar();
     loadCategories();
+    // 초기 로드 시 오늘 날짜를 선택된 날짜로 설정 (주 하이라이트 위해)
+    selectedMiniCalendarDate = new Date();
+    selectedMiniCalendarDate.setHours(0,0,0,0); // 시간 초기화
     renderMiniCalendar();
     setupEventListeners();
     setupKeyboardShortcuts();
@@ -35,8 +38,8 @@ function initializeCalendar() {
         selectMirror: true,
         dayMaxEvents: 3,
         weekends: true,
-        height: 'auto',
-        contentHeight: 'auto',
+        height: 'auto', // 부모 높이에 맞춤
+        contentHeight: 'auto', // 내용에 맞게 높이 자동 조절
         nowIndicator: true, // 현재 시간 표시
         slotMinTime: '06:00:00',
         slotMaxTime: '24:00:00',
@@ -134,7 +137,10 @@ function initializeCalendar() {
         datesSet: function(info) {
             updateMainTitle(info.view.title);
             loadEventsInRange(info.start, info.end);
-            // 미니 캘린더 업데이트 (현재 주 표시 반영)
+            // 메인 캘린더 날짜 변경 시 미니 캘린더의 선택된 날짜도 업데이트
+            const newDate = calendar.getDate();
+            selectedMiniCalendarDate = new Date(newDate);
+            selectedMiniCalendarDate.setHours(0,0,0,0);
             renderMiniCalendar();
         },
 
@@ -175,16 +181,17 @@ function renderMiniCalendar() {
     const year = currentMiniCalendarDate.getFullYear();
     const month = currentMiniCalendarDate.getMonth();
     const today = new Date(); // 오늘 날짜
+    today.setHours(0,0,0,0); // 시간 초기화
 
     // 헤더 업데이트
     document.getElementById('miniCalendarTitle').textContent =
         `${year}년 ${month + 1}월`;
 
-    // 현재 주 계산 (오늘 날짜 기준)
-    const currentWeekRange = getWeekRangeForDate(today);
-
-    // 선택된 날짜의 주 계산
-    const selectedWeekRange = selectedMiniCalendarDate ? getWeekRangeForDate(selectedMiniCalendarDate) : null;
+    // --- 주 하이라이트 로직 수정 ---
+    // 하이라이트할 날짜 결정: 선택된 날짜가 있으면 사용, 없으면 오늘 날짜 사용
+    const dateToHighlight = selectedMiniCalendarDate || today;
+    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
+    // --- ---
 
     // 그리드 생성
     const firstDayOfMonth = new Date(year, month, 1);
@@ -239,22 +246,14 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${day}</div>`;
     }
 
-    // --- 주 하이라이트 계산 및 추가 ---
-    // 현재 주 하이라이트 정보 계산
-    const currentWeekHighlightInfo = calculateHighlightInfo(currentWeekRange, year, month, firstDayWeekday);
-    // 선택된 주 하이라이트 정보 계산
-    const selectedWeekHighlightInfo = calculateHighlightInfo(selectedWeekRange, year, month, firstDayWeekday);
+    // --- 주 하이라이트 계산 및 추가 (수정) ---
+    // 하이라이트할 주의 정보 계산
+    const highlightInfo = calculateHighlightInfo(weekRangeToHighlight, year, month, firstDayWeekday);
 
-    // 현재 주 알약 배경 추가 (selectedWeekHighlight와 겹치지 않도록)
-    if (currentWeekHighlightInfo &&
-        (!selectedWeekHighlightInfo ||
-         currentWeekHighlightInfo.row !== selectedWeekHighlightInfo.row ||
-         currentWeekHighlightInfo.colStart !== selectedWeekHighlightInfo.colStart)) {
-        html += `<div class="current-week-highlight" style="grid-row: ${currentWeekHighlightInfo.row}; grid-column: ${currentWeekHighlightInfo.colStart} / ${currentWeekHighlightInfo.colEnd};"></div>`;
-    }
-    // 선택된 날짜의 주 알약 배경 추가
-    if (selectedWeekHighlightInfo) {
-        html += `<div class="selected-week-highlight" style="grid-row: ${selectedWeekHighlightInfo.row}; grid-column: ${selectedWeekHighlightInfo.colStart} / ${selectedWeekHighlightInfo.colEnd};"></div>`;
+    // 하이라이트 알약 배경 추가 (단일 요소)
+    if (highlightInfo) {
+        // `selected-week-highlight` 클래스 대신 `week-highlight` 사용
+        html += `<div class="week-highlight" style="grid-row: ${highlightInfo.row}; grid-column: ${highlightInfo.colStart} / ${highlightInfo.colEnd};"></div>`;
     }
     // --- 주 하이라이트 끝 ---
 
@@ -267,8 +266,9 @@ function renderMiniCalendar() {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
             selectedMiniCalendarDate = new Date(dateStr + 'T00:00:00'); // 시간 정보 추가하여 정확한 Date 객체 생성
+            selectedMiniCalendarDate.setHours(0,0,0,0); // 시간 초기화
             calendar.gotoDate(dateStr);
-            renderMiniCalendar(); // 선택 상태 업데이트
+            renderMiniCalendar(); // 선택 상태 업데이트 (및 하이라이트 업데이트)
         });
     });
 }
@@ -289,6 +289,7 @@ function calculateHighlightInfo(weekRange, currentYear, currentMonth, firstDayWe
         let firstDayInMonth = null;
         let lastDayInMonth = null;
 
+        // 주의 날짜들을 순회하며 현재 월에 속하는 첫날과 마지막날 찾기
         for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
             if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
                 if (!firstDayInMonth) firstDayInMonth = new Date(d);
@@ -298,24 +299,22 @@ function calculateHighlightInfo(weekRange, currentYear, currentMonth, firstDayWe
 
         if (firstDayInMonth && lastDayInMonth) {
             const startDay = firstDayInMonth.getDate();
-            const endDay = lastDayInMonth.getDate();
-            const startDayOfWeek = firstDayInMonth.getDay(); // 0=일요일, 6=토요일
-            const endDayOfWeek = lastDayInMonth.getDay();
-
-            // 그리드에서의 셀 인덱스 계산 (0-based)
+            // 그리드에서의 첫 셀 인덱스 계산 (0-based)
             const startCellIndex = firstDayWeekday + startDay - 1;
-            const endCellIndex = firstDayWeekday + endDay - 1;
-
             const startRow = Math.floor(startCellIndex / 7);
-            const endRow = Math.floor(endCellIndex / 7);
 
-            if (startRow === endRow) {
-                return {
-                    row: startRow + 2, // +2는 CSS Grid가 1-based이고 요일 헤더가 1번 행이기 때문
-                    colStart: startDayOfWeek + 1, // CSS Grid는 1-based
-                    colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
-                };
-            }
+            // 해당 주가 이 월에서 시작하는 요일 (0=일요일 ~ 6=토요일)
+            // 주의 시작일이 이 달보다 이전이면 0(일요일)부터 시작
+            const effectiveStartDayOfWeek = (weekStart < monthStart) ? 0 : weekStart.getDay();
+            // 해당 주가 이 월에서 끝나는 요일 (0=일요일 ~ 6=토요일)
+            // 주의 종료일이 이 달보다 이후면 6(토요일)까지 끝남
+            const effectiveEndDayOfWeek = (weekEnd > monthEnd) ? 6 : weekEnd.getDay();
+
+            return {
+                row: startRow + 2, // +2는 CSS Grid가 1-based이고 요일 헤더가 1번 행이기 때문
+                colStart: effectiveStartDayOfWeek + 1, // CSS Grid는 1-based
+                colEnd: effectiveEndDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
+            };
         }
     }
     return null;
@@ -340,6 +339,7 @@ function setupEventListeners() {
     // 오늘 버튼
     document.getElementById('todayBtn').addEventListener('click', function() {
         const today = new Date();
+        today.setHours(0,0,0,0); // 시간 초기화
         currentMiniCalendarDate = new Date(today);
         selectedMiniCalendarDate = new Date(today); // 오늘 날짜를 선택된 날짜로 설정
         calendar.today();
@@ -483,6 +483,7 @@ function setupKeyboardShortcuts() {
             case 'KeyT': // T - 오늘로 이동
                 e.preventDefault();
                 const todayForT = new Date();
+                todayForT.setHours(0,0,0,0); // 시간 초기화
                 currentMiniCalendarDate = new Date(todayForT);
                 selectedMiniCalendarDate = new Date(todayForT); // 오늘 날짜 선택
                 calendar.today();
@@ -512,6 +513,10 @@ function setupKeyboardShortcuts() {
                 e.preventDefault();
                 calendar.next();
                 break;
+            case 'Backslash': // '\' 키 (₩ 키에 해당) - 사이드바 토글 (수정)
+                e.preventDefault();
+                toggleSidebar();
+                break;
         }
     });
 }
@@ -527,6 +532,20 @@ function updateViewButtons(viewType) {
         }
     });
 }
+
+// --- 사이드바 토글 함수 (수정) ---
+function toggleSidebar() {
+    const sidebar = document.querySelector('.calendar-sidebar');
+    const main = document.querySelector('.calendar-main');
+    const sidePanel = document.querySelector('.side-panel'); // 우측 패널
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+        // 메인 영역과 우측 패널에도 클래스를 토글하여 스타일 조정
+        main?.classList.toggle('sidebar-collapsed');
+        sidePanel?.classList.toggle('sidebar-collapsed');
+    }
+}
+
 
 // ==================== 카테고리 관리 ====================
 async function loadCategories() {
@@ -788,11 +807,13 @@ function setupOutsideClickClose() {
 function showEditView() {
     document.getElementById('panelDefaultView').style.display = 'none';
     document.getElementById('panelEditView').style.display = 'flex';
+    document.querySelector('.side-panel')?.classList.add('editing'); // 편집 중 클래스 추가
 }
 
 function showDefaultView() {
     document.getElementById('panelDefaultView').style.display = 'flex';
     document.getElementById('panelEditView').style.display = 'none';
+    document.querySelector('.side-panel')?.classList.remove('editing'); // 편집 중 클래스 제거
 }
 
 async function loadEventToForm(eventId) {
@@ -1199,7 +1220,7 @@ function showNotification(message) {
     notificationDiv.style.color = 'white';
     notificationDiv.style.padding = '10px 20px';
     notificationDiv.style.borderRadius = '5px';
-    notificationDiv.style.zIndex = '2000';
+    notificationDiv.style.zIndex = '2000'; // z-index 증가
     notificationDiv.textContent = message;
     document.body.appendChild(notificationDiv);
 
@@ -1496,6 +1517,3 @@ function updateFormFromTempEvent(event) {
         endTimeInput.style.display = 'none';
     }
 }
-
-
-// 검색 기능 제거됨
