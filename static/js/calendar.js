@@ -208,8 +208,8 @@ function renderMiniCalendar() {
     // 선택된 주의 하이라이트 정보를 계산
     let selectedWeekHighlightInfo = null;
     if (selectedWeekRange) {
-        const weekStart = selectedWeekRange.start;
-        const weekEnd = selectedWeekRange.end;
+        const weekStart = new Date(selectedWeekRange.start);
+        const weekEnd = new Date(selectedWeekRange.end);
 
         // 현재 표시 중인 월의 범위
         const monthStart = new Date(year, month, 1);
@@ -221,11 +221,16 @@ function renderMiniCalendar() {
             let firstDayInMonth = null;
             let lastDayInMonth = null;
 
-            for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
-                if (d.getMonth() === month && d.getFullYear() === year) {
-                    if (!firstDayInMonth) firstDayInMonth = new Date(d);
-                    lastDayInMonth = new Date(d);
+            // Date 객체를 복사하여 순회
+            const currentDate = new Date(weekStart);
+            while (currentDate <= weekEnd) {
+                if (currentDate.getMonth() === month && currentDate.getFullYear() === year) {
+                    if (!firstDayInMonth) {
+                        firstDayInMonth = new Date(currentDate);
+                    }
+                    lastDayInMonth = new Date(currentDate);
                 }
+                currentDate.setDate(currentDate.getDate() + 1);
             }
 
             if (firstDayInMonth && lastDayInMonth) {
@@ -245,10 +250,11 @@ function renderMiniCalendar() {
 
                 if (startRow === endRow) {
                     // 행 번호는 요일 헤더(1번 행) 다음부터 시작
+                    // CSS Grid는 1-based이므로 +1, 요일 헤더가 있으므로 +1 추가
                     selectedWeekHighlightInfo = {
-                        row: startRow + 2, // +2는 CSS Grid가 1-based이고 요일 헤더가 1번 행이기 때문
-                        colStart: startDayOfWeek + 1, // CSS Grid는 1-based
-                        colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
+                        row: startRow + 2,
+                        colStart: startDayOfWeek + 1,
+                        colEnd: endDayOfWeek + 2
                     };
                 }
             }
@@ -448,30 +454,47 @@ function setupEventListeners() {
 
 // ==================== 키보드 단축키 ====================
 function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', function(e) {
-        // 입력 필드에 포커스가 있으면 단축키 무시
+    // 키보드 이벤트 핸들러 (중복 등록 방지)
+    const handleKeyDown = function(e) {
+        // 입력 필드에 포커스가 있는지 확인
         const isInputFocused = document.activeElement && (
             document.activeElement.tagName === 'INPUT' ||
             document.activeElement.tagName === 'TEXTAREA' ||
-            document.activeElement.tagName === 'SELECT'
+            document.activeElement.tagName === 'SELECT' ||
+            document.activeElement.isContentEditable
         );
 
-        // ESC - 패널/모달 닫기
+        // 모달이나 패널이 열려있는지 확인
+        const isModalOpen =
+            document.getElementById('quickEventModal')?.classList.contains('active') ||
+            document.getElementById('categoryModalOverlay')?.classList.contains('active') ||
+            document.getElementById('panelEditView')?.style.display === 'flex';
+
+        // ESC - 패널/모달 닫기 (항상 작동)
         if (e.key === 'Escape') {
+            e.preventDefault();
             closeSidePanel();
             closeCategoryModal();
             closeQuickEventModal();
             return;
         }
 
-        // 나머지 단축키는 입력 필드 외부에서만 작동
-        if (isInputFocused) return;
+        // ₩ 또는 \ - 왼쪽 사이드바 토글 (모달이 열려있지 않을 때만)
+        if ((e.key === '\\' || e.key === '₩' || e.code === 'Backslash' || e.code === 'IntlBackslash') && !isModalOpen) {
+            e.preventDefault();
+            toggleSidebar();
+            return;
+        }
+
+        // 입력 필드에 포커스가 있거나 모달이 열려있으면 나머지 단축키 무시
+        if (isInputFocused || isModalOpen) return;
 
         // N - 새 일정 (오늘 날짜)
         if (e.key === 'n' || e.key === 'N') {
             e.preventDefault();
             const today = formatDate(new Date());
             showQuickEventModal(today);
+            return;
         }
 
         // T - 오늘로 이동
@@ -482,6 +505,7 @@ function setupKeyboardShortcuts() {
             calendar.today();
             renderMiniCalendar();
             showNotification('오늘로 이동했습니다.');
+            return;
         }
 
         // W - 주간 뷰
@@ -489,6 +513,7 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             calendar.changeView('timeGridWeek');
             updateViewButtons('timeGridWeek');
+            return;
         }
 
         // M - 월간 뷰
@@ -496,6 +521,7 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             calendar.changeView('dayGridMonth');
             updateViewButtons('dayGridMonth');
+            return;
         }
 
         // D - 일간 뷰
@@ -503,19 +529,40 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             calendar.changeView('timeGridDay');
             updateViewButtons('timeGridDay');
+            return;
         }
 
-        // 좌우 화살표 - 이전/다음 주
+        // 좌우 화살표 - 이전/다음
         if (e.key === 'ArrowLeft') {
             e.preventDefault();
             calendar.prev();
+            return;
         }
 
         if (e.key === 'ArrowRight') {
             e.preventDefault();
             calendar.next();
+            return;
         }
-    });
+    };
+
+    // 기존 이벤트 리스너 제거 후 새로 등록 (중복 방지)
+    document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+}
+
+// 사이드바 토글 함수
+function toggleSidebar() {
+    const sidebar = document.querySelector('.calendar-sidebar');
+    if (!sidebar) return;
+
+    if (sidebar.classList.contains('hidden')) {
+        sidebar.classList.remove('hidden');
+        sidebar.style.display = '';
+    } else {
+        sidebar.classList.add('hidden');
+        sidebar.style.display = 'none';
+    }
 }
 
 // 뷰 버튼 UI 업데이트
