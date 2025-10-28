@@ -186,7 +186,7 @@ body {
     align-items: center;
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 50; /* 사이드 패널보다 낮게 설정 */
     height: 69px;
 }
 
@@ -221,6 +221,7 @@ body {
 .header-right {
     display: flex;
     gap: 12px;
+    position: relative; /* 알림 드롭다운 기준점 */
 }
 
 .header-icon {
@@ -263,9 +264,165 @@ body {
 }
 
 
-/* ======================================== */
-/* [제거됨] 오른쪽 사이드바 관련 CSS 모두 제거 */
-/* ======================================== */
+/* 알림 드롭다운 (수정) */
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    width: 350px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    z-index: 1000; /* 모든 요소 위에 표시되도록 z-index 증가 */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px) scale(0.98);
+    transition: all 0.25s ease-out;
+    overflow: hidden;
+}
+
+.notification-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.notification-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-color);
+    background: #fcfcfc;
+}
+.notification-header h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.notification-tabs {
+    display: flex;
+    padding: 6px;
+    background: var(--bg-primary);
+}
+.notification-tabs .tab {
+    flex: 1;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer; /* 커서 추가 */
+}
+.notification-tabs .tab:hover {
+    background: #e9ecef;
+    color: var(--korea-red);
+}
+.notification-tabs .tab.active {
+    background: var(--bg-secondary);
+    color: var(--korea-red);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-color: transparent;
+}
+
+.notification-content {
+    padding: 0;
+    max-height: 350px;
+    overflow-y: auto;
+}
+.notification-content .tab-content {
+    display: none;
+}
+.notification-content .tab-content.active {
+    display: block;
+}
+
+.notification-content ul.notice-list-ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.notification-content ul li.notice-item {
+    padding: 0;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+.notification-content ul li.notice-item:last-child {
+    border-bottom: none;
+}
+.notification-content ul li.notice-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-link {
+    display: flex;
+    align-items: center;
+    padding: 12px 18px;
+    text-decoration: none;
+    color: var(--text-primary);
+    gap: 12px;
+}
+
+.notice-icon-wrapper {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #fef5f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.notice-icon-wrapper i {
+    color: var(--korea-red-light);
+    font-size: 14px;
+}
+
+.notice-text-wrapper {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.notice-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.notice-empty {
+    padding: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.notification-content #guides p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 10px;
+    padding: 0 18px;
+}
+.notification-content #guides p strong {
+    color: var(--text-primary);
+}
+.notification-content #guides p:first-child {
+    padding-top: 10px;
+}
+.notification-content #guides p:last-child {
+    margin-bottom: 0;
+    padding-bottom: 10px;
+}
 
 
 /* 스크롤바 스타일 */
@@ -334,7 +491,7 @@ body {
 
 /* 반응형 */
 @media (max-width: 1200px) {
-    /* [제거됨] sidebar-right 관련 미디어 쿼리 제거 */
+    /* 오른쪽 사이드바 제거 없음 */
 }
 
 @media (max-width: 768px) {
@@ -350,5 +507,10 @@ body {
     .search-box {
         width: auto;
         flex: 1;
+    }
+    /* 반응형 알림 드롭다운 */
+    .notification-dropdown {
+        right: 16px;
+        width: calc(100vw - 32px);
     }
 }
