@@ -205,47 +205,52 @@ function renderMiniCalendar() {
     // 현재 달 날짜
     const today = new Date();
 
-    // 선택된 주의 하이라이트 정보를 미리 계산
+    // 선택된 주의 하이라이트 정보를 계산
     let selectedWeekHighlightInfo = null;
     if (selectedWeekRange) {
-        // 선택된 주의 시작일과 종료일
         const weekStart = selectedWeekRange.start;
         const weekEnd = selectedWeekRange.end;
 
-        // 이 주가 현재 표시 중인 달에 걸쳐 있는지 확인
+        // 현재 표시 중인 월의 범위
         const monthStart = new Date(year, month, 1);
         const monthEnd = new Date(year, month + 1, 0);
 
-        // 주가 이 달과 겹치는지 확인
-        if (weekStart <= monthEnd && weekEnd >= monthStart) {
-            // 이 달에서 주가 시작하는 날짜 (이전 달에서 시작할 수도 있음)
-            let displayWeekStart = new Date(Math.max(weekStart.getTime(), monthStart.getTime()));
-            let displayWeekEnd = new Date(Math.min(weekEnd.getTime(), monthEnd.getTime()));
+        // 선택된 주가 현재 월과 겹치는지 확인
+        if (weekEnd >= monthStart && weekStart <= monthEnd) {
+            // 주의 각 날짜를 순회하며 현재 월에 속한 날짜 찾기
+            let firstDayInMonth = null;
+            let lastDayInMonth = null;
 
-            // 주의 시작 요일 (0=일요일, 6=토요일)
-            const startDayOfWeek = displayWeekStart.getDay();
-            const endDayOfWeek = displayWeekEnd.getDay();
+            for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
+                if (d.getMonth() === month && d.getFullYear() === year) {
+                    if (!firstDayInMonth) firstDayInMonth = new Date(d);
+                    lastDayInMonth = new Date(d);
+                }
+            }
 
-            // 이 달에서의 날짜
-            const startDay = displayWeekStart.getDate();
-            const endDay = displayWeekEnd.getDate();
+            if (firstDayInMonth && lastDayInMonth) {
+                const startDay = firstDayInMonth.getDate();
+                const endDay = lastDayInMonth.getDate();
+                const startDayOfWeek = firstDayInMonth.getDay(); // 0=일요일, 6=토요일
+                const endDayOfWeek = lastDayInMonth.getDay();
 
-            // 그리드에서의 위치 계산
-            // 첫 주의 첫 날은 (firstDay + 1)번째 셀 (0-based)
-            const startCellIndex = firstDay + startDay - 1;
-            const endCellIndex = firstDay + endDay - 1;
+                // 그리드에서의 셀 인덱스 계산 (0-based)
+                // 첫 번째 날짜 = 이전 달 날짜 수(firstDay) + 현재 날짜 - 1
+                const startCellIndex = firstDay + startDay - 1;
+                const endCellIndex = firstDay + endDay - 1;
 
-            // 행 번호 계산 (1-based, 요일 헤더는 1번 행)
-            const startRow = Math.floor(startCellIndex / 7) + 2; // +2는 요일 헤더 때문
-            const endRow = Math.floor(endCellIndex / 7) + 2;
+                // 같은 행에 있는지 확인
+                const startRow = Math.floor(startCellIndex / 7);
+                const endRow = Math.floor(endCellIndex / 7);
 
-            // 같은 행에 있으면 하이라이트 표시
-            if (startRow === endRow) {
-                selectedWeekHighlightInfo = {
-                    row: startRow,
-                    colStart: startDayOfWeek + 1, // CSS Grid는 1-based
-                    colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
-                };
+                if (startRow === endRow) {
+                    // 행 번호는 요일 헤더(1번 행) 다음부터 시작
+                    selectedWeekHighlightInfo = {
+                        row: startRow + 2, // +2는 CSS Grid가 1-based이고 요일 헤더가 1번 행이기 때문
+                        colStart: startDayOfWeek + 1, // CSS Grid는 1-based
+                        colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
+                    };
+                }
             }
         }
     }

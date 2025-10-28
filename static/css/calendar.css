@@ -154,14 +154,17 @@
 
 /* 선택된 날짜의 주 하이라이트 (알약형 배경) */
 .selected-week-highlight {
-    background: rgba(35, 131, 226, 0.12);
-    border: 2px solid rgba(35, 131, 226, 0.35);
-    border-radius: 16px; /* 알약형으로 더 둥글게 */
+    background: rgba(35, 131, 226, 0.15);
+    border: 2px solid rgba(35, 131, 226, 0.4);
+    border-radius: 20px; /* 알약형으로 둥글게 */
     pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
     position: absolute;
-    box-shadow: 0 2px 8px rgba(35, 131, 226, 0.15);
-    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(35, 131, 226, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 0; /* 날짜 뒤에 표시 */
+    /* 알약형 배경이 날짜를 감싸도록 여백 추가 */
+    margin: 2px 4px;
+    padding: 2px 0;
 }
 
 /* 현재 주 하이라이트 (메인 캘린더 기준 - 사용하지 않지만 유지) */
@@ -525,10 +528,7 @@
     border-color: inherit;
 }
 
-.fc-h-event {
-    background: var(--event-color) !important;
-    border-left: 3px solid var(--event-color-dark) !important;
-}
+/* 제거: .fc-h-event 스타일이 배경색을 덮어쓰는 문제 발생 */
 
 .fc-button {
     background: var(--notion-hover) !important;
