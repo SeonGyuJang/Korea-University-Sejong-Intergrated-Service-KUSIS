@@ -55,7 +55,7 @@
         <div id="calendar" class="main-calendar"></div>
     </div>
 
-    <div class="side-panel always-visible" id="sidePanel">
+    <div class="side-panel" id="sidePanel"> {# --- 수정: always-visible 클래스 제거 --- #}
         <div class="panel-default-view" id="panelDefaultView">
             <div class="side-panel-header">
                 <h2>📌 바로가기</h2>
@@ -88,7 +88,17 @@
                             <kbd>←</kbd> <kbd>→</kbd>
                             <span>이전/다음</span>
                         </div>
+                        {# --- 수정: 사이드바 토글 단축키 설명 업데이트 --- #}
+                        <div class="shortcut-item">
+                            <kbd>\</kbd>
+                            <span>좌측 사이드바 열기/닫기</span>
                         </div>
+                        {# --- 수정 끝 --- #}
+                        <div class="shortcut-item">
+                             <kbd>ESC</kbd>
+                            <span>패널/모달 닫기</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="tips-section">

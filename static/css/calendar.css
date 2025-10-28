@@ -8,10 +8,14 @@
     --notion-text-light: #787774;
     --notion-hover: #f1f1ef;
     --notion-active: #e9e9e7;
-    --notion-primary: #2383e2;
+    --notion-primary: #2383e2; /* Notion Blue */
     --notion-danger: #eb5757;
     --notion-shadow: rgba(15, 15, 15, 0.05);
     --notion-shadow-lg: rgba(15, 15, 15, 0.1);
+    /* --- 추가: 주 하이라이트 색상 --- */
+    --week-highlight-bg: rgba(35, 131, 226, 0.15);
+    --week-highlight-border: rgba(35, 131, 226, 0.4);
+    /* --- 추가 끝 --- */
 }
 
 * {
@@ -21,7 +25,7 @@
 /* ==================== 메인 컨테이너 ==================== */
 .notion-calendar-container {
     display: flex;
-    height: calc(100vh - 60px); /* 헤더 높이 제외 */
+    height: calc(100vh - 69px); /* 헤더 높이(69px) 제외 */
     background: var(--notion-bg);
     position: relative;
     overflow: hidden;
@@ -48,7 +52,26 @@
     padding: 20px 16px;
     overflow-y: auto;
     flex-shrink: 0;
+    transition: width 0.3s ease, padding 0.3s ease, border 0.3s ease; /* --- 수정: border 트랜지션 추가 --- */
 }
+
+/* --- 추가: 사이드바 collapsed 상태 --- */
+.calendar-sidebar.collapsed {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    border-right: none; /* --- 수정: 오른쪽 테두리 제거 --- */
+    overflow: hidden;
+}
+/* --- 추가 끝 --- */
+
+/* --- 추가: 메인 영역/우측 패널 left margin 조정 --- */
+.calendar-main.sidebar-collapsed,
+.side-panel.sidebar-collapsed {
+    /* 사이드바 너비만큼 왼쪽 마진 제거 (사이드바가 접혔을 때) */
+    margin-left: 0;
+}
+/* --- 추가 끝 --- */
 
 .calendar-sidebar::-webkit-scrollbar {
     width: 4px;
@@ -103,8 +126,10 @@
 .mini-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    /* --- 수정: gap 유지, 테두리 제거 --- */
     gap: 2px;
     position: relative;
+    background-clip: padding-box;
 }
 
 .mini-calendar-weekday {
@@ -126,8 +151,15 @@
     color: var(--notion-text);
     transition: all 0.15s ease;
     position: relative;
-    z-index: 1; /* 배경 위에 표시 */
+    z-index: 1; /* 날짜 숫자가 배경 위에 오도록 */
+    /* --- 수정: 테두리 제거 --- */
+    /* border: 1px solid var(--notion-border); */
 }
+
+/* --- 제거: 테두리 관련 제거 --- */
+/* .mini-calendar-grid > div:nth-child(-n+7) { border-top: none; } */
+/* .mini-calendar-grid > div:nth-child(7n) { border-right: none; } */
+/* .mini-calendar-grid > div:nth-child(7n+1) { border-left: none; } */
 
 .mini-calendar-day:hover {
     background: var(--notion-hover);
@@ -146,33 +178,31 @@
     z-index: 2; /* 오늘 날짜는 더 위에 표시 */
 }
 
-.mini-calendar-day.selected {
+/* --- 수정: 클릭된 날짜 스타일 변경 ('selected' -> 'clicked-date') --- */
+.mini-calendar-day.clicked-date {
     background: var(--notion-primary);
     color: white;
     font-weight: 600;
     box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
 
-/* 선택된 날짜의 주 하이라이트 (알약형 배경) - 수정 */
-.selected-week-highlight {
-    background: rgba(35, 131, 226, 0.15); /* 배경색 */
-    border: 1.5px solid rgba(35, 131, 226, 0.4); /* 테두리 */
+/* --- 수정: 주 하이라이트 스타일 복구 (알약형) --- */
+.week-highlight {
+    background: var(--week-highlight-bg); /* 배경색 변수 사용 */
+    border: 1.5px solid var(--week-highlight-border); /* 테두리 색상 변수 사용 */
     border-radius: 20px; /* 알약형으로 둥글게 */
     pointer-events: none; /* 클릭 이벤트가 아래 날짜로 전달되도록 */
-    position: absolute;
-    box-shadow: 0 1px 4px rgba(35, 131, 226, 0.1); /* 그림자 */
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: absolute; /* grid 위치 지정 위해 */
     z-index: 0; /* 날짜 뒤에 표시 */
-    /* 알약형 배경이 날짜를 감싸도록 여백 조정 */
-    margin: 2px 4px;
-    padding: 1px 0; /* 세로 패딩 살짝 추가 */
-    left: 0; /* 왼쪽 정렬 */
-    right: 0; /* 오른쪽 정렬 (grid-column으로 제어됨) */
+    /* --- 추가: 알약이 날짜를 부드럽게 감싸도록 여백 조정 --- */
+    top: 2px;
+    bottom: 2px;
+    left: 4px; /* 좌우 여백을 더 줘서 알약 모양 만들기 */
+    right: 4px;
+    /* grid-row, grid-column 은 JS에서 인라인 스타일로 설정됨 */
 }
+/* --- 수정 끝 --- */
 
-
-/* 현재 주 하이라이트 (제거) */
-/* .current-week-highlight { ... } */
 
 .mini-calendar-day.has-events::after {
     content: '';
@@ -319,6 +349,10 @@
     font-size: 14px;
     color: var(--notion-text);
     font-weight: 400;
+    /* --- 추가: 이름 길어질 경우 ... 처리 --- */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .category-badge {
@@ -352,6 +386,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: margin-left 0.3s ease; /* --- 추가: 사이드바 토글 시 애니메이션 --- */
 }
 
 .calendar-toolbar {
@@ -605,6 +640,7 @@
     flex-direction: column;
     overflow: hidden; /* 내부 스크롤 처리 */
     flex-shrink: 0; /* 너비 유지 */
+    transition: margin-left 0.3s ease; /* --- 추가: 사이드바 토글 시 애니메이션 --- */
     /* position, top, transform, z-index 제거됨 (always-visible이 기본) */
 }
 
@@ -772,39 +808,7 @@
     color: var(--notion-text);
 }
 
-/* ==================== 기본 패널 (검색 & 단축키) ==================== */
-.search-box {
-    position: relative;
-    margin-bottom: 24px;
-}
-
-.search-box i {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--notion-text-light);
-    font-size: 14px;
-}
-
-.search-box input {
-    width: 100%;
-    padding: 10px 12px 10px 36px;
-    border: 1px solid var(--notion-border);
-    border-radius: 6px;
-    font-size: 14px;
-    color: var(--notion-text);
-    background: var(--notion-sidebar-bg);
-    transition: all 0.2s ease;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: var(--notion-primary);
-    background: white;
-    box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.1);
-}
-
+/* ==================== 기본 패널 (단축키) ==================== */
 .shortcuts-section,
 .tips-section {
     margin-bottom: 28px;
@@ -940,48 +944,6 @@
     background: rgba(235, 87, 87, 0.1);
 }
 
-/* ==================== 빠른 일정 추가 팝업 ==================== */
-.quick-add-popup {
-    position: absolute;
-    display: none;
-    background: white;
-    border: 1px solid var(--notion-border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--notion-shadow-lg);
-    padding: 4px;
-    z-index: 1000;
-    min-width: 250px;
-}
-
-.quick-add-popup.active {
-    display: block;
-    animation: popupFadeIn 0.2s ease;
-}
-
-@keyframes popupFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.quick-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: none;
-    font-size: 14px;
-    color: var(--notion-text);
-    outline: none;
-}
-
-.quick-input::placeholder {
-    color: var(--notion-text-light);
-}
-
 /* ==================== 모달 오버레이 ==================== */
 .modal-overlay {
     position: fixed;
@@ -1100,6 +1062,10 @@
     .calendar-sidebar {
         width: 220px;
     }
+    /* --- 추가: 사이드바 접혔을 때 --- */
+    .calendar-sidebar.collapsed {
+        width: 0;
+    }
 
     .side-panel {
         width: 350px;
@@ -1109,43 +1075,52 @@
 @media (max-width: 768px) {
     .notion-calendar-container {
         flex-direction: column;
+        height: auto; /* 모바일에서는 높이 자동 */
     }
 
+    /* --- 수정: 모바일에서 사이드바 숨김 처리 --- */
     .calendar-sidebar {
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid var(--notion-border);
-        padding: 16px;
+        /* display: none; */ /* 완전히 숨기는 대신 너비 0으로 처리 */
+        width: 0;
+        padding: 0;
+        border: none;
+        overflow: hidden;
     }
+    /* .calendar-sidebar.collapsed 는 이미 width: 0 이므로 유지 */
 
-    .mini-calendar-wrapper {
-        display: none;
-    }
 
-    /* 사이드 패널 모바일 스타일 (수정) */
+    /* --- 수정: 모바일에서 사이드 패널 동작 변경 --- */
     .side-panel {
-        position: fixed; /* 고정 위치로 변경 */
-        top: 0; /* 상단 고정 */
-        right: 0; /* 오른쪽 고정 */
-        width: 100%; /* 전체 너비 */
-        height: 100vh; /* 전체 높이 */
-        transform: translateX(100%); /* 기본적으로 숨김 */
+        position: fixed; /* 고정 위치 */
+        top: 0;
+        right: 0;
+        width: 85%; /* 화면 너비의 85% */
+        max-width: 350px; /* 최대 너비 */
+        height: 100%; /* 전체 높이 */
+        transform: translateX(100%); /* 기본 숨김 */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 100; /* 메인 콘텐츠 위에 표시 */
+        z-index: 100;
         border-left: 1px solid var(--notion-border);
         box-shadow: -4px 0 12px var(--notion-shadow-lg);
+        margin-left: 0; /* sidebar-collapsed 클래스 영향 제거 */
     }
-    /* always-visible 클래스는 모바일에서 더 이상 사용하지 않음 */
 
-    /* 편집 패널이 열렸을 때 */
+    /* 편집 패널이 열렸을 때 (JS에서 active 클래스 추가) */
     .side-panel.active {
         transform: translateX(0); /* 보이도록 이동 */
     }
+    /* .side-panel.sidebar-collapsed 는 모바일에서 의미 없음 */
+
 
     .calendar-toolbar {
         flex-direction: column;
         gap: 12px;
         align-items: flex-start;
+    }
+
+    .main-calendar {
+         height: calc(100vh - 150px); /* 헤더, 툴바 높이 고려하여 대략적인 높이 설정 */
+         padding: 16px;
     }
 }
 

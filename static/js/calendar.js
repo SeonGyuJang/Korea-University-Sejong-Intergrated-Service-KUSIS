@@ -7,7 +7,7 @@ let allEvents = [];
 let visibleCategories = new Set();
 let currentMiniCalendarDate = new Date();
 let selectedEventId = null;
-let selectedMiniCalendarDate = null; // 미니 캘린더에서 선택한 날짜
+let selectedMiniCalendarDate = null; // 미니 캘린더에서 선택한 날짜 (초기값 null로 유지)
 
 // 편집 상태 (NEW)
 let editingTempEvent = null; // 임시 이벤트 객체
@@ -16,9 +16,11 @@ let editingTempEvent = null; // 임시 이벤트 객체
 document.addEventListener('DOMContentLoaded', function() {
     initializeCalendar();
     loadCategories();
-    // 초기 로드 시 오늘 날짜를 선택된 날짜로 설정 (주 하이라이트 위해)
-    selectedMiniCalendarDate = new Date();
-    selectedMiniCalendarDate.setHours(0,0,0,0); // 시간 초기화
+    // --- 수정: 초기 로드 시 오늘 날짜의 주를 하이라이트하기 위해 selectedMiniCalendarDate 설정 ---
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    selectedMiniCalendarDate = new Date(today); // 오늘 날짜를 기준으로 초기 하이라이트 설정
+    // --- 수정 끝 ---
     renderMiniCalendar();
     setupEventListeners();
     setupKeyboardShortcuts();
@@ -139,9 +141,9 @@ function initializeCalendar() {
             loadEventsInRange(info.start, info.end);
             // 메인 캘린더 날짜 변경 시 미니 캘린더의 선택된 날짜도 업데이트
             const newDate = calendar.getDate();
-            selectedMiniCalendarDate = new Date(newDate);
+            selectedMiniCalendarDate = new Date(newDate); // 메인 캘린더의 현재 날짜로 설정
             selectedMiniCalendarDate.setHours(0,0,0,0);
-            renderMiniCalendar();
+            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (하이라이트 업데이트 포함)
         },
 
         // 이벤트 소스
@@ -188,10 +190,10 @@ function renderMiniCalendar() {
         `${year}년 ${month + 1}월`;
 
     // --- 주 하이라이트 로직 수정 ---
-    // 하이라이트할 날짜 결정: 선택된 날짜가 있으면 사용, 없으면 오늘 날짜 사용
-    const dateToHighlight = selectedMiniCalendarDate || today;
-    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
-    // --- ---
+    // 하이라이트할 날짜 결정: selectedMiniCalendarDate (클릭된 날짜 또는 초기 오늘 날짜) 사용
+    const dateToHighlight = selectedMiniCalendarDate;
+    const weekRangeToHighlight = dateToHighlight ? getWeekRangeForDate(dateToHighlight) : null;
+    // --- 수정 끝 ---
 
     // 그리드 생성
     const firstDayOfMonth = new Date(year, month, 1);
@@ -223,18 +225,20 @@ function renderMiniCalendar() {
             const eventStart = e.start.split('T')[0];
             const eventEnd = e.end ? e.end.split('T')[0] : null;
             if (eventStart === dateStr) return true;
-            if (eventEnd && eventStart <= dateStr && dateStr <= eventEnd) return true;
+            if (eventEnd && eventStart <= dateStr && dateStr <= eventEnd) return true; // 기간 이벤트 포함
             return false;
         });
 
-        // 선택된 날짜인지 확인
-        const isSelected = selectedMiniCalendarDate &&
+        // 클릭된 날짜인지 확인
+        const isClicked = selectedMiniCalendarDate &&
             formatDate(selectedMiniCalendarDate) === dateStr;
 
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
-        if (isSelected) classes += ' selected';
+        // --- 수정: 클릭된 날짜 클래스 이름 변경 ('selected' -> 'clicked-date') ---
+        if (isClicked) classes += ' clicked-date';
+        // --- 수정 끝 ---
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -252,8 +256,9 @@ function renderMiniCalendar() {
 
     // 하이라이트 알약 배경 추가 (단일 요소)
     if (highlightInfo) {
-        // `selected-week-highlight` 클래스 대신 `week-highlight` 사용
+        // --- 수정: `selected-week-highlight` 대신 `week-highlight` 사용 ---
         html += `<div class="week-highlight" style="grid-row: ${highlightInfo.row}; grid-column: ${highlightInfo.colStart} / ${highlightInfo.colEnd};"></div>`;
+        // --- 수정 끝 ---
     }
     // --- 주 하이라이트 끝 ---
 
@@ -267,13 +272,13 @@ function renderMiniCalendar() {
             const dateStr = this.dataset.date;
             selectedMiniCalendarDate = new Date(dateStr + 'T00:00:00'); // 시간 정보 추가하여 정확한 Date 객체 생성
             selectedMiniCalendarDate.setHours(0,0,0,0); // 시간 초기화
-            calendar.gotoDate(dateStr);
-            renderMiniCalendar(); // 선택 상태 업데이트 (및 하이라이트 업데이트)
+            calendar.gotoDate(dateStr); // 메인 캘린더 이동
+            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (클릭된 날짜 및 주 하이라이트 업데이트)
         });
     });
 }
 
-// 주 하이라이트 위치 계산 함수
+// 주 하이라이트 위치 계산 함수 (기존 로직 유지)
 function calculateHighlightInfo(weekRange, currentYear, currentMonth, firstDayWeekday) {
     if (!weekRange) return null;
 
@@ -449,14 +454,14 @@ function setupEventListeners() {
 // ==================== 키보드 단축키 ====================
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
-        // 입력 필드에 포커스가 있으면 단축키 무시
+        // 입력 필드에 포커스가 있으면 단축키 무시 (ESC 제외)
         const isInputFocused = document.activeElement && (
             document.activeElement.tagName === 'INPUT' ||
             document.activeElement.tagName === 'TEXTAREA' ||
             document.activeElement.tagName === 'SELECT'
         );
 
-        // ESC 키 단축키 복원
+        // ESC 키 단축키는 항상 작동
         if (e.code === 'Escape') {
             // 열려있는 모달이나 패널 확인 후 닫기
             if (document.getElementById('panelEditView').style.display !== 'none') {
@@ -468,6 +473,14 @@ function setupKeyboardShortcuts() {
             }
             return; // ESC는 다른 단축키와 중복 실행되지 않도록 여기서 종료
         }
+        // --- 수정: '\' 키 (Backslash) 단축키 로직 수정 - 윈도우/맥 호환 ---
+        // Backslash 또는 Won 키는 입력 필드 포커스와 관계없이 작동
+        if (e.code === 'Backslash' || e.code === 'IntlBackslash') { // '\' 키 또는 '₩' 키 - 사이드바 토글
+            e.preventDefault(); // 기본 동작(입력) 방지
+            toggleSidebar(); // 사이드바 토글 함수 호출 
+            return; // 사이드바 토글 후 다른 단축키 로직 실행 방지
+        }
+        // --- 수정 끝 ---
 
 
         // 나머지 단축키는 입력 필드 외부에서만 작동
@@ -513,10 +526,7 @@ function setupKeyboardShortcuts() {
                 e.preventDefault();
                 calendar.next();
                 break;
-            case 'Backslash': // '\' 키 (₩ 키에 해당) - 사이드바 토글 (수정)
-                e.preventDefault();
-                toggleSidebar();
-                break;
+            // '\' 키 로직 위로 이동
         }
     });
 }
@@ -535,15 +545,24 @@ function updateViewButtons(viewType) {
 
 // --- 사이드바 토글 함수 (수정) ---
 function toggleSidebar() {
+    // --- 수정: 왼쪽 사이드바(`.calendar-sidebar`)를 토글하도록 수정 ---
     const sidebar = document.querySelector('.calendar-sidebar');
     const main = document.querySelector('.calendar-main');
-    const sidePanel = document.querySelector('.side-panel'); // 우측 패널
+    const sidePanel = document.querySelector('.side-panel'); // 우측 패널은 유지
     if (sidebar) {
         sidebar.classList.toggle('collapsed');
         // 메인 영역과 우측 패널에도 클래스를 토글하여 스타일 조정
         main?.classList.toggle('sidebar-collapsed');
-        sidePanel?.classList.toggle('sidebar-collapsed');
+        sidePanel?.classList.toggle('sidebar-collapsed'); // 우측 패널도 영향받음
+
+        // FullCalendar 크기 재조정
+        setTimeout(() => {
+            if (calendar) {
+                calendar.updateSize();
+            }
+        }, 300); // CSS transition 시간에 맞춰 조정 (0.3s)
     }
+    // --- 수정 끝 ---
 }
 
 
@@ -807,12 +826,16 @@ function setupOutsideClickClose() {
 function showEditView() {
     document.getElementById('panelDefaultView').style.display = 'none';
     document.getElementById('panelEditView').style.display = 'flex';
+    // --- 수정: 모바일 대응 - 우측 패널에 active 클래스 추가 ---
+    document.querySelector('.side-panel')?.classList.add('active');
     document.querySelector('.side-panel')?.classList.add('editing'); // 편집 중 클래스 추가
 }
 
 function showDefaultView() {
     document.getElementById('panelDefaultView').style.display = 'flex';
     document.getElementById('panelEditView').style.display = 'none';
+     // --- 수정: 모바일 대응 - 우측 패널에 active 클래스 제거 ---
+    document.querySelector('.side-panel')?.classList.remove('active');
     document.querySelector('.side-panel')?.classList.remove('editing'); // 편집 중 클래스 제거
 }
 
