@@ -458,7 +458,8 @@ function setupKeyboardShortcuts() {
         const isInputFocused = document.activeElement && (
             document.activeElement.tagName === 'INPUT' ||
             document.activeElement.tagName === 'TEXTAREA' ||
-            document.activeElement.tagName === 'SELECT'
+            document.activeElement.tagName === 'SELECT' ||
+            document.activeElement.isContentEditable
         );
 
         // ESC 키 단축키는 항상 작동
@@ -530,7 +531,25 @@ function setupKeyboardShortcuts() {
                 break;
             // '\' 키 로직 위로 이동
         }
-    });
+    };
+
+    // 기존 이벤트 리스너 제거 후 새로 등록 (중복 방지)
+    document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+}
+
+// 사이드바 토글 함수
+function toggleSidebar() {
+    const sidebar = document.querySelector('.calendar-sidebar');
+    if (!sidebar) return;
+
+    if (sidebar.classList.contains('hidden')) {
+        sidebar.classList.remove('hidden');
+        sidebar.style.display = '';
+    } else {
+        sidebar.classList.add('hidden');
+        sidebar.style.display = 'none';
+    }
 }
 
 
