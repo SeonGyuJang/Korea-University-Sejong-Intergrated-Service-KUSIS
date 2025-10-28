@@ -531,7 +531,8 @@ function setupKeyboardShortcuts() {
                 break;
             // '\' 키 로직 위로 이동
         }
-    };
+    }
+    );
 
     // 기존 이벤트 리스너 제거 후 새로 등록 (중복 방지)
     document.removeEventListener('keydown', handleKeyDown);
