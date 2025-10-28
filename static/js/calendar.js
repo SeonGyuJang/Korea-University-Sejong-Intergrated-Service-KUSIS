@@ -7,6 +7,7 @@ let allEvents = [];
 let visibleCategories = new Set();
 let currentMiniCalendarDate = new Date();
 let selectedEventId = null;
+let selectedMiniCalendarDate = null; // 미니 캘린더에서 선택한 날짜
 
 // 편집 상태 (NEW)
 let editingTempEvent = null; // 임시 이벤트 객체
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderMiniCalendar();
     setupEventListeners();
     setupKeyboardShortcuts();
+    setupOutsideClickClose();
 });
 
 // ==================== FullCalendar 초기화 ====================
@@ -34,9 +36,22 @@ function initializeCalendar() {
         dayMaxEvents: 3,
         weekends: true,
         height: 'auto',
+        contentHeight: 'auto',
         nowIndicator: true, // 현재 시간 표시
-        slotMinTime: '00:00:00',
+        slotMinTime: '06:00:00',
         slotMaxTime: '24:00:00',
+        slotDuration: '00:30:00',
+        slotLabelInterval: '01:00',
+        slotLabelFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        },
         selectMinDistance: 5, // 5px 이상 드래그해야 선택
 
         // 드래그로 일정 생성 (NEW)
@@ -174,7 +189,20 @@ function renderMiniCalendar() {
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
         const isToday = date.toDateString() === today.toDateString();
-        const hasEvents = allEvents.some(e => e.start.startsWith(dateStr));
+
+        // 해당 날짜에 이벤트가 있는지 확인 (표시 중인 카테고리만)
+        const hasEvents = allEvents.some(e => {
+            if (!visibleCategories.has(e.extendedProps.category_id)) return false;
+
+            const eventStart = e.start.split('T')[0];
+            const eventEnd = e.end ? e.end.split('T')[0] : null;
+
+            // 시작 날짜가 일치하거나, 기간 이벤트의 범위 내에 있는 경우
+            if (eventStart === dateStr) return true;
+            if (eventEnd && eventStart <= dateStr && dateStr <= eventEnd) return true;
+
+            return false;
+        });
 
         // 현재 주에 속하는지 확인
         const isInCurrentWeek = currentWeekRange &&
@@ -205,9 +233,14 @@ function renderMiniCalendar() {
             };
         }
 
+        // 선택된 날짜인지 확인
+        const isSelected = selectedMiniCalendarDate &&
+            formatDate(selectedMiniCalendarDate) === dateStr;
+
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (hasEvents) classes += ' has-events';
+        if (isSelected) classes += ' selected';
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -230,13 +263,30 @@ function renderMiniCalendar() {
     miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
+            selectedMiniCalendarDate = new Date(dateStr);
             calendar.gotoDate(dateStr);
+            renderMiniCalendar(); // 선택 상태 업데이트
         });
     });
 }
 
 // ==================== 이벤트 리스너 설정 ====================
 function setupEventListeners() {
+    // 검색 기능
+    const searchInput = document.getElementById('eventSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            if (searchTerm === '') {
+                // 검색어가 없으면 모든 이벤트 표시
+                calendar.refetchEvents();
+            } else {
+                // 검색어가 있으면 필터링
+                filterEventsBySearch(searchTerm);
+            }
+        });
+    }
+
     // 미니 캘린더 네비게이션
     document.getElementById('miniPrevMonth').addEventListener('click', function() {
         currentMiniCalendarDate.setMonth(currentMiniCalendarDate.getMonth() - 1);
@@ -656,6 +706,26 @@ function closeSidePanel() {
     showDefaultView();
 }
 
+// 외부 클릭으로 사이드 패널 닫기
+function setupOutsideClickClose() {
+    document.addEventListener('click', function(e) {
+        // 편집 중인 임시 이벤트가 없으면 무시
+        if (!editingTempEvent) return;
+
+        const panel = document.getElementById('panelEditView');
+        const calendar = document.getElementById('calendar');
+
+        // 패널 내부 클릭이면 무시
+        if (panel && panel.contains(e.target)) return;
+
+        // 캘린더 내부 클릭이면 무시 (드래그, 리사이즈 등)
+        if (calendar && calendar.contains(e.target)) return;
+
+        // 외부 클릭 시 패널 닫기
+        closeSidePanel();
+    });
+}
+
 // 패널 뷰 전환 함수
 function showEditView() {
     document.getElementById('panelDefaultView').style.display = 'none';
@@ -813,14 +883,45 @@ async function deleteEvent(eventId) {
     }
 }
 
-async function updateEventDate(eventId, start, end) {
-    const startDate = formatDate(start);
-    const endDate = end ? formatDate(end) : null;
+async function updateEventDate(eventId, start, end, isAllDay) {
+    const eventData = {};
 
-    const eventData = {
-        start_date: startDate,
-        end_date: endDate
-    };
+    if (isAllDay === undefined) {
+        // allEvents에서 이벤트 찾아서 allDay 정보 가져오기
+        const event = allEvents.find(e => e.id == eventId);
+        isAllDay = event ? event.allDay : true;
+    }
+
+    if (isAllDay) {
+        // 종일 이벤트
+        eventData.start_date = formatDate(start);
+        // FullCalendar는 종일 이벤트의 end를 exclusive로 처리 (다음날 00:00)
+        if (end) {
+            const endDate = new Date(end);
+            endDate.setDate(endDate.getDate() - 1);
+            eventData.end_date = formatDate(endDate);
+        } else {
+            eventData.end_date = null;
+        }
+        eventData.start_time = null;
+        eventData.end_time = null;
+        eventData.all_day = true;
+    } else {
+        // 시간 이벤트
+        const startDateTime = new Date(start);
+        eventData.start_date = formatDate(startDateTime);
+        eventData.start_time = formatTime(startDateTime);
+
+        if (end) {
+            const endDateTime = new Date(end);
+            eventData.end_date = formatDate(endDateTime);
+            eventData.end_time = formatTime(endDateTime);
+        } else {
+            eventData.end_date = null;
+            eventData.end_time = null;
+        }
+        eventData.all_day = false;
+    }
 
     try {
         const response = await fetch(`/api/calendar/events/${eventId}`, {
@@ -833,12 +934,14 @@ async function updateEventDate(eventId, start, end) {
 
         if (data.status === 'success') {
             refreshEvents();
+            showNotification('일정이 수정되었습니다.');
         } else {
             showNotification('오류: ' + data.message);
             calendar.refetchEvents();
         }
     } catch (error) {
         console.error('일정 업데이트 실패:', error);
+        showNotification('일정 업데이트 중 오류가 발생했습니다.');
         calendar.refetchEvents();
     }
 }
@@ -1167,4 +1270,26 @@ function updateFormFromTempEvent(event) {
             document.getElementById('eventEndTime').value = formatTime(endDate);
         }
     }
+}
+
+// ==================== 검색 기능 ====================
+function filterEventsBySearch(searchTerm) {
+    // 캘린더에 표시된 이벤트를 검색어로 필터링
+    const filteredEvents = allEvents.filter(event => {
+        if (!visibleCategories.has(event.extendedProps.category_id)) {
+            return false;
+        }
+
+        const title = event.title.toLowerCase();
+        const description = (event.extendedProps.description || '').toLowerCase();
+        const categoryName = (event.extendedProps.category_name || '').toLowerCase();
+
+        return title.includes(searchTerm) ||
+               description.includes(searchTerm) ||
+               categoryName.includes(searchTerm);
+    });
+
+    // FullCalendar의 이벤트 소스를 업데이트
+    calendar.removeAllEvents();
+    calendar.addEventSource(filteredEvents);
 }

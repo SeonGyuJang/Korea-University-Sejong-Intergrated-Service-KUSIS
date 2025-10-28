@@ -1769,7 +1769,7 @@
     border-radius: 12px;
     box-shadow: 0 5px 25px rgba(0, 0, 0, 0.15); /* 그림자 강화 */
     border: 1px solid var(--border-color);
-    z-index: 200;
+    z-index: 10000 !important; /* 최상단 표시 */
     opacity: 0;
     visibility: hidden;
     transform: translateY(10px) scale(0.98); /* 부드러운 등장 효과 */
