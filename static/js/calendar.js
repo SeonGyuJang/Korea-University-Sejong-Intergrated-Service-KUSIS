@@ -202,11 +202,54 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${prevLastDate - i}</div>`;
     }
 
-    // 주 하이라이트 정보 저장 (배경 추가를 위해)
-    let selectedWeekHighlightInfo = null;
-
     // 현재 달 날짜
     const today = new Date();
+
+    // 선택된 주의 하이라이트 정보를 미리 계산
+    let selectedWeekHighlightInfo = null;
+    if (selectedWeekRange) {
+        // 선택된 주의 시작일과 종료일
+        const weekStart = selectedWeekRange.start;
+        const weekEnd = selectedWeekRange.end;
+
+        // 이 주가 현재 표시 중인 달에 걸쳐 있는지 확인
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0);
+
+        // 주가 이 달과 겹치는지 확인
+        if (weekStart <= monthEnd && weekEnd >= monthStart) {
+            // 이 달에서 주가 시작하는 날짜 (이전 달에서 시작할 수도 있음)
+            let displayWeekStart = new Date(Math.max(weekStart.getTime(), monthStart.getTime()));
+            let displayWeekEnd = new Date(Math.min(weekEnd.getTime(), monthEnd.getTime()));
+
+            // 주의 시작 요일 (0=일요일, 6=토요일)
+            const startDayOfWeek = displayWeekStart.getDay();
+            const endDayOfWeek = displayWeekEnd.getDay();
+
+            // 이 달에서의 날짜
+            const startDay = displayWeekStart.getDate();
+            const endDay = displayWeekEnd.getDate();
+
+            // 그리드에서의 위치 계산
+            // 첫 주의 첫 날은 (firstDay + 1)번째 셀 (0-based)
+            const startCellIndex = firstDay + startDay - 1;
+            const endCellIndex = firstDay + endDay - 1;
+
+            // 행 번호 계산 (1-based, 요일 헤더는 1번 행)
+            const startRow = Math.floor(startCellIndex / 7) + 2; // +2는 요일 헤더 때문
+            const endRow = Math.floor(endCellIndex / 7) + 2;
+
+            // 같은 행에 있으면 하이라이트 표시
+            if (startRow === endRow) {
+                selectedWeekHighlightInfo = {
+                    row: startRow,
+                    colStart: startDayOfWeek + 1, // CSS Grid는 1-based
+                    colEnd: endDayOfWeek + 2 // +2는 CSS Grid의 end가 exclusive이기 때문
+                };
+            }
+        }
+    }
+
     for (let day = 1; day <= lastDate; day++) {
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
@@ -225,35 +268,6 @@ function renderMiniCalendar() {
 
             return false;
         });
-
-        // 선택된 날짜의 주에 속하는지 확인
-        const isInSelectedWeek = selectedWeekRange &&
-            date >= selectedWeekRange.start &&
-            date <= selectedWeekRange.end;
-
-        // 선택된 주의 첫 번째 날짜 정보 저장 (알약형 배경을 위해)
-        if (isInSelectedWeek && !selectedWeekHighlightInfo) {
-            const gridPosition = firstDay + day;  // 그리드에서의 위치 (1-based)
-            const rowNumber = Math.ceil(gridPosition / 7) + 1;  // +1은 요일 헤더 때문
-            const colStart = date.getDay() + 1;  // 일요일=1, 토요일=7
-
-            // 주의 마지막 날짜가 같은 달인지 확인
-            let weekEndDay = day + (6 - date.getDay());
-            let colEnd = 8;  // 기본값: 토요일 다음 (전체 주)
-
-            // 만약 주가 다음 달로 넘어가면 이번 달 마지막까지만
-            if (weekEndDay > lastDate) {
-                weekEndDay = lastDate;
-                const endDate = new Date(year, month, weekEndDay);
-                colEnd = endDate.getDay() + 2;  // +2는 CSS Grid의 end가 exclusive이기 때문
-            }
-
-            selectedWeekHighlightInfo = {
-                row: rowNumber,
-                colStart: colStart,
-                colEnd: colEnd
-            };
-        }
 
         // 선택된 날짜인지 확인
         const isSelected = selectedMiniCalendarDate &&
