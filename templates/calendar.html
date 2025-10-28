@@ -9,7 +9,8 @@
 
 {% block content %}
 <div class="notion-calendar-container">
-    <div class="calendar-sidebar">
+    {# --- 좌측 사이드바 --- #}
+    <div class="calendar-sidebar" id="calendarSidebar"> {# ID 추가 #}
         <div class="mini-calendar-wrapper">
             <div class="mini-calendar-header">
                 <button class="mini-nav-btn" id="miniPrevMonth">
@@ -34,13 +35,20 @@
                 </button>
             </div>
             <div class="category-list" id="categoryList">
-                </div>
+                {# JS로 채워짐 #}
+            </div>
         </div>
     </div>
 
-    <div class="calendar-main">
+    {# --- 메인 캘린더 영역 --- #}
+    <div class="calendar-main" id="calendarMain"> {# ID 추가 #}
+        {# --- 수정: 툴바를 메인 영역 안으로 이동 --- #}
         <div class="calendar-toolbar">
             <div class="toolbar-left">
+                {# --- 좌측 사이드바 토글 버튼 추가 --- #}
+                <button class="icon-btn sidebar-toggle-btn" id="sidebarToggleBtn" title="사이드바 열기/닫기 (\)">
+                     <i class="fas fa-bars"></i>
+                 </button>
                 <h1 class="calendar-main-title" id="calendarMainTitle">2025년 10월</h1>
             </div>
             <div class="toolbar-right">
@@ -51,11 +59,12 @@
                 </div>
             </div>
         </div>
-
+        {# --- 캘린더 렌더링 영역 --- #}
         <div id="calendar" class="main-calendar"></div>
     </div>
 
-    <div class="side-panel" id="sidePanel"> {# --- 수정: always-visible 클래스 제거 --- #}
+    {# --- 우측 사이드 패널 --- #}
+    <div class="side-panel" id="sidePanel">
         <div class="panel-default-view" id="panelDefaultView">
             <div class="side-panel-header">
                 <h2>📌 바로가기</h2>
@@ -69,7 +78,7 @@
                             <span>패널/모달 닫기</span>
                         </div>
                         <div class="shortcut-item">
-                            <kbd>\</kbd>
+                            <kbd>\</kbd> {# --- 수정: 키 표시 변경 --- #}
                             <span>좌측 사이드바 열기/닫기</span>
                         </div>
                         <div class="shortcut-item">
@@ -131,7 +140,8 @@
                         카테고리
                     </label>
                     <select id="eventCategory" class="field-select" required>
-                        </select>
+                        {# JS로 채워짐 #}
+                    </select>
                 </div>
 
                 <div class="form-field">
@@ -144,10 +154,16 @@
                         <span>종일</span>
                     </label>
                     <div class="date-time-grid">
-                        <input type="date" id="eventStartDate" class="field-input" placeholder="시작 날짜" required>
-                        <input type="time" id="eventStartTime" class="field-input time-input" placeholder="시작 시간" style="display: none;">
-                        <input type="date" id="eventEndDate" class="field-input" placeholder="종료 날짜 (선택)">
-                        <input type="time" id="eventEndTime" class="field-input time-input" placeholder="종료 시간" style="display: none;">
+                        {# --- 수정: 시작/종료 필드 가로 배치 위한 div 추가 --- #}
+                        <div>
+                            <input type="date" id="eventStartDate" class="field-input" placeholder="시작 날짜" required>
+                            <input type="time" id="eventStartTime" class="field-input time-input" placeholder="시작 시간" style="display: none;">
+                        </div>
+                        <div>
+                            <input type="date" id="eventEndDate" class="field-input" placeholder="종료 날짜 (선택)">
+                            <input type="time" id="eventEndTime" class="field-input time-input" placeholder="종료 시간" style="display: none;">
+                        </div>
+                        {# --- 수정 끝 --- #}
                     </div>
                 </div>
 
@@ -193,6 +209,7 @@
     </div>
 </div>
 
+{# --- 모달들 (기존과 동일) --- #}
 <div class="modal-overlay" id="quickEventModal">
     <div class="modal-content small">
         <div class="modal-header">
@@ -211,7 +228,8 @@
                 <div class="form-field">
                     <label class="field-label">카테고리</label>
                     <select id="quickEventCategory" class="field-select" required>
-                        </select>
+                        {# JS로 채워짐 #}
+                    </select>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="quickDetailBtn">상세 설정</button>
