@@ -246,18 +246,13 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${day}</div>`;
     }
 
-    // --- *** 하이라이트는 항상 하나만, selectedMiniCalendarDate 기준으로 그림 *** ---
-    if (weekRangeToHighlight) {
-        const highlightInfo = calculateHighlightInfo(weekRangeToHighlight, year, month, firstDayWeekday);
-        // highlightInfo가 유효할 때 (즉, 해당 주가 현재 월에 표시될 때)만 하이라이트 추가
-        if (highlightInfo) {
-            html += `<div class="week-highlight" style="grid-row: ${highlightInfo.row}; grid-column: ${highlightInfo.colStart} / ${highlightInfo.colEnd};"></div>`;
-        }
-    }
-    // --- 수정 끝 ---
-
     html += '</div>'; // mini-calendar-grid 닫기
-    miniCalendar.innerHTML = html; // *** 이 시점에서 HTML이 완전히 교체되어 이전 하이라이트는 사라짐 ***
+    miniCalendar.innerHTML = html;
+
+    // 주차 하이라이트 적용 (DOM 렌더링 후)
+    setTimeout(() => {
+        applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
+    }, 0);
 
     // 날짜 클릭 이벤트 리스너 추가
     miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
@@ -277,43 +272,79 @@ function renderMiniCalendar() {
 }
 
 
-// --- 하이라이트 위치 계산 함수 ---
-// 기존과 동일
-function calculateHighlightInfo(weekRange, currentYear, currentMonth, firstDayWeekday) {
-    if (!weekRange) return null;
+// 주차 하이라이트 적용 함수
+function applyWeekHighlight(weekRange, currentYear, currentMonth, firstDayWeekday) {
+    const miniCalendar = document.getElementById('miniCalendar');
+    if (!miniCalendar || !weekRange) return;
+
+    // 기존 하이라이트 제거
+    const existingHighlight = miniCalendar.querySelector('.week-highlight');
+    if (existingHighlight) {
+        existingHighlight.remove();
+    }
 
     const weekStart = weekRange.start;
     const weekEnd = weekRange.end;
     const monthStart = new Date(currentYear, currentMonth, 1);
     const monthEnd = new Date(currentYear, currentMonth + 1, 0);
 
-    if (weekEnd >= monthStart && weekStart <= monthEnd) {
-        let firstDayInMonth = null;
-        let lastDayInMonth = null;
+    // 주차가 현재 월과 겹치는지 확인
+    if (weekEnd < monthStart || weekStart > monthEnd) return;
 
-        for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
-            if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                if (!firstDayInMonth) firstDayInMonth = new Date(d);
-                lastDayInMonth = new Date(d);
-            }
-        }
+    // 현재 월에 표시되는 주의 시작/끝 요일 계산
+    let effectiveStartDay = weekStart.getDay(); // 0(일) ~ 6(토)
+    let effectiveEndDay = weekEnd.getDay();
 
-        if (firstDayInMonth && lastDayInMonth) {
-            const startDay = firstDayInMonth.getDate();
-            const startCellIndex = firstDayWeekday + startDay - 1;
-            const startRow = Math.floor(startCellIndex / 7);
-
-            const effectiveStartDayOfWeek = (weekStart < monthStart) ? 0 : weekStart.getDay();
-            const effectiveEndDayOfWeek = (weekEnd > monthEnd) ? 6 : weekEnd.getDay();
-
-            return {
-                row: startRow + 2,
-                colStart: effectiveStartDayOfWeek + 1,
-                colEnd: effectiveEndDayOfWeek + 2
-            };
-        }
+    // 주의 시작이 이전 달인 경우
+    if (weekStart < monthStart) {
+        effectiveStartDay = 0; // 일요일부터
     }
-    return null;
+
+    // 주의 끝이 다음 달인 경우
+    if (weekEnd > monthEnd) {
+        effectiveEndDay = 6; // 토요일까지
+    }
+
+    // 첫 번째 날짜의 행 계산
+    let targetDate = new Date(Math.max(weekStart.getTime(), monthStart.getTime()));
+    const dayOfMonth = targetDate.getDate();
+    const cellIndex = firstDayWeekday + dayOfMonth - 1; // 요일 헤더 제외
+    const rowIndex = Math.floor(cellIndex / 7);
+
+    // 그리드의 모든 셀 가져오기
+    const grid = miniCalendar.querySelector('.mini-calendar-grid');
+    if (!grid) return;
+
+    const allCells = Array.from(grid.children);
+    const weekdayHeaderCount = 7; // 요일 헤더
+
+    // 해당 행의 첫 번째 셀 찾기
+    const rowStartIndex = weekdayHeaderCount + rowIndex * 7;
+    const startCell = allCells[rowStartIndex + effectiveStartDay];
+    const endCell = allCells[rowStartIndex + effectiveEndDay];
+
+    if (!startCell || !endCell) return;
+
+    // 셀 위치 계산
+    const gridRect = grid.getBoundingClientRect();
+    const startRect = startCell.getBoundingClientRect();
+    const endRect = endCell.getBoundingClientRect();
+
+    // 하이라이트 요소 생성
+    const highlight = document.createElement('div');
+    highlight.className = 'week-highlight';
+
+    const left = startRect.left - gridRect.left;
+    const top = startRect.top - gridRect.top;
+    const width = endRect.right - startRect.left;
+    const height = startRect.height;
+
+    highlight.style.left = `${left + 2}px`;
+    highlight.style.top = `${top + 1}px`;
+    highlight.style.width = `${width - 4}px`;
+    highlight.style.height = `${height - 2}px`;
+
+    grid.appendChild(highlight);
 }
 
 
@@ -479,9 +510,13 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // 백슬래시/원화 키 - 다양한 키보드 레이아웃과 입력 모드 지원
-        if (e.code === 'Backslash' || e.code === 'IntlYen' || e.code === 'IntlBackslash' ||
-            e.key === '\\' || e.key === '₩' || e.keyCode === 220) {
+        // 백슬래시 키 - 키보드 레이아웃 무관하게 작동
+        // keyCode 220은 대부분의 브라우저에서 백슬래시 키
+        const isBackslash = e.keyCode === 220 || e.which === 220 ||
+                           e.code === 'Backslash' || e.code === 'IntlBackslash' || e.code === 'IntlYen' ||
+                           e.key === '\\' || e.key === '|' || e.key === '₩' || e.key === '＼';
+
+        if (isBackslash) {
             e.preventDefault();
             toggleSidebar();
             return;
@@ -1093,7 +1128,11 @@ function formatDate(date) {
         try { date = new Date(date); if (isNaN(date)) return 'Invalid Date'; }
         catch (e) { return 'Invalid Date'; }
     }
-    return date.toISOString().split('T')[0];
+    // UTC 시간대 문제 방지: 로컬 날짜를 YYYY-MM-DD 형식으로 변환
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 
