@@ -9,7 +9,7 @@ import urllib.parse
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-from sqlalchemy import inspect, func, text, desc, or_
+from sqlalchemy import inspect, func, text, desc, or_, and_
 import pytz
 
 # 모듈 import
@@ -141,6 +141,41 @@ def create_initial_data():
              db.session.execute(text("ALTER TABLE subjects ADD COLUMN memo TEXT DEFAULT '{\"note\": \"\", \"todos\": []}'"))
              db.session.execute(text("UPDATE subjects SET memo = '{\"note\": \"\", \"todos\": []}' WHERE memo IS NULL"))
              print("--- [MIGRATION] 'memo' column added and initialized. ---")
+        
+        # --- [신규] StudyLog 테이블 마이그레이션 (subject_id 추가 및 UniqueConstraint 제거) ---
+        if inspector.has_table('study_logs'):
+            study_log_columns = [col['name'] for col in inspector.get_columns('study_logs')]
+            
+            # subject_id 컬럼 추가
+            if 'subject_id' not in study_log_columns:
+                print("--- [MIGRATION] 'subject_id' column not found in 'study_logs' table. Adding column... ---")
+                # PostgreSQL 기준. SQLite는 FK 제약 추가 시 복잡할 수 있음.
+                db.session.execute(text("ALTER TABLE study_logs ADD COLUMN subject_id INTEGER NULL"))
+                db.session.execute(text("ALTER TABLE study_logs ADD CONSTRAINT fk_study_logs_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL"))
+                print("--- [MIGRATION] 'subject_id' column and FK constraint added. ---")
+
+            # 기존 UniqueConstraint 제거 (존재할 경우)
+            constraints = inspector.get_unique_constraints('study_logs')
+            uc_exists = any(uc['name'] == '_user_date_uc' for uc in constraints)
+            if uc_exists:
+                print("--- [MIGRATION] Found obsolete '_user_date_uc' unique constraint in 'study_logs'. Removing... ---")
+                try:
+                    # PostgreSQL/MySQL 공용
+                    db.session.execute(text("ALTER TABLE study_logs DROP CONSTRAINT _user_date_uc"))
+                    print("--- [MIGRATION] '_user_date_uc' constraint removed. ---")
+                except Exception as e:
+                    try:
+                        # SQLite는 제약조건 이름을 모를 수 있음 (다른 방식 필요) - 여기서는 SQL-standard 시도
+                        db.session.execute(text("ALTER TABLE study_logs DROP CONSTRAINT _user_date_uc"))
+                        print("--- [MIGRATION] '_user_date_uc' constraint removed (fallback). ---")
+                    except Exception as e2:
+                         print(f"--- [MIGRATION] Failed to drop constraint '_user_date_uc': {e} / {e2}. Manual check required. ---")
+                         print("--- [MIGRATION] NOTE: SQLite does not support dropping constraints easily. ---")
+            
+            # duration_seconds 컬럼의 default 값 확인 (기존 0이 맞음)
+            
+        # --- StudyLog 마이그레이션 끝 ---
+
 
         # --- Post 테이블 마이그레이션 수정 ---
         post_columns = [col['name'] for col in inspector.get_columns('posts')]
@@ -460,6 +495,47 @@ def timetable_management():
         goal_credits=current_goal,
         remaining_credits=remaining_credits,
         overall_gpa=round(overall_gpa, 2)
+    )
+
+# --- [신규] 공부 분석 페이지 라우트 ---
+@app.route('/study-analysis')
+@login_required
+def study_analysis():
+    from flask import g
+    user = g.user
+    
+    # 현재 학기 정보 조회
+    current_semester = None
+    today_kst = datetime.now(KST).date()
+    
+    all_semesters = Semester.query.filter_by(user_id=user.id).order_by(Semester.year.desc()).all()
+    if all_semesters:
+        current_found = False
+        for s in all_semesters:
+            start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
+            if start and start <= today_kst and today_kst <= start + timedelta(weeks=16):
+                current_semester = s
+                current_found = True
+                break
+        if not current_found:
+            # 적절한 현재 학기를 찾지 못하면 가장 최신 학기로 대체
+            season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+            all_semesters.sort(key=lambda s: (s.year, season_order.get(s.season, 99)), reverse=True)
+            current_semester = all_semesters[0] if all_semesters else None
+
+    subjects = []
+    semester_name = "학기 없음"
+    if current_semester:
+        subjects = Subject.query.filter_by(semester_id=current_semester.id).order_by(Subject.name).all()
+        semester_name = current_semester.name
+        
+    return render_template(
+        'study_analysis.html',
+        user=user,
+        subjects=subjects,
+        semester_name=semester_name,
+        semesters=[{"id": s.id, "name": s.name} for s in all_semesters],
+        current_semester_id=current_semester.id if current_semester else None
     )
 
 # --- Authentication Routes ---
@@ -1156,7 +1232,7 @@ def get_schedule():
     from flask import g, session
 
     # 로그인 여부 확인
-    user_id = session.get('user_id')
+    user_id = session.get('student_id')
     is_logged_in = user_id is not None
 
     today_kst = datetime.now(KST) # KST 기준
@@ -1211,39 +1287,40 @@ def get_schedule():
                     })
 
             # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
-            current_semester = None
-            all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
-            if all_semesters:
-                current_found = False
-                today_date_obj = today_kst.date()
-                for s in all_semesters:
-                    start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
-                    if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
-                        current_semester = s
-                        current_found = True
-                        break
+            if is_logged_in:
+                current_semester = None
+                all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
+                if all_semesters:
+                    current_found = False
+                    today_date_obj = today_kst.date()
+                    for s in all_semesters:
+                        start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
+                        if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
+                            current_semester = s
+                            current_found = True
+                            break
 
-                if not current_found and all_semesters:
-                    season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-                    all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
-                    current_semester = all_semesters[0]
+                    if not current_found and all_semesters:
+                        season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+                        all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
+                        current_semester = all_semesters[0]
 
-            if current_semester and 1 <= today_day_of_week <= 5:
-                today_subjects = Subject.query.join(TimeSlot).filter(
-                    Subject.semester_id == current_semester.id
-                ).filter(
-                    TimeSlot.day_of_week == today_day_of_week
-                ).all()
+                if current_semester and 1 <= today_day_of_week <= 5:
+                    today_subjects = Subject.query.join(TimeSlot).filter(
+                        Subject.semester_id == current_semester.id
+                    ).filter(
+                        TimeSlot.day_of_week == today_day_of_week
+                    ).all()
 
-                for subject in today_subjects:
-                    subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
-                    for ts in subject_timeslots_today:
-                        schedule_list.append({
-                            "type": "class",
-                            "time": ts.start_time,
-                            "title": subject.name,
-                            "location": ts.room
-                        })
+                    for subject in today_subjects:
+                        subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
+                        for ts in subject_timeslots_today:
+                            schedule_list.append({
+                                "type": "class",
+                                "time": ts.start_time,
+                                "title": subject.name,
+                                "location": ts.room
+                            })
 
         schedule_list.sort(key=lambda x: x['time'] if x['time'] != '종일' else '00:00')
         return jsonify(schedule_list)
@@ -1757,67 +1834,243 @@ def get_gpa_stats():
         print(f"Error fetching gpa stats: {e}")
         return jsonify({"status": "error", "message": "GPA 통계 조회 실패"}), 500
 
+# --- [수정] /api/study-stats (기존 /api/study-stats) ---
+# 이 함수는 이제 홈 화면의 '오늘'과 '주간 평균' 위젯 전용으로 사용됩니다.
+# StudyLog 모델 변경으로 인해 쿼리 방식이 변경됩니다.
 @app.route('/api/study-stats', methods=['GET'])
 @login_required
 def get_study_stats():
     from flask import g
     user_id = g.user.id
     try:
-        today_kst = datetime.now(KST).date() # KST 기준
+        today_kst = datetime.now(KST).date()
         today_str = today_kst.strftime('%Y-%m-%d')
+        
+        # 오늘 총 공부 시간 (모든 과목 + 개인)
+        today_seconds_agg = db.session.query(
+            func.sum(StudyLog.duration_seconds)
+        ).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date == today_str
+        ).scalar() or 0
 
-        today_log = StudyLog.query.filter_by(user_id=user_id, date=today_str).first()
-        today_seconds = today_log.duration_seconds if today_log else 0
-
+        # 주간 평균 계산
         seven_days_ago_kst = today_kst - timedelta(days=6)
         seven_days_ago_str = seven_days_ago_kst.strftime('%Y-%m-%d')
 
-        weekly_logs = StudyLog.query.filter(
+        weekly_total_seconds_agg = db.session.query(
+            func.sum(StudyLog.duration_seconds)
+        ).filter(
             StudyLog.user_id == user_id,
             StudyLog.date >= seven_days_ago_str,
             StudyLog.date <= today_str
-        ).all()
+        ).scalar() or 0
 
-        total_seconds = sum(log.duration_seconds for log in weekly_logs)
-        weekly_avg_seconds = total_seconds / 7 if total_seconds > 0 else 0
+        weekly_avg_seconds = weekly_total_seconds_agg / 7.0
 
-        return jsonify({"today": today_seconds, "weekly_avg": weekly_avg_seconds})
+        return jsonify({"today": today_seconds_agg, "weekly_avg": weekly_avg_seconds})
     except Exception as e:
         print(f"Error fetching study stats: {e}")
         return jsonify({"status": "error", "message": "공부 통계 조회 실패"}), 500
 
 
+# --- [수정] /api/study-time (홈페이지 타이머 전용) ---
+# 이제 이 API는 subject_id=None 으로 새 로그를 *생성*합니다.
 @app.route('/api/study-time', methods=['POST'])
 @login_required
 def save_study_time():
     data = request.json
     duration_to_add = data.get('duration_to_add')
     date_str = data.get('date') # YYYY-MM-DD (KST 기준 날짜)
+    # subject_id = data.get('subject_id') # 홈 타이머는 항상 None (개인 공부)
     from flask import g
     user_id = g.user.id
 
-    if not isinstance(duration_to_add, int) or duration_to_add < 0 or not date_str:
-        return jsonify({"status": "error", "message": "잘못된 요청입니다."}), 400
+    if not isinstance(duration_to_add, int) or duration_to_add <= 0 or not date_str:
+        return jsonify({"status": "error", "message": "잘못된 요청입니다 (duration or date)."}), 400
 
     try:
-        datetime.strptime(date_str, '%Y-%m-%d') # 날짜 형식 검증 (KST 기준)
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date() # 날짜 형식 검증 (KST 기준)
 
-        log_entry = StudyLog.query.filter_by(user_id=user_id, date=date_str).first()
-
-        if log_entry:
-            log_entry.duration_seconds += duration_to_add
-        else:
-            log_entry = StudyLog(user_id=user_id, date=date_str, duration_seconds=duration_to_add)
-            db.session.add(log_entry)
-
+        # 모델 변경: 매번 새 로그 생성 (subject_id=None)
+        new_log_entry = StudyLog(
+            user_id=user_id,
+            date=date_obj,
+            duration_seconds=duration_to_add,
+            subject_id=None # 홈페이지 타이머는 "개인 공부"
+        )
+        db.session.add(new_log_entry)
         db.session.commit()
-        return jsonify({"status": "success", "data": {"total_duration": log_entry.duration_seconds}})
+        
+        # 오늘 총 시간 다시 계산해서 반환
+        today_total = db.session.query(func.sum(StudyLog.duration_seconds)).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date == date_obj
+        ).scalar() or 0
+        
+        return jsonify({"status": "success", "data": {"total_duration": today_total}})
 
     except ValueError:
         return jsonify({"status": "error", "message": "잘못된 날짜 형식입니다."}), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"공부 시간 저장 중 오류 발생: {e}"}), 500
+
+# --- [신규] 공부 분석 페이지: 과목별 타이머 로그 API ---
+@app.route('/api/study-log/subject', methods=['POST'])
+@login_required
+def log_subject_study_time():
+    from flask import g
+    user_id = g.user.id
+    data = request.json
+    
+    subject_id = data.get('subject_id', type=int)
+    duration_seconds = data.get('duration_seconds', type=int)
+    date_str = data.get('date_str') # KST 기준 날짜
+
+    if not all([subject_id, duration_seconds, date_str]):
+        return jsonify({"status": "error", "message": "과목 ID, 시간, 날짜는 필수입니다."}), 400
+    
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        # 과목 유효성 검사
+        subject = db.session.get(Subject, subject_id)
+        if not subject or subject.user_id != user_id:
+             return jsonify({"status": "error", "message": "유효하지 않은 과목입니다."}), 404
+
+        # 새 로그 생성
+        new_log = StudyLog(
+            user_id=user_id,
+            subject_id=subject_id,
+            date=date_obj,
+            duration_seconds=duration_seconds
+        )
+        db.session.add(new_log)
+        db.session.commit()
+        
+        return jsonify({"status": "success", "message": "공부 시간이 기록되었습니다."}), 201
+
+    except ValueError:
+        return jsonify({"status": "error", "message": "잘못된 날짜 형식입니다."}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error logging subject study time: {e}")
+        return jsonify({"status": "error", "message": f"기록 중 오류 발생: {e}"}), 500
+
+# --- [신규] 공부 분석 페이지: 데이터 조회 API ---
+@app.route('/api/study-analysis-data')
+@login_required
+def get_study_analysis_data():
+    from flask import g
+    user_id = g.user.id
+    
+    period = request.args.get('period', 'day') # day, week, month
+    date_str = request.args.get('date_str')
+    semester_id = request.args.get('semester_id', type=int)
+    
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        target_date = datetime.now(KST).date()
+        
+    if not semester_id:
+         return jsonify({"status": "error", "message": "학기 ID가 필요합니다."}), 400
+         
+    # 1. 기간(start_date, end_date) 설정
+    if period == 'day':
+        start_date = end_date = target_date
+        date_labels = [target_date.strftime('%Y-%m-%d')]
+    elif period == 'week':
+        start_date = target_date - timedelta(days=target_date.weekday()) # 월요일
+        end_date = start_date + timedelta(days=6) # 일요일
+        date_labels = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+    elif period == 'month':
+        start_date = target_date.replace(day=1)
+        next_month = (start_date + timedelta(days=32)).replace(day=1)
+        end_date = next_month - timedelta(days=1)
+        date_labels = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((end_date - start_date).days + 1)]
+    else:
+        return jsonify({"status": "error", "message": "유효하지 않은 기간입니다."}), 400
+        
+    try:
+        # 2. 메인 그래프용 시계열 데이터 (날짜별 총 공부 시간)
+        timeseries_query = db.session.query(
+            StudyLog.date,
+            func.sum(StudyLog.duration_seconds).label('total_duration')
+        ).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date.between(start_date, end_date)
+        ).group_by(
+            StudyLog.date
+        ).all()
+        
+        # 날짜 레이블에 맞춰 데이터 매핑
+        time_data_map = {str(result.date): result.total_duration for result in timeseries_query}
+        timeseries_data = [time_data_map.get(label, 0) for label in date_labels]
+        
+        # 3. 과목별 데이터 (도넛 차트용) + 총 시간
+        # 3a. 과목별 집계
+        subject_times_query = db.session.query(
+            Subject.name,
+            func.sum(StudyLog.duration_seconds).label('total_duration')
+        ).join(
+            Subject, Subject.id == StudyLog.subject_id
+        ).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date.between(start_date, end_date),
+            StudyLog.subject_id != None, # 과목이 있는 로그
+            Subject.semester_id == semester_id # 현재 선택된 학기
+        ).group_by(
+            Subject.name
+        ).all()
+        
+        subject_data = [{"name": name, "time": time} for name, time in subject_times_query]
+        
+        # 3b. '개인 공부' (subject_id=None) 집계
+        personal_time = db.session.query(
+            func.sum(StudyLog.duration_seconds)
+        ).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date.between(start_date, end_date),
+            StudyLog.subject_id == None
+        ).scalar() or 0
+        
+        if personal_time > 0:
+            subject_data.append({"name": "개인 공부", "time": personal_time})
+            
+        # 3c. 총 시간 (timeseries_data의 합계와 동일해야 함)
+        total_time = sum(timeseries_data)
+        
+        # 4. 오늘의 나무를 위한 오늘 총 공부 시간 (기간과 관계없이 항상 계산)
+        today_total_time = db.session.query(
+            func.sum(StudyLog.duration_seconds)
+        ).filter(
+            StudyLog.user_id == user_id,
+            StudyLog.date == datetime.now(KST).date()
+        ).scalar() or 0
+        
+        return jsonify({
+            "status": "success",
+            "period": period,
+            "date_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            },
+            "total_time": total_time,
+            "today_total_time": today_total_time, # 게이미피케이션용
+            "subject_data": sorted(subject_data, key=lambda x: x['time'], reverse=True),
+            "timeseries_data": {
+                "labels": date_labels,
+                "data": timeseries_data
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error getting study analysis data: {e}")
+        return jsonify({"status": "error", "message": f"데이터 분석 중 오류 발생: {e}"}), 500
+
 
 @app.route('/api/credits/goal', methods=['POST'])
 @login_required
