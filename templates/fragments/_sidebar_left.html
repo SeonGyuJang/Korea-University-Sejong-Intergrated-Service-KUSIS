@@ -30,7 +30,7 @@
             <span class="nav-text">캘린더</span>
         </a>
         {# --- 수정: 공부 분석 탭 링크 추가 --- #}
-        <a href="{{ url_for('study-analysis') }}" class="nav-item {% if request.path == '/study-analysis' %}active{% endif %}" data-page="study-analysis">
+        <a href="{{ url_for('study_analysis') }}" class="nav-item {% if request.path == '/study-analysis' %}active{% endif %}" data-page="study-analysis">
             <i class="fas fa-chart-line"></i>
             <span class="nav-text">공부 분석</span>
         </a>
