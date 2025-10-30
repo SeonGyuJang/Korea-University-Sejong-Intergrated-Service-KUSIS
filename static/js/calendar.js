@@ -185,18 +185,12 @@ function renderMiniCalendar() {
         currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
     }
 
-    // 기본값 설정: selectedMiniCalendarDate가 없거나 유효하지 않으면 오늘 날짜로 설정
-    if (!selectedMiniCalendarDate || isNaN(selectedMiniCalendarDate.getTime())) {
-        selectedMiniCalendarDate = new Date(today);
-    }
-
     const year = currentMiniCalendarDate.getFullYear();
     const month = currentMiniCalendarDate.getMonth();
 
     // NaN 체크: year나 month가 NaN이면 오늘로 리셋
     if (isNaN(year) || isNaN(month)) {
         currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        selectedMiniCalendarDate = new Date(today);
         renderMiniCalendar(); // 다시 렌더링
         return;
     }
@@ -204,9 +198,9 @@ function renderMiniCalendar() {
     const titleEl = document.getElementById('miniCalendarTitle');
     if (titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
 
-    // 하이라이트할 주 계산
-    const dateToHighlight = selectedMiniCalendarDate || today;
-    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
+    // 하이라이트할 주 계산 (selectedMiniCalendarDate가 있을 때만)
+    const dateToHighlight = selectedMiniCalendarDate;
+    const weekRangeToHighlight = dateToHighlight ? getWeekRangeForDate(dateToHighlight) : null;
 
     const firstDayOfMonth = new Date(year, month, 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
