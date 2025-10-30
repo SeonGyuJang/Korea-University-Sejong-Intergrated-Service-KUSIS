@@ -258,15 +258,47 @@ function renderMiniCalendar() {
     miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
-            // *** 클릭 시 selectedMiniCalendarDate 업데이트 (하이라이트 기준 변경) ***
+
+            // 유효성 검사: dateStr이 없거나 잘못된 경우 오늘 날짜로 설정
+            if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                selectedMiniCalendarDate = today;
+                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                if(calendar) calendar.today();
+                renderMiniCalendar();
+                return;
+            }
+
             // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
-            const [year, month, day] = dateStr.split('-').map(Number);
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) {
+                // 잘못된 형식인 경우 오늘로 이동
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                selectedMiniCalendarDate = today;
+                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                if(calendar) calendar.today();
+                renderMiniCalendar();
+                return;
+            }
+
+            const [year, month, day] = parts.map(Number);
+            if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                // NaN인 경우 오늘로 이동
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                selectedMiniCalendarDate = today;
+                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                if(calendar) calendar.today();
+                renderMiniCalendar();
+                return;
+            }
+
             selectedMiniCalendarDate = new Date(year, month - 1, day);
-            selectedMiniCalendarDate.setHours(0,0,0,0);
-            if(calendar) calendar.gotoDate(dateStr); // 메인 캘린더 이동
-            // 클릭 시 미니캘린더 월 이동 방지 (선택)
-            // currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
-            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (클릭된 날짜 스타일 & 새 하이라이트 적용)
+            selectedMiniCalendarDate.setHours(0, 0, 0, 0);
+            if(calendar) calendar.gotoDate(dateStr);
+            renderMiniCalendar();
         });
     });
 }
@@ -510,13 +542,40 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // 백슬래시 키 - 키보드 레이아웃 무관하게 작동
-        // keyCode 220은 대부분의 브라우저에서 백슬래시 키
-        const isBackslash = e.keyCode === 220 || e.which === 220 ||
-                           e.code === 'Backslash' || e.code === 'IntlBackslash' || e.code === 'IntlYen' ||
-                           e.key === '\\' || e.key === '|' || e.key === '₩' || e.key === '＼';
+        // 백슬래시 키 - 모든 키보드 레이아웃과 입력 모드 지원
+        // 맥북 영어/한글, Windows, Linux 등 다양한 환경 대응
+
+        // 디버그: 백슬래시 근처 키를 눌렀을 때 콘솔에 키 정보 출력
+        // 문제 발생 시 브라우저 콘솔(F12)에서 확인 가능
+        if ((e.keyCode >= 219 && e.keyCode <= 221) || e.key === '\\' || e.key === '₩') {
+            console.log('[DEBUG] Key event:', {
+                key: e.key,
+                code: e.code,
+                keyCode: e.keyCode,
+                which: e.which,
+                location: e.location,
+                inputMode: '영어/한글 입력 모드 확인용'
+            });
+        }
+
+        const isBackslash =
+            // keyCode 체크 (레거시 지원)
+            e.keyCode === 220 || e.keyCode === 226 ||
+            e.which === 220 || e.which === 226 ||
+            // code 체크 (표준) - 가장 신뢰할 수 있는 방법
+            e.code === 'Backslash' ||
+            e.code === 'IntlBackslash' ||
+            e.code === 'IntlYen' ||
+            e.code === 'IntlRo' ||
+            // key 체크 (실제 입력 문자)
+            e.key === '\\' ||
+            e.key === '|' ||
+            e.key === '₩' ||
+            e.key === '＼' ||
+            e.key === 'Backslash';
 
         if (isBackslash) {
+            console.log('[DEBUG] Backslash detected! Toggling sidebar...');
             e.preventDefault();
             toggleSidebar();
             return;
