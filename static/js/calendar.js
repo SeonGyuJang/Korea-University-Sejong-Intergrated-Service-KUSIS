@@ -278,13 +278,13 @@ function renderMiniCalendar() {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
 
-            // 유효성 검사: dateStr이 없거나 잘못된 경우 오늘 날짜로 설정
+            // 유효성 검사: dateStr이 없거나 잘못된 경우
             if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
+                // 미니캘린더만 오늘 날짜가 포함된 월로 표시 (메인 캘린더는 이동하지 않음)
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                if(calendar) calendar.today();
                 renderMiniCalendar();
                 return;
             }
@@ -292,28 +292,27 @@ function renderMiniCalendar() {
             // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
             const parts = dateStr.split('-');
             if (parts.length !== 3) {
-                // 잘못된 형식인 경우 오늘로 이동
+                // 미니캘린더만 오늘 날짜가 포함된 월로 표시
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                if(calendar) calendar.today();
                 renderMiniCalendar();
                 return;
             }
 
             const [year, month, day] = parts.map(Number);
             if (isNaN(year) || isNaN(month) || isNaN(day)) {
-                // NaN인 경우 오늘로 이동
+                // 미니캘린더만 오늘 날짜가 포함된 월로 표시
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                if(calendar) calendar.today();
                 renderMiniCalendar();
                 return;
             }
 
+            // 정상적인 날짜 클릭: selectedMiniCalendarDate 업데이트 및 메인 캘린더 이동
             selectedMiniCalendarDate = new Date(year, month - 1, day);
             selectedMiniCalendarDate.setHours(0, 0, 0, 0);
             if(calendar) calendar.gotoDate(dateStr);
