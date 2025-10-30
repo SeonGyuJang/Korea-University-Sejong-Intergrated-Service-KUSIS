@@ -92,15 +92,8 @@
                 {% if user %}<button id="addScheduleBtn" class="btn-more"><i class="fas fa-plus"></i></button>{% endif %}
             </div>
             <div class="schedule-list" id="scheduleList">
-                {% if not user %}
-                <div class="widget-login-overlay small">
-                    <i class="fas fa-lock"></i>
-                    <p>일정은 로그인 후 표시됩니다.</p>
-                </div>
-                {% else %}
-                 <p style="text-align: center; color: var(--text-secondary); padding: 20px;">일정 로딩 중...</p>
-                {% endif %}
-                </div>
+                <p style="text-align: center; color: var(--text-secondary); padding: 20px;">일정 로딩 중...</p>
+            </div>
         </div>
     </div>
 

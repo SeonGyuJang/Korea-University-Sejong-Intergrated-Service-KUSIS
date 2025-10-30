@@ -1152,10 +1152,12 @@ def get_weekly_meal():
 
 # --- Secure API Endpoints ---
 @app.route('/api/schedule', methods=['GET'])
-@login_required
 def get_schedule():
-    from flask import g
-    user_id = g.user.id
+    from flask import g, session
+
+    # 로그인 여부 확인
+    user_id = session.get('user_id')
+    is_logged_in = user_id is not None
 
     today_kst = datetime.now(KST) # KST 기준
     today_str = today_kst.strftime('%Y-%m-%d')
@@ -1165,15 +1167,22 @@ def get_schedule():
     schedule_list = []
 
     try:
-        # 1. 사용자가 직접 추가한 일정
-        user_schedules = Schedule.query.filter_by(user_id=user_id, date=today_str).all()
-        for s in user_schedules:
-            schedule_list.append({"type": "schedule", "time": s.time, "title": s.title, "location": s.location})
+        # 비로그인 사용자: 학사 일정(시스템 이벤트)만 표시
+        if not is_logged_in:
+            # 시스템 캘린더 이벤트만 가져오기
+            calendar_events = CalendarEvent.query.filter_by(is_system=True).all()
+        else:
+            # 로그인 사용자: 개인 일정 + 학사 일정 모두 표시
 
-        # 2. 캘린더 이벤트 (시스템 + 사용자) - 오늘이 시작일이거나 오늘이 포함되는 경우
-        calendar_events = CalendarEvent.query.filter(
-            or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True)
-        ).all()
+            # 1. 사용자가 직접 추가한 일정
+            user_schedules = Schedule.query.filter_by(user_id=user_id, date=today_str).all()
+            for s in user_schedules:
+                schedule_list.append({"type": "schedule", "time": s.time, "title": s.title, "location": s.location})
+
+            # 2. 캘린더 이벤트 (시스템 + 사용자)
+            calendar_events = CalendarEvent.query.filter(
+                or_(CalendarEvent.user_id == user_id, CalendarEvent.is_system == True)
+            ).all()
 
         # 오늘 날짜에 직접 관련된 이벤트만 필터링 (시작일이 오늘이거나, 오늘이 기간에 포함)
         for event in calendar_events:
@@ -1201,42 +1210,42 @@ def get_schedule():
                         "location": location
                     })
 
-        # 3. 오늘 요일의 시간표 (수업)
-        current_semester = None
-        all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
-        if all_semesters:
-            current_found = False
-            today_date_obj = today_kst.date()
-            for s in all_semesters:
-                start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
-                if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
-                    current_semester = s
-                    current_found = True
-                    break
+            # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
+            current_semester = None
+            all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
+            if all_semesters:
+                current_found = False
+                today_date_obj = today_kst.date()
+                for s in all_semesters:
+                    start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
+                    if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
+                        current_semester = s
+                        current_found = True
+                        break
 
-            if not current_found and all_semesters:
-                season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-                all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
-                current_semester = all_semesters[0]
+                if not current_found and all_semesters:
+                    season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+                    all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
+                    current_semester = all_semesters[0]
 
-        if current_semester and 1 <= today_day_of_week <= 5:
-            today_subjects = Subject.query.join(TimeSlot).filter(
-                Subject.semester_id == current_semester.id
-            ).filter(
-                TimeSlot.day_of_week == today_day_of_week
-            ).all()
+            if current_semester and 1 <= today_day_of_week <= 5:
+                today_subjects = Subject.query.join(TimeSlot).filter(
+                    Subject.semester_id == current_semester.id
+                ).filter(
+                    TimeSlot.day_of_week == today_day_of_week
+                ).all()
 
-            for subject in today_subjects:
-                subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
-                for ts in subject_timeslots_today:
-                    schedule_list.append({
-                        "type": "class",
-                        "time": ts.start_time,
-                        "title": subject.name,
-                        "location": ts.room
-                    })
+                for subject in today_subjects:
+                    subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
+                    for ts in subject_timeslots_today:
+                        schedule_list.append({
+                            "type": "class",
+                            "time": ts.start_time,
+                            "title": subject.name,
+                            "location": ts.room
+                        })
 
-        schedule_list.sort(key=lambda x: x['time'])
+        schedule_list.sort(key=lambda x: x['time'] if x['time'] != '종일' else '00:00')
         return jsonify(schedule_list)
 
     except Exception as e:
