@@ -198,9 +198,10 @@ function renderMiniCalendar() {
     const titleEl = document.getElementById('miniCalendarTitle');
     if (titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
 
-    // 하이라이트할 주 계산 (selectedMiniCalendarDate가 있을 때만)
-    const dateToHighlight = selectedMiniCalendarDate;
-    const weekRangeToHighlight = dateToHighlight ? getWeekRangeForDate(dateToHighlight) : null;
+    // 하이라이트할 주 계산 (선택된 날짜가 있으면 그 날짜, 없으면 오늘 기준)
+    // 주의: 하이라이트만 표시하고 selectedMiniCalendarDate를 변경하지는 않음
+    const dateToHighlight = selectedMiniCalendarDate || today;
+    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
 
     const firstDayOfMonth = new Date(year, month, 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
