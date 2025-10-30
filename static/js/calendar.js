@@ -1,5 +1,3 @@
-// ==================== 노션 스타일 캘린더 JavaScript ====================
-
 // 전역 변수
 let calendar;
 let categories = [];
@@ -65,16 +63,16 @@ function initializeCalendar() {
             calendar.unselect();
         },
 
+        // *** [수정됨] 메인 캘린더 클릭 시 미니 캘린더 알약 UI가 변경되지 않도록 수정 ***
         dateClick: function(info) {
+            // 월간 뷰에서 날짜 클릭 시 빠른 추가 모달만 띄움
             if (calendar.view.type === 'dayGridMonth') {
                 showQuickEventModal(info.dateStr);
             }
-            // *** 메인 캘린더 날짜 클릭 시 selectedMiniCalendarDate 업데이트 ***
-            selectedMiniCalendarDate = new Date(info.dateStr + 'T00:00:00'); // 클릭된 날짜로 업데이트
-            selectedMiniCalendarDate.setHours(0,0,0,0);
-            // 클릭된 날짜가 포함된 달로 미니캘린더 이동
-            currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
-            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (하이라이트 업데이트)
+            // (주간/일간 뷰) 빈 시간 슬롯 클릭 시 아무것도 하지 않음 (select 이벤트가 처리)
+            
+            // [삭제] 기존의 selectedMiniCalendarDate를 업데이트하던 로직을 모두 제거
+            // [삭제] renderMiniCalendar() 호출도 제거
         },
 
         eventClick: function(info) {
@@ -130,16 +128,20 @@ function initializeCalendar() {
             updateEventDate(eventId, info.event.start, info.event.end);
         },
 
+        // 메인 캘린더 뷰 이동 시 (화살표 클릭 등)
         datesSet: function(info) {
             updateMainTitle(info.view.title);
             loadEventsInRange(info.start, info.end);
-            const newDate = calendar.getDate();
-            // *** 메인 캘린더 이동 시 selectedMiniCalendarDate 업데이트 ***
-            selectedMiniCalendarDate = new Date(newDate); // 메인 캘린더의 현재 날짜로 업데이트
-            selectedMiniCalendarDate.setHours(0,0,0,0);
-            // 메인 캘린더 이동 시 미니캘린더도 해당 월로 이동
-            currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
-            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (하이라이트 업데이트)
+            
+            // 메인 캘린더 뷰의 현재 날짜를 가져옵니다.
+            const newViewStartDate = calendar.getDate(); 
+
+            // 오직 currentMiniCalendarDate(미니 캘린더가 보여주는 월)만 변경합니다.
+            currentMiniCalendarDate = new Date(newViewStartDate.getFullYear(), newViewStartDate.getMonth(), 1);
+            
+            // 미니 캘린더를 새 월로 다시 렌더링합니다.
+            // selectedMiniCalendarDate(알약 UI)는 그대로 유지됩니다.
+            renderMiniCalendar();
         },
 
         events: function(info, successCallback, failureCallback) {
@@ -199,7 +201,6 @@ function renderMiniCalendar() {
     if (titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
 
     // 하이라이트할 주 계산 (선택된 날짜가 있으면 그 날짜, 없으면 오늘 기준)
-    // 주의: 하이라이트만 표시하고 selectedMiniCalendarDate를 변경하지는 않음
     const dateToHighlight = selectedMiniCalendarDate || today;
     const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
 
@@ -208,7 +209,6 @@ function renderMiniCalendar() {
     const lastDateOfMonth = new Date(year, month + 1, 0).getDate();
     const lastDateOfPrevMonth = new Date(year, month, 0).getDate();
 
-    // *** innerHTML을 재구성하므로 이전 하이라이트는 자동으로 제거됨 ***
     let html = '<div class="mini-calendar-grid">';
 
     ['일', '월', '화', '수', '목', '금', '토'].forEach(day => {
@@ -225,7 +225,7 @@ function renderMiniCalendar() {
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
         const isToday = date.toDateString() === today.toDateString();
-        const hasEvents = allEvents.some(e => { /* ... 이벤트 확인 로직 (이전과 동일) ... */
+        const hasEvents = allEvents.some(e => { 
             if (!visibleCategories.has(e.extendedProps.category_id)) return false;
             const eventStart = e.start.split('T')[0];
             const eventEnd = e.end ? e.end.split('T')[0] : null;
@@ -250,14 +250,13 @@ function renderMiniCalendar() {
         // has-events는 하이라이트된 주의 날짜에만 표시
         const shouldShowEvents = hasEvents && isInHighlightedWeek;
 
-        // *** 클릭된 날짜 확인 (selectedMiniCalendarDate 기준) ***
+        // 클릭된 날짜 확인 (selectedMiniCalendarDate 기준)
         const isClicked = selectedMiniCalendarDate && formatDate(selectedMiniCalendarDate) === dateStr;
 
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
         if (shouldShowEvents) classes += ' has-events';
-        // 클릭된 날짜 스타일 적용
-        if (isClicked) classes += ' clicked-date';
+        if (isClicked) classes += ' clicked-date'; // 클릭된 날짜 스타일 적용
 
         html += `<div class="${classes}" data-date="${dateStr}">${day}</div>`;
     }
@@ -271,45 +270,10 @@ function renderMiniCalendar() {
 
     html += '</div>'; // mini-calendar-grid 닫기
     miniCalendar.innerHTML = html;
+    
+    // 이벤트 리스너는 setupEventListeners()에서 단 한번만 등록됩니다.
 
-    // 날짜 클릭 이벤트 리스너 추가 (이벤트 위임 사용하지 않고 직접 추가)
-    miniCalendar.querySelectorAll('.mini-calendar-day').forEach(dayEl => {
-        dayEl.addEventListener('click', function(e) {
-            e.stopPropagation(); // 이벤트 버블링 방지
-
-            // other-month 클래스를 가진 빈 공간 클릭 시
-            if (this.classList.contains('other-month')) {
-                // 아무것도 하지 않음 (하이라이트 유지)
-                return;
-            }
-
-            const dateStr = this.dataset.date;
-
-            // 유효성 검사: dateStr이 없거나 잘못된 경우
-            if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
-                return; // 아무것도 하지 않음
-            }
-
-            // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
-            const parts = dateStr.split('-');
-            if (parts.length !== 3) {
-                return; // 아무것도 하지 않음
-            }
-
-            const [year, month, day] = parts.map(Number);
-            if (isNaN(year) || isNaN(month) || isNaN(day)) {
-                return; // 아무것도 하지 않음
-            }
-
-            // 정상적인 날짜 클릭: selectedMiniCalendarDate 업데이트 및 메인 캘린더 이동
-            selectedMiniCalendarDate = new Date(year, month - 1, day);
-            selectedMiniCalendarDate.setHours(0, 0, 0, 0);
-            if(calendar) calendar.gotoDate(dateStr);
-            renderMiniCalendar();
-        });
-    });
-
-    // 주차 하이라이트 적용 (DOM 렌더링 및 이벤트 리스너 추가 후)
+    // 주차 하이라이트 적용
     setTimeout(() => {
         applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
     }, 0);
@@ -321,7 +285,6 @@ function applyWeekHighlight(weekRange, currentYear, currentMonth, firstDayWeekda
     const miniCalendar = document.getElementById('miniCalendar');
     if (!miniCalendar || !weekRange) return;
 
-    // 기존 하이라이트 제거
     const existingHighlight = miniCalendar.querySelector('.week-highlight');
     if (existingHighlight) {
         existingHighlight.remove();
@@ -332,49 +295,34 @@ function applyWeekHighlight(weekRange, currentYear, currentMonth, firstDayWeekda
     const monthStart = new Date(currentYear, currentMonth, 1);
     const monthEnd = new Date(currentYear, currentMonth + 1, 0);
 
-    // 주차가 현재 월과 겹치는지 확인
     if (weekEnd < monthStart || weekStart > monthEnd) return;
 
-    // 현재 월에 표시되는 주의 시작/끝 요일 계산
-    let effectiveStartDay = weekStart.getDay(); // 0(일) ~ 6(토)
+    let effectiveStartDay = weekStart.getDay(); 
     let effectiveEndDay = weekEnd.getDay();
+    if (weekStart < monthStart) effectiveStartDay = 0; 
+    if (weekEnd > monthEnd) effectiveEndDay = 6;
 
-    // 주의 시작이 이전 달인 경우
-    if (weekStart < monthStart) {
-        effectiveStartDay = 0; // 일요일부터
-    }
-
-    // 주의 끝이 다음 달인 경우
-    if (weekEnd > monthEnd) {
-        effectiveEndDay = 6; // 토요일까지
-    }
-
-    // 첫 번째 날짜의 행 계산
     let targetDate = new Date(Math.max(weekStart.getTime(), monthStart.getTime()));
     const dayOfMonth = targetDate.getDate();
-    const cellIndex = firstDayWeekday + dayOfMonth - 1; // 요일 헤더 제외
+    const cellIndex = firstDayWeekday + dayOfMonth - 1; 
     const rowIndex = Math.floor(cellIndex / 7);
 
-    // 그리드의 모든 셀 가져오기
     const grid = miniCalendar.querySelector('.mini-calendar-grid');
     if (!grid) return;
 
     const allCells = Array.from(grid.children);
-    const weekdayHeaderCount = 7; // 요일 헤더
+    const weekdayHeaderCount = 7; 
 
-    // 해당 행의 첫 번째 셀 찾기
     const rowStartIndex = weekdayHeaderCount + rowIndex * 7;
     const startCell = allCells[rowStartIndex + effectiveStartDay];
     const endCell = allCells[rowStartIndex + effectiveEndDay];
 
     if (!startCell || !endCell) return;
 
-    // 셀 위치 계산
     const gridRect = grid.getBoundingClientRect();
     const startRect = startCell.getBoundingClientRect();
     const endRect = endCell.getBoundingClientRect();
 
-    // 하이라이트 요소 생성
     const highlight = document.createElement('div');
     highlight.className = 'week-highlight';
 
@@ -401,23 +349,56 @@ function setupEventListeners() {
 
     if(miniPrev) miniPrev.addEventListener('click', function() {
         currentMiniCalendarDate.setMonth(currentMiniCalendarDate.getMonth() - 1);
-        renderMiniCalendar(); // 월 이동 시 하이라이트는 selectedMiniCalendarDate 기준으로 다시 그려짐
+        renderMiniCalendar();
     });
     if(miniNext) miniNext.addEventListener('click', function() {
         currentMiniCalendarDate.setMonth(currentMiniCalendarDate.getMonth() + 1);
-        renderMiniCalendar(); // 월 이동 시 하이라이트는 selectedMiniCalendarDate 기준으로 다시 그려짐
+        renderMiniCalendar();
     });
     if(todayBtn) todayBtn.addEventListener('click', function() {
         const today = new Date();
         today.setHours(0,0,0,0);
-        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1); // 미니캘린더는 오늘이 포함된 달로
-        // *** selectedMiniCalendarDate를 오늘로 설정 (하이라이트 기준) ***
-        selectedMiniCalendarDate = new Date(today);
-        if(calendar) calendar.today(); // 메인 캘린더 이동
-        renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (오늘 기준 하이라이트 적용)
+        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1); 
+        selectedMiniCalendarDate = new Date(today); // "오늘" 버튼은 알약 UI도 오늘로 이동
+        if(calendar) calendar.today(); 
+        renderMiniCalendar(); 
     });
 
-    // (이하 동일 - 생략 없음)
+    // *** 미니 캘린더 날짜 클릭 이벤트 리스너 (이벤트 위임) ***
+    const miniCalendar = document.getElementById('miniCalendar');
+    if (miniCalendar) {
+        // 'miniCalendar' 컨테이너에 이벤트 리스너를 단 한 번만 등록
+        miniCalendar.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            const clickedDay = e.target.closest('.mini-calendar-day');
+
+            // 1. "빈 공간" (여백, .other-month) 클릭 시
+            if (!clickedDay || clickedDay.classList.contains('other-month')) {
+                return; // 아무것도 하지 않음 (UI 유지)
+            }
+            
+            // 2. 유효한 날짜인지 확인
+            const dateStr = clickedDay.dataset.date;
+            if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
+                return; 
+            }
+
+            // 3. 날짜 파싱
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return;
+            const [year, month, day] = parts.map(Number);
+            if (isNaN(year) || isNaN(month) || isNaN(day)) return;
+            
+            // 4. 정상적인 날짜 클릭: selectedMiniCalendarDate(알약) 업데이트 및 메인 캘린더 이동
+            selectedMiniCalendarDate = new Date(year, month - 1, day);
+            selectedMiniCalendarDate.setHours(0, 0, 0, 0);
+            if(calendar) calendar.gotoDate(dateStr);
+            renderMiniCalendar(); // 정상 클릭 시에만 리렌더링
+        });
+    }
+
+    // (이하 동일)
     // 뷰 전환
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -592,10 +573,9 @@ function setupKeyboardShortcuts() {
                 const todayForT = new Date();
                 todayForT.setHours(0,0,0,0);
                 currentMiniCalendarDate = new Date(todayForT.getFullYear(), todayForT.getMonth(), 1);
-                // *** selectedMiniCalendarDate를 오늘로 설정 (하이라이트 기준) ***
-                selectedMiniCalendarDate = new Date(todayForT);
+                selectedMiniCalendarDate = new Date(todayForT); // "T" 키는 알약 UI도 오늘로 이동
                 if(calendar) calendar.today();
-                renderMiniCalendar(); // 하이라이트 업데이트
+                renderMiniCalendar(); 
                 showNotification('오늘로 이동했습니다.');
                 break;
             case 'KeyW':
@@ -656,7 +636,6 @@ function toggleSidebar() {
 }
 
 
-// (이하 카테고리 관리, 이벤트 관리, 모달, 사이드 패널, 유틸리티 함수 등은 이전과 동일 - 생략 없음)
 // ==================== 카테고리 관리 ====================
 async function loadCategories() {
     try {
@@ -1478,3 +1457,4 @@ if (sidebarEl) {
         }
     });
 }
+
