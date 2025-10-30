@@ -70,7 +70,9 @@ function initializeCalendar() {
                 showQuickEventModal(info.dateStr);
             }
             // *** 메인 캘린더 날짜 클릭 시 selectedMiniCalendarDate 업데이트 ***
-            selectedMiniCalendarDate = new Date(info.dateStr + 'T00:00:00'); // 클릭된 날짜로 업데이트
+            // UTC 시간대 문제 방지: YYYY-MM-DD 문자열을 수동으로 파싱
+            const [year, month, day] = info.dateStr.split('-').map(Number);
+            selectedMiniCalendarDate = new Date(year, month - 1, day);
             selectedMiniCalendarDate.setHours(0,0,0,0);
             // 클릭된 날짜가 포함된 달로 미니캘린더 이동
             currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
@@ -134,12 +136,9 @@ function initializeCalendar() {
             updateMainTitle(info.view.title);
             loadEventsInRange(info.start, info.end);
             const newDate = calendar.getDate();
-            // *** 메인 캘린더 이동 시 selectedMiniCalendarDate 업데이트 ***
-            selectedMiniCalendarDate = new Date(newDate); // 메인 캘린더의 현재 날짜로 업데이트
-            selectedMiniCalendarDate.setHours(0,0,0,0);
-            // 메인 캘린더 이동 시 미니캘린더도 해당 월로 이동
-            currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
-            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (하이라이트 업데이트)
+            // 메인 캘린더 이동 시 미니캘린더도 해당 월로 이동 (선택된 날짜는 유지)
+            currentMiniCalendarDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (하이라이트 유지)
         },
 
         events: function(info, successCallback, failureCallback) {
@@ -310,9 +309,8 @@ function renderMiniCalendar() {
     });
 
     // 주차 하이라이트 적용 (DOM 렌더링 및 이벤트 리스너 추가 후)
-    setTimeout(() => {
-        applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
-    }, 0);
+    // setTimeout 제거: 동기적으로 하이라이트 적용하여 중복 호출 시에도 안정적으로 동작
+    applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
 }
 
 
