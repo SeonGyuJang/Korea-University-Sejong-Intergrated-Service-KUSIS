@@ -263,14 +263,17 @@ function renderMiniCalendar() {
     html += '</div>'; // mini-calendar-grid 닫기
     miniCalendar.innerHTML = html;
 
-    // 주차 하이라이트 적용 (DOM 렌더링 후)
-    setTimeout(() => {
-        applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
-    }, 0);
+    // 날짜 클릭 이벤트 리스너 추가 (이벤트 위임 사용하지 않고 직접 추가)
+    miniCalendar.querySelectorAll('.mini-calendar-day').forEach(dayEl => {
+        dayEl.addEventListener('click', function(e) {
+            e.stopPropagation(); // 이벤트 버블링 방지
 
-    // 날짜 클릭 이벤트 리스너 추가 (현재 달 날짜)
-    miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
-        dayEl.addEventListener('click', function() {
+            // other-month 클래스를 가진 빈 공간 클릭 시
+            if (this.classList.contains('other-month')) {
+                // 아무것도 하지 않음 (하이라이트 유지)
+                return;
+            }
+
             const dateStr = this.dataset.date;
 
             // 유효성 검사: dateStr이 없거나 잘못된 경우
@@ -297,13 +300,10 @@ function renderMiniCalendar() {
         });
     });
 
-    // 다른 달 날짜나 빈 공간 클릭 시 처리
-    miniCalendar.querySelectorAll('.mini-calendar-day.other-month').forEach(dayEl => {
-        dayEl.addEventListener('click', function() {
-            // 빈 공간(다른 달) 클릭: 아무것도 하지 않음 (하이라이트 유지)
-            // renderMiniCalendar를 호출하지 않으므로 기존 상태 유지
-        });
-    });
+    // 주차 하이라이트 적용 (DOM 렌더링 및 이벤트 리스너 추가 후)
+    setTimeout(() => {
+        applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
+    }, 0);
 }
 
 
