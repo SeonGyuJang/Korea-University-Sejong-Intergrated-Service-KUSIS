@@ -280,10 +280,9 @@ function renderMiniCalendar() {
 
             // 유효성 검사: dateStr이 없거나 잘못된 경우
             if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
-                // 미니캘린더만 오늘 날짜가 포함된 월로 표시 (메인 캘린더는 이동하지 않음)
+                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 renderMiniCalendar();
                 return;
@@ -292,10 +291,9 @@ function renderMiniCalendar() {
             // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
             const parts = dateStr.split('-');
             if (parts.length !== 3) {
-                // 미니캘린더만 오늘 날짜가 포함된 월로 표시
+                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 renderMiniCalendar();
                 return;
@@ -303,10 +301,9 @@ function renderMiniCalendar() {
 
             const [year, month, day] = parts.map(Number);
             if (isNaN(year) || isNaN(month) || isNaN(day)) {
-                // 미니캘린더만 오늘 날짜가 포함된 월로 표시
+                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                selectedMiniCalendarDate = today;
                 currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 renderMiniCalendar();
                 return;
