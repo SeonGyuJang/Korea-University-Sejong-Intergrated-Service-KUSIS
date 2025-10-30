@@ -176,18 +176,32 @@ function initializeCalendar() {
 function renderMiniCalendar() {
     const miniCalendar = document.getElementById('miniCalendar');
     if (!miniCalendar) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 기본값 설정: currentMiniCalendarDate가 없거나 유효하지 않으면 오늘 날짜로 설정
+    if (!currentMiniCalendarDate || isNaN(currentMiniCalendarDate.getTime())) {
+        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+
     const year = currentMiniCalendarDate.getFullYear();
     const month = currentMiniCalendarDate.getMonth();
-    const today = new Date();
-    today.setHours(0,0,0,0);
+
+    // NaN 체크: year나 month가 NaN이면 오늘로 리셋
+    if (isNaN(year) || isNaN(month)) {
+        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        renderMiniCalendar(); // 다시 렌더링
+        return;
+    }
 
     const titleEl = document.getElementById('miniCalendarTitle');
-    if(titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
+    if (titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
 
-    // --- *** 하이라이트는 selectedMiniCalendarDate 기준으로만 계산 *** ---
-    const dateToHighlight = selectedMiniCalendarDate || today; // selectedMiniCalendarDate가 없으면(초기 로드 등) 오늘 기준
-    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight); // 하이라이트할 주 계산
-    // --- 수정 끝 ---
+    // 하이라이트할 주 계산 (선택된 날짜가 있으면 그 날짜, 없으면 오늘 기준)
+    // 주의: 하이라이트만 표시하고 selectedMiniCalendarDate를 변경하지는 않음
+    const dateToHighlight = selectedMiniCalendarDate || today;
+    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
 
     const firstDayOfMonth = new Date(year, month, 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
@@ -227,12 +241,21 @@ function renderMiniCalendar() {
             }
             return false;
         });
+
+        // 하이라이트된 주에 포함된 날짜인지 확인
+        const isInHighlightedWeek = weekRangeToHighlight &&
+            date >= weekRangeToHighlight.start &&
+            date <= weekRangeToHighlight.end;
+
+        // has-events는 하이라이트된 주의 날짜에만 표시
+        const shouldShowEvents = hasEvents && isInHighlightedWeek;
+
         // *** 클릭된 날짜 확인 (selectedMiniCalendarDate 기준) ***
         const isClicked = selectedMiniCalendarDate && formatDate(selectedMiniCalendarDate) === dateStr;
 
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
-        if (hasEvents) classes += ' has-events';
+        if (shouldShowEvents) classes += ' has-events';
         // 클릭된 날짜 스타일 적용
         if (isClicked) classes += ' clicked-date';
 
@@ -246,72 +269,126 @@ function renderMiniCalendar() {
         html += `<div class="mini-calendar-day other-month">${day}</div>`;
     }
 
-    // --- *** 하이라이트는 항상 하나만, selectedMiniCalendarDate 기준으로 그림 *** ---
-    if (weekRangeToHighlight) {
-        const highlightInfo = calculateHighlightInfo(weekRangeToHighlight, year, month, firstDayWeekday);
-        // highlightInfo가 유효할 때 (즉, 해당 주가 현재 월에 표시될 때)만 하이라이트 추가
-        if (highlightInfo) {
-            html += `<div class="week-highlight" style="grid-row: ${highlightInfo.row}; grid-column: ${highlightInfo.colStart} / ${highlightInfo.colEnd};"></div>`;
-        }
-    }
-    // --- 수정 끝 ---
-
     html += '</div>'; // mini-calendar-grid 닫기
-    miniCalendar.innerHTML = html; // *** 이 시점에서 HTML이 완전히 교체되어 이전 하이라이트는 사라짐 ***
+    miniCalendar.innerHTML = html;
 
-    // 날짜 클릭 이벤트 리스너 추가
-    miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
-        dayEl.addEventListener('click', function() {
+    // 날짜 클릭 이벤트 리스너 추가 (이벤트 위임 사용하지 않고 직접 추가)
+    miniCalendar.querySelectorAll('.mini-calendar-day').forEach(dayEl => {
+        dayEl.addEventListener('click', function(e) {
+            e.stopPropagation(); // 이벤트 버블링 방지
+
+            // other-month 클래스를 가진 빈 공간 클릭 시
+            if (this.classList.contains('other-month')) {
+                // 아무것도 하지 않음 (하이라이트 유지)
+                return;
+            }
+
             const dateStr = this.dataset.date;
-            // *** 클릭 시 selectedMiniCalendarDate 업데이트 (하이라이트 기준 변경) ***
-            selectedMiniCalendarDate = new Date(dateStr + 'T00:00:00');
-            selectedMiniCalendarDate.setHours(0,0,0,0);
-            if(calendar) calendar.gotoDate(dateStr); // 메인 캘린더 이동
-            // 클릭 시 미니캘린더 월 이동 방지 (선택)
-            // currentMiniCalendarDate = new Date(selectedMiniCalendarDate.getFullYear(), selectedMiniCalendarDate.getMonth(), 1);
-            renderMiniCalendar(); // 미니 캘린더 다시 렌더링 (클릭된 날짜 스타일 & 새 하이라이트 적용)
+
+            // 유효성 검사: dateStr이 없거나 잘못된 경우
+            if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
+                return; // 아무것도 하지 않음
+            }
+
+            // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) {
+                return; // 아무것도 하지 않음
+            }
+
+            const [year, month, day] = parts.map(Number);
+            if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                return; // 아무것도 하지 않음
+            }
+
+            // 정상적인 날짜 클릭: selectedMiniCalendarDate 업데이트 및 메인 캘린더 이동
+            selectedMiniCalendarDate = new Date(year, month - 1, day);
+            selectedMiniCalendarDate.setHours(0, 0, 0, 0);
+            if(calendar) calendar.gotoDate(dateStr);
+            renderMiniCalendar();
         });
     });
+
+    // 주차 하이라이트 적용 (DOM 렌더링 및 이벤트 리스너 추가 후)
+    setTimeout(() => {
+        applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
+    }, 0);
 }
 
 
-// --- 하이라이트 위치 계산 함수 ---
-// 기존과 동일
-function calculateHighlightInfo(weekRange, currentYear, currentMonth, firstDayWeekday) {
-    if (!weekRange) return null;
+// 주차 하이라이트 적용 함수
+function applyWeekHighlight(weekRange, currentYear, currentMonth, firstDayWeekday) {
+    const miniCalendar = document.getElementById('miniCalendar');
+    if (!miniCalendar || !weekRange) return;
+
+    // 기존 하이라이트 제거
+    const existingHighlight = miniCalendar.querySelector('.week-highlight');
+    if (existingHighlight) {
+        existingHighlight.remove();
+    }
 
     const weekStart = weekRange.start;
     const weekEnd = weekRange.end;
     const monthStart = new Date(currentYear, currentMonth, 1);
     const monthEnd = new Date(currentYear, currentMonth + 1, 0);
 
-    if (weekEnd >= monthStart && weekStart <= monthEnd) {
-        let firstDayInMonth = null;
-        let lastDayInMonth = null;
+    // 주차가 현재 월과 겹치는지 확인
+    if (weekEnd < monthStart || weekStart > monthEnd) return;
 
-        for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
-            if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                if (!firstDayInMonth) firstDayInMonth = new Date(d);
-                lastDayInMonth = new Date(d);
-            }
-        }
+    // 현재 월에 표시되는 주의 시작/끝 요일 계산
+    let effectiveStartDay = weekStart.getDay(); // 0(일) ~ 6(토)
+    let effectiveEndDay = weekEnd.getDay();
 
-        if (firstDayInMonth && lastDayInMonth) {
-            const startDay = firstDayInMonth.getDate();
-            const startCellIndex = firstDayWeekday + startDay - 1;
-            const startRow = Math.floor(startCellIndex / 7);
-
-            const effectiveStartDayOfWeek = (weekStart < monthStart) ? 0 : weekStart.getDay();
-            const effectiveEndDayOfWeek = (weekEnd > monthEnd) ? 6 : weekEnd.getDay();
-
-            return {
-                row: startRow + 2,
-                colStart: effectiveStartDayOfWeek + 1,
-                colEnd: effectiveEndDayOfWeek + 2
-            };
-        }
+    // 주의 시작이 이전 달인 경우
+    if (weekStart < monthStart) {
+        effectiveStartDay = 0; // 일요일부터
     }
-    return null;
+
+    // 주의 끝이 다음 달인 경우
+    if (weekEnd > monthEnd) {
+        effectiveEndDay = 6; // 토요일까지
+    }
+
+    // 첫 번째 날짜의 행 계산
+    let targetDate = new Date(Math.max(weekStart.getTime(), monthStart.getTime()));
+    const dayOfMonth = targetDate.getDate();
+    const cellIndex = firstDayWeekday + dayOfMonth - 1; // 요일 헤더 제외
+    const rowIndex = Math.floor(cellIndex / 7);
+
+    // 그리드의 모든 셀 가져오기
+    const grid = miniCalendar.querySelector('.mini-calendar-grid');
+    if (!grid) return;
+
+    const allCells = Array.from(grid.children);
+    const weekdayHeaderCount = 7; // 요일 헤더
+
+    // 해당 행의 첫 번째 셀 찾기
+    const rowStartIndex = weekdayHeaderCount + rowIndex * 7;
+    const startCell = allCells[rowStartIndex + effectiveStartDay];
+    const endCell = allCells[rowStartIndex + effectiveEndDay];
+
+    if (!startCell || !endCell) return;
+
+    // 셀 위치 계산
+    const gridRect = grid.getBoundingClientRect();
+    const startRect = startCell.getBoundingClientRect();
+    const endRect = endCell.getBoundingClientRect();
+
+    // 하이라이트 요소 생성
+    const highlight = document.createElement('div');
+    highlight.className = 'week-highlight';
+
+    const left = startRect.left - gridRect.left;
+    const top = startRect.top - gridRect.top;
+    const width = endRect.right - startRect.left;
+    const height = startRect.height;
+
+    highlight.style.left = `${left + 2}px`;
+    highlight.style.top = `${top + 1}px`;
+    highlight.style.width = `${width - 4}px`;
+    highlight.style.height = `${height - 2}px`;
+
+    grid.appendChild(highlight);
 }
 
 
@@ -477,7 +554,26 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        if (e.code === 'Backslash' || e.code === 'IntlYen' || e.key === '\\' || e.key === '₩') {
+        // 백슬래시/₩ 키 - 맥북 영어 입력 모드에서는 Backquote (keyCode 192)로 인식됨!
+        const isBackslash =
+            // 맥북 영어 입력 모드: Backquote (keyCode 192)
+            e.keyCode === 192 || e.which === 192 || e.code === 'Backquote' ||
+            // 맥북 한글 입력 모드 및 일반: Backslash (keyCode 220)
+            e.keyCode === 220 || e.keyCode === 226 ||
+            e.which === 220 || e.which === 226 ||
+            // code 체크 (표준)
+            e.code === 'Backslash' ||
+            e.code === 'IntlBackslash' ||
+            e.code === 'IntlYen' ||
+            e.code === 'IntlRo' ||
+            // key 체크 (실제 입력 문자)
+            (e.key === '₩' && (e.code === 'Backquote' || e.code === 'Backslash')) ||
+            e.key === '\\' ||
+            e.key === '|' ||
+            e.key === '＼' ||
+            e.key === 'Backslash';
+
+        if (isBackslash) {
             e.preventDefault();
             toggleSidebar();
             return;
@@ -1089,7 +1185,11 @@ function formatDate(date) {
         try { date = new Date(date); if (isNaN(date)) return 'Invalid Date'; }
         catch (e) { return 'Invalid Date'; }
     }
-    return date.toISOString().split('T')[0];
+    // UTC 시간대 문제 방지: 로컬 날짜를 YYYY-MM-DD 형식으로 변환
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 
