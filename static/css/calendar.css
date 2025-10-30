@@ -29,6 +29,7 @@
 }
 
 /* ==================== FullCalendar 이벤트 스타일 ==================== */
+/* (기존) FullCalendar 렌더링 버그 수정용 */
 .fc-event,
 .fc-event-main,
 .fc-event-main-frame,
@@ -41,6 +42,7 @@
 }
 
 /* ==================== 왼쪽 사이드바 ==================== */
+/* (기존) 변경 없음 */
 .calendar-sidebar {
     width: 240px;
     background: var(--notion-sidebar-bg);
@@ -69,6 +71,7 @@
 }
 
 /* ==================== 미니 캘린더 ==================== */
+/* (기존) 변경 없음 */
 .mini-calendar-wrapper {
     margin-bottom: 24px;
 }
@@ -221,6 +224,7 @@
 
 /* (이하 CSS는 변경 없음 - 생략 없음) */
 /* ==================== 카테고리 섹션 ==================== */
+/* (기존) 변경 없음 */
 .sidebar-section {
     margin-bottom: 24px;
 }
@@ -357,6 +361,7 @@
 }
 
 /* ==================== 메인 캘린더 영역 ==================== */
+/* (기존) 변경 없음 */
 .calendar-main {
     flex: 1;
     display: flex;
@@ -369,12 +374,13 @@
     margin-left: 0;
 }
 
+/* [수정] 캘린더 툴바의 하단 테두리 제거 */
 .calendar-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 20px 24px;
-    border-bottom: 1px solid var(--notion-border);
+    /* border-bottom: 1px solid var(--notion-border); */ /* <-- 제거됨 */
     flex-shrink: 0;
 }
 
@@ -429,7 +435,7 @@
 
 .main-calendar {
     flex: 1;
-    padding: 24px;
+    padding: 0 24px 24px 24px; /* [수정] 상단 패딩 제거 */
     overflow: hidden;
     position: relative;
     display: flex;
@@ -442,13 +448,22 @@
 }
 
 /* ==================== FullCalendar 커스터마이징 ==================== */
+
+/* [신규] FullCalendar 전역 변수 설정 */
 .fc {
+    --fc-border-color: var(--notion-border);
+    --fc-today-bg-color: rgba(35, 131, 226, 0.05); /* 오늘 날짜 배경 */
+    --fc-highlight-color: rgba(35, 131, 226, 0.1); /* 날짜 선택 시 배경 */
+    --fc-non-business-color: transparent; /* 주말 회색 배경 제거 */
+    --fc-bg-event-opacity: 1;
+    
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 14px;
     height: 100% !important;
     display: flex;
     flex-direction: column;
 }
+
 .fc-view-harness {
     flex-grow: 1 !important;
     min-height: 0 !important;
@@ -458,55 +473,72 @@
 
 .fc-theme-standard td,
 .fc-theme-standard th {
-    border-color: var(--notion-border);
+    border-color: var(--fc-border-color);
 }
 
+/* [수정] 캘린더 헤더 (월, 화, 수...) */
 .fc-col-header-cell {
     padding: 16px 0;
     font-size: 13px;
     font-weight: 600;
     color: var(--notion-text);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: var(--notion-sidebar-bg);
+    background: var(--notion-bg); /* [수정] 사이드바 색상 -> 기본 배경색 */
+    border-bottom-width: 1px !important; /* [신규] 툴바 경계선 대신 헤더에 경계선 */
+    text-transform: uppercase; /* [신규] */
+    letter-spacing: 0.5px; /* [신규] */
 }
 
 .fc-col-header-cell-cushion {
     padding: 8px 4px;
+    font-weight: 500 !important; /* [수정] */
+    color: var(--notion-text) !important; /* [수정] */
 }
 
+/* [수정] 시간 그리드 (09:00, 10:00) */
 .fc-timegrid-slot-label {
     font-size: 12px;
     color: var(--notion-text-light);
     font-weight: 500;
+    border-bottom: 1px dotted var(--notion-border); /* [신규] 점선 */
+}
+/* [신규] 마이너 슬롯 (30분 단위) */
+.fc-timegrid-slot-minor {
+    border-bottom: 1px dotted #f0f0f0; /* [신규] 더 연한 점선 */
+}
+/* [신규] 시간 그리드 호버 효과 */
+.fc-timegrid-slot-lane:hover {
+    background: var(--notion-hover);
 }
 
 .fc-timegrid-axis-cushion {
     padding: 0 8px;
 }
 
+/* [수정] 월간 뷰 날짜 숫자 */
 .fc-daygrid-day-number {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px; /* [수정] 크기 살짝 줄임 */
+    font-weight: 500; /* [수정] */
     color: var(--notion-text);
-    padding: 10px;
+    padding: 8px; /* [수정] */
 }
 
+/* [수정] 오늘 날짜 셀 */
 .fc-day-today {
-    background: rgba(35, 131, 226, 0.05) !important;
+    background: var(--fc-today-bg-color) !important;
 }
 
+/* [수정] 오늘 날짜 숫자 (파란 동그라미 -> 파란 텍스트) */
 .fc-day-today .fc-daygrid-day-number {
-    background: var(--notion-primary);
-    color: white;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 4px;
-    box-shadow: none;
+    background: transparent !important;
+    color: var(--notion-primary) !important;
+    font-weight: 700 !important;
+    /* --- 원형 스타일 제거 --- */
+    border-radius: 0;
+    width: auto;
+    height: auto;
+    display: inline-block;
+    margin: 0;
+    padding: 8px; /* [수정] 패딩 일관성 */
 }
 
 .fc-daygrid-day:hover {
@@ -514,26 +546,28 @@
     cursor: pointer;
 }
 
+/* [수정] 이벤트 블록 */
 .fc-event {
-    border: none !important;
-    border-radius: 6px !important;
+    border: 1px solid rgba(0,0,0,0.05) !important; /* [신규] 연한 테두리 */
+    border-radius: 5px !important; /* [수정] 살짝 줄임 */
     padding: 4px 8px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 3px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 1px 2px var(--notion-shadow) !important; /* [수정] 그림자 살짝 연하게 */
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif !important;
 }
 
 .fc-event:hover {
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 3px 8px var(--notion-shadow-lg) !important;
 }
 
+/* [수정] 시간 그리드 이벤트 */
 .fc-timegrid-event {
-    border-radius: 6px !important;
+    border-radius: 5px !important;
     padding: 4px 8px !important;
 }
 
@@ -555,16 +589,19 @@
     line-height: 1.3;
 }
 
+/* [수정] 월간 뷰 이벤트 */
 .fc-daygrid-event .fc-event-title {
     font-weight: 500 !important;
     font-size: 13px !important;
+    padding: 2px 0; /* [신규] 상하 패딩 추가 */
 }
 
 .fc-daygrid-event-dot {
     border-color: inherit;
+    margin-right: 6px; /* [신규] 텍스트와 간격 */
 }
 
-
+/* (기존) FullCalendar 버튼 */
 .fc-button {
     background: white !important;
     border: 1px solid var(--notion-border) !important;
@@ -589,6 +626,7 @@
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
 
+/* (기존) 스크롤바 */
 .fc-scroller {
     overflow-y: scroll !important;
     scrollbar-width: thin;
@@ -608,31 +646,17 @@
     border-radius: 3px;
 }
 
+/* (기존) 폰트 재정의 */
 .fc {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif !important;
 }
 
+/* [수정] 폰트 색상/굵기 일관성 */
 .fc-col-header-cell-cushion,
 .fc-daygrid-day-number,
 .fc-timegrid-slot-label-cushion {
     font-weight: 500 !important;
     color: var(--notion-text) !important;
-}
-
-.fc-col-header-cell {
-    background: var(--notion-sidebar-bg) !important;
-    border-color: var(--notion-border) !important;
-    padding: 12px 0 !important;
-}
-
-.fc-col-header-cell-cushion {
-    font-size: 13px !important;
-    letter-spacing: 0.5px;
-}
-
-.fc-daygrid-day-number {
-    font-size: 15px !important;
-    padding: 6px !important;
 }
 
 .fc-timegrid-slot-label-cushion {
@@ -641,6 +665,7 @@
 }
 
 /* ==================== 사이드 패널 ==================== */
+/* (기존) 변경 없음 */
 .side-panel {
     width: 320px;
     height: 100%;
@@ -704,6 +729,7 @@
 }
 
 /* ==================== 폼 필드 ==================== */
+/* (기존) 변경 없음 */
 .form-field {
     margin-bottom: 24px;
 }
@@ -821,6 +847,7 @@
 }
 
 /* ==================== 기본 패널 (단축키) ==================== */
+/* (기존) 변경 없음 */
 .shortcuts-section,
 .tips-section {
     margin-bottom: 28px;
@@ -900,6 +927,7 @@
 }
 
 /* ==================== 패널 액션 버튼 ==================== */
+/* (기존) 변경 없음 */
 #eventForm .panel-actions {
     display: flex;
     justify-content: space-between;
@@ -957,6 +985,7 @@
 }
 
 /* ==================== 모달 오버레이 ==================== */
+/* (기존) 변경 없음 */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1052,6 +1081,7 @@
 }
 
 /* ==================== 색상 선택기 ==================== */
+/* (기존) 변경 없음 */
 .color-picker {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
@@ -1078,6 +1108,7 @@
 }
 
 /* ==================== 반응형 디자인 ==================== */
+/* (기존) 변경 없음 */
 @media (max-width: 1024px) {
     .calendar-sidebar {
         width: 220px;
@@ -1164,6 +1195,7 @@
 }
 
 /* ==================== 유틸리티 클래스 ==================== */
+/* (기존) 변경 없음 */
 .hidden {
     display: none !important;
 }
