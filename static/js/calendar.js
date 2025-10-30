@@ -176,18 +176,37 @@ function initializeCalendar() {
 function renderMiniCalendar() {
     const miniCalendar = document.getElementById('miniCalendar');
     if (!miniCalendar) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 기본값 설정: currentMiniCalendarDate가 없거나 유효하지 않으면 오늘 날짜로 설정
+    if (!currentMiniCalendarDate || isNaN(currentMiniCalendarDate.getTime())) {
+        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+
+    // 기본값 설정: selectedMiniCalendarDate가 없거나 유효하지 않으면 오늘 날짜로 설정
+    if (!selectedMiniCalendarDate || isNaN(selectedMiniCalendarDate.getTime())) {
+        selectedMiniCalendarDate = new Date(today);
+    }
+
     const year = currentMiniCalendarDate.getFullYear();
     const month = currentMiniCalendarDate.getMonth();
-    const today = new Date();
-    today.setHours(0,0,0,0);
+
+    // NaN 체크: year나 month가 NaN이면 오늘로 리셋
+    if (isNaN(year) || isNaN(month)) {
+        currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        selectedMiniCalendarDate = new Date(today);
+        renderMiniCalendar(); // 다시 렌더링
+        return;
+    }
 
     const titleEl = document.getElementById('miniCalendarTitle');
-    if(titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
+    if (titleEl) titleEl.textContent = `${year}년 ${month + 1}월`;
 
-    // --- *** 하이라이트는 selectedMiniCalendarDate 기준으로만 계산 *** ---
-    const dateToHighlight = selectedMiniCalendarDate || today; // selectedMiniCalendarDate가 없으면(초기 로드 등) 오늘 기준
-    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight); // 하이라이트할 주 계산
-    // --- 수정 끝 ---
+    // 하이라이트할 주 계산
+    const dateToHighlight = selectedMiniCalendarDate || today;
+    const weekRangeToHighlight = getWeekRangeForDate(dateToHighlight);
 
     const firstDayOfMonth = new Date(year, month, 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
@@ -542,40 +561,26 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        // 백슬래시 키 - 모든 키보드 레이아웃과 입력 모드 지원
-        // 맥북 영어/한글, Windows, Linux 등 다양한 환경 대응
-
-        // 디버그: 백슬래시 근처 키를 눌렀을 때 콘솔에 키 정보 출력
-        // 문제 발생 시 브라우저 콘솔(F12)에서 확인 가능
-        if ((e.keyCode >= 219 && e.keyCode <= 221) || e.key === '\\' || e.key === '₩') {
-            console.log('[DEBUG] Key event:', {
-                key: e.key,
-                code: e.code,
-                keyCode: e.keyCode,
-                which: e.which,
-                location: e.location,
-                inputMode: '영어/한글 입력 모드 확인용'
-            });
-        }
-
+        // 백슬래시/₩ 키 - 맥북 영어 입력 모드에서는 Backquote (keyCode 192)로 인식됨!
         const isBackslash =
-            // keyCode 체크 (레거시 지원)
+            // 맥북 영어 입력 모드: Backquote (keyCode 192)
+            e.keyCode === 192 || e.which === 192 || e.code === 'Backquote' ||
+            // 맥북 한글 입력 모드 및 일반: Backslash (keyCode 220)
             e.keyCode === 220 || e.keyCode === 226 ||
             e.which === 220 || e.which === 226 ||
-            // code 체크 (표준) - 가장 신뢰할 수 있는 방법
+            // code 체크 (표준)
             e.code === 'Backslash' ||
             e.code === 'IntlBackslash' ||
             e.code === 'IntlYen' ||
             e.code === 'IntlRo' ||
             // key 체크 (실제 입력 문자)
+            (e.key === '₩' && (e.code === 'Backquote' || e.code === 'Backslash')) ||
             e.key === '\\' ||
             e.key === '|' ||
-            e.key === '₩' ||
             e.key === '＼' ||
             e.key === 'Backslash';
 
         if (isBackslash) {
-            console.log('[DEBUG] Backslash detected! Toggling sidebar...');
             e.preventDefault();
             toggleSidebar();
             return;
