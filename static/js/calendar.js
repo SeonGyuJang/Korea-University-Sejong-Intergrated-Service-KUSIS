@@ -241,12 +241,21 @@ function renderMiniCalendar() {
             }
             return false;
         });
+
+        // 하이라이트된 주에 포함된 날짜인지 확인
+        const isInHighlightedWeek = weekRangeToHighlight &&
+            date >= weekRangeToHighlight.start &&
+            date <= weekRangeToHighlight.end;
+
+        // has-events는 하이라이트된 주의 날짜에만 표시
+        const shouldShowEvents = hasEvents && isInHighlightedWeek;
+
         // *** 클릭된 날짜 확인 (selectedMiniCalendarDate 기준) ***
         const isClicked = selectedMiniCalendarDate && formatDate(selectedMiniCalendarDate) === dateStr;
 
         let classes = 'mini-calendar-day';
         if (isToday) classes += ' today';
-        if (hasEvents) classes += ' has-events';
+        if (shouldShowEvents) classes += ' has-events';
         // 클릭된 날짜 스타일 적용
         if (isClicked) classes += ' clicked-date';
 
