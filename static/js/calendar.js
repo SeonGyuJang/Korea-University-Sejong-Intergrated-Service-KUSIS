@@ -264,7 +264,9 @@ function renderMiniCalendar() {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
             // *** 클릭 시 selectedMiniCalendarDate 업데이트 (하이라이트 기준 변경) ***
-            selectedMiniCalendarDate = new Date(dateStr + 'T00:00:00');
+            // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
+            const [year, month, day] = dateStr.split('-').map(Number);
+            selectedMiniCalendarDate = new Date(year, month - 1, day);
             selectedMiniCalendarDate.setHours(0,0,0,0);
             if(calendar) calendar.gotoDate(dateStr); // 메인 캘린더 이동
             // 클릭 시 미니캘린더 월 이동 방지 (선택)
@@ -477,7 +479,9 @@ function setupKeyboardShortcuts() {
             return;
         }
 
-        if (e.code === 'Backslash' || e.code === 'IntlYen' || e.key === '\\' || e.key === '₩') {
+        // 백슬래시/원화 키 - 다양한 키보드 레이아웃과 입력 모드 지원
+        if (e.code === 'Backslash' || e.code === 'IntlYen' || e.code === 'IntlBackslash' ||
+            e.key === '\\' || e.key === '₩' || e.keyCode === 220) {
             e.preventDefault();
             toggleSidebar();
             return;
