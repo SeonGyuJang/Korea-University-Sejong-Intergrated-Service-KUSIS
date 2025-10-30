@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 공부 분석{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/study_analysis.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="content-area study-analysis-page">
+    {# --- 페이지 헤더 --- #}
+    <div class="page-header">
+        <h1><i class="fas fa-chart-line"></i> 공부 분석</h1>
+        {# 학기 선택 (시간표 관리와 연동) #}
+        <select id="studyAnalysisSemesterSelect" class="input-group semester-select-study">
+            <option value="">학기 로딩 중...</option>
+        </select>
+    </div>
+
+    <div class="study-analysis-container">
+        {# --- 좌측: 통계 및 그래프 --- #}
+        <div class="analysis-main-column">
+            {# --- 기간 선택 탭 --- #}
+            <div class="period-tabs widget-tabs">
+                <button class="tab active" data-period="daily">일간</button>
+                <button class="tab" data-period="weekly">주간</button>
+                <button class="tab" data-period="monthly">월간</button>
+            </div>
+
+            {# --- 총 공부 시간 및 날짜 표시 --- #}
+            <div class="widget total-study-widget">
+                <div class="total-time-header">
+                    <h3 id="currentTimePeriod">오늘 총 공부 시간</h3>
+                    <div id="dateNavigation" style="display: none;">
+                        <button id="prevPeriodBtn" class="btn-sm"><i class="fas fa-chevron-left"></i></button>
+                        <span id="currentDateDisplay"></span>
+                        <button id="nextPeriodBtn" class="btn-sm"><i class="fas fa-chevron-right"></i></button>
+                         <button id="todayPeriodBtn" class="btn-sm" style="margin-left: 5px;">오늘</button>
+                    </div>
+                </div>
+                <div class="total-time-display">
+                    <span id="totalStudyTime">0h 0m</span>
+                </div>
+                 {# --- 공부 나무 (Gamification) --- #}
+                 <div class="study-tree-widget">
+                    <h4><i class="fas fa-tree"></i> 나의 공부 나무</h4>
+                    <div class="tree-container" id="studyTreeContainer">
+                        <img id="studyTreeImage" src="{{ url_for('static', filename='images/tree_stage_0.png') }}" alt="공부 나무">
+                        <div class="tree-level" id="treeLevelInfo">Lv. 0</div>
+                    </div>
+                    <p id="treeMessage">공부해서 나무를 키워보세요!</p>
+                </div>
+            </div>
+
+            {# --- 메인 공부 시간 그래프 --- #}
+            <div class="widget chart-widget">
+                <div class="widget-header">
+                    <h3 id="chartTitle"><i class="fas fa-chart-bar"></i> 시간별 공부 기록</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="studyTimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        {# --- 우측: 과목별 기록 및 타이머 --- #}
+        <div class="analysis-side-column">
+            {# --- 과목별 타이머 --- #}
+            <div class="widget subject-timer-widget">
+                <div class="widget-header">
+                    <h3><i class="fas fa-stopwatch"></i> 과목별 시간 측정</h3>
+                </div>
+                <div class="input-group">
+                    <label for="subjectSelectTimer">과목 선택</label>
+                    <select id="subjectSelectTimer" disabled>
+                        <option value="">과목 로딩 중...</option>
+                    </select>
+                </div>
+                <div class="subject-timer-display">
+                    <span id="subjectTimerDisplay">00:00:00</span>
+                </div>
+                <div class="subject-timer-controls">
+                    <button id="startSubjectTimerBtn" class="btn btn-primary" disabled><i class="fas fa-play"></i> 시작</button>
+                    <button id="stopSubjectTimerBtn" class="btn btn-danger" disabled><i class="fas fa-stop"></i> 중지</button>
+                </div>
+                <small id="currentTimingSubject" class="timing-info"></small>
+            </div>
+
+            {# --- 과목별 공부 시간 분포 --- #}
+            <div class="widget subject-distribution-widget">
+                <div class="widget-header">
+                    <h3 id="subjectDistTitle"><i class="fas fa-pie-chart"></i> 오늘 과목별 분포</h3>
+                </div>
+                <div class="subject-chart-container">
+                    <canvas id="subjectDistributionChart"></canvas>
+                    <div id="subjectListContainer">
+                        <ul id="subjectStudyList">
+                            <li class="no-data">데이터 없음</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+{# date-fns 로케일 (한국어) 추가 #}
+<script src="https://cdn.jsdelivr.net/npm/date-fns/locale/ko/index.js"></script>
+<script src="{{ url_for('static', filename='js/study_analysis.js') }}"></script>
+{% endblock %}

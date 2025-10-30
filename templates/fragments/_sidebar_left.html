@@ -29,10 +29,12 @@
             <i class="fas fa-calendar"></i>
             <span class="nav-text">캘린더</span>
         </a>
-        <a href="#" class="nav-item" data-page="study-analysis">
+        {# --- 수정: 공부 분석 탭 링크 추가 --- #}
+        <a href="{{ url_for('study-analysis') }}" class="nav-item {% if request.path == '/study-analysis' %}active{% endif %}" data-page="study-analysis">
             <i class="fas fa-chart-line"></i>
             <span class="nav-text">공부 분석</span>
         </a>
+        {# --- 수정 끝 --- #}
         <a href="#" class="nav-item" data-page="friends">
             <i class="fas fa-users"></i>
             <span class="nav-text">친구</span>

@@ -43,7 +43,14 @@
 
     <script src="https://kit.fontawesome.com/6478f529f2.js" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
-    {% block scripts %}{% endblock %}
-    {% block page_scripts %}{% endblock %}
+    {% block scripts %}
+    {# --- 추가: Chart.js 및 date-fns 어댑터 CDN --- #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    {# date-fns 로케일 (한국어) 추가 #}
+    <script src="https://cdn.jsdelivr.net/npm/date-fns/locale/ko/index.js"></script>
+    {# --- 추가 끝 --- #}
+    {% endblock %}
+    {% block page_scripts %}{% endblock %} {# 페이지별 스크립트는 여기에 로드됨 #}
 </body>
 </html>

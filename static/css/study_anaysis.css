@@ -1,0 +1,418 @@
+/* static/css/study_analysis.css */
+:root {
+    --tree-level-0: #a5d6a7; /* 연두 */
+    --tree-level-1: #81c784;
+    --tree-level-2: #66bb6a;
+    --tree-level-3: #4caf50;
+    --tree-level-4: #43a047;
+    --tree-level-5: #388e3c; /* 진녹색 */
+}
+
+.study-analysis-page {
+    padding: 20px;
+    height: calc(100vh - 69px); /* 헤더 제외 전체 높이 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* 페이지 자체 스크롤 방지 */
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.page-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.page-header h1 i {
+    color: var(--korea-red);
+}
+
+.semester-select-study {
+    min-width: 180px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.study-analysis-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 메인 컬럼 : 사이드 컬럼 비율 */
+    gap: 20px;
+    flex-grow: 1; /* 남은 공간 차지 */
+    overflow: hidden; /* 내부 스크롤 관리 */
+    height: calc(100% - 70px); /* 헤더 높이 제외 */
+}
+
+.analysis-main-column,
+.analysis-side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto; /* 컬럼별 스크롤 */
+    padding-bottom: 10px; /* 스크롤 여유 공간 */
+    height: 100%;
+}
+
+/* 스크롤바 스타일 */
+.analysis-main-column::-webkit-scrollbar,
+.analysis-side-column::-webkit-scrollbar {
+    width: 6px;
+}
+.analysis-main-column::-webkit-scrollbar-track,
+.analysis-side-column::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+.analysis-main-column::-webkit-scrollbar-thumb,
+.analysis-side-column::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 3px;
+}
+
+/* 기간 선택 탭 */
+.period-tabs {
+    flex-shrink: 0; /* 높이 고정 */
+}
+
+/* 총 공부 시간 위젯 */
+.total-study-widget {
+    background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
+    color: white;
+    padding: 25px;
+    text-align: center;
+    flex-shrink: 0;
+    position: relative; /* 자식 요소 포지셔닝 기준 */
+}
+
+.total-time-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.total-time-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#dateNavigation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#dateNavigation .btn-sm {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#dateNavigation .btn-sm:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+#dateNavigation .btn-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#currentDateDisplay {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+
+.total-time-display {
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: 20px; /* 나무 위젯과의 간격 */
+    letter-spacing: 1px;
+}
+
+/* 공부 나무 위젯 */
+.study-tree-widget {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 15px; /* 시간 표시와의 간격 */
+}
+
+.study-tree-widget h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: left;
+}
+.study-tree-widget h4 i {
+    margin-right: 5px;
+}
+
+.tree-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+#studyTreeImage {
+    width: 60px; /* 이미지 크기 조정 */
+    height: 60px;
+    object-fit: contain;
+    transition: transform 0.5s ease;
+}
+
+.tree-level {
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+#treeMessage {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+}
+
+
+/* 차트 위젯 */
+.chart-widget {
+    flex-grow: 1; /* 남은 공간 차지 */
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-container {
+    flex-grow: 1; /* 차트가 남은 공간 차지 */
+    position: relative;
+    min-height: 250px; /* 최소 높이 */
+}
+
+#studyTimeChart {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+
+/* 과목별 타이머 위젯 */
+.subject-timer-widget {
+    flex-shrink: 0; /* 높이 고정 */
+}
+
+.subject-timer-widget label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    display: block;
+}
+
+#subjectSelectTimer {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 15px;
+}
+
+.subject-timer-display {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--korea-red);
+    margin-bottom: 15px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.subject-timer-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.subject-timer-controls .btn {
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.subject-timer-controls .btn-primary { background: var(--color-success); border-color: var(--color-success); }
+.subject-timer-controls .btn-primary:hover:not(:disabled) { background: #229954; }
+.subject-timer-controls .btn-danger { background: var(--color-danger); border-color: var(--color-danger); }
+.subject-timer-controls .btn-danger:hover:not(:disabled) { background: #c0392b; }
+
+.subject-timer-controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.timing-info {
+    display: block;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-height: 1.5em; /* 공간 확보 */
+}
+
+/* 과목별 분포 위젯 */
+.subject-distribution-widget {
+    flex-grow: 1; /* 남은 공간 차지 */
+    display: flex;
+    flex-direction: column;
+}
+
+.subject-chart-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column; /* 도넛 차트와 목록을 세로로 배치 */
+    align-items: center; /* 가운데 정렬 */
+    gap: 15px;
+    min-height: 200px;
+    position: relative; /* 로딩 메시지 기준점 */
+}
+
+#subjectDistributionChart {
+    max-width: 200px; /* 도넛 차트 최대 크기 */
+    max-height: 200px;
+    margin: 0 auto; /* 가운데 정렬 */
+    flex-shrink: 0;
+}
+
+#subjectListContainer {
+    width: 100%;
+    overflow-y: auto; /* 목록 길어지면 스크롤 */
+    flex-grow: 1;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+#subjectStudyList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#subjectStudyList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 5px;
+    font-size: 14px;
+    border-bottom: 1px dashed var(--border-color);
+}
+#subjectStudyList li:last-child {
+    border-bottom: none;
+}
+
+#subjectStudyList .subject-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+#subjectStudyList .subject-time {
+    font-weight: 600;
+    color: var(--korea-red);
+    flex-shrink: 0;
+}
+
+.no-data {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 20px;
+}
+
+
+/* 로딩 상태 */
+.loading-overlay-chart {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 반응형 */
+@media (max-width: 992px) {
+    .study-analysis-container {
+        grid-template-columns: 1fr; /* 1열 레이아웃 */
+        height: auto; /* 높이 자동 */
+        overflow: visible; /* 스크롤 제거 */
+    }
+    .analysis-main-column,
+    .analysis-side-column {
+        overflow-y: visible; /* 내부 스크롤 제거 */
+        height: auto;
+    }
+    .chart-widget {
+        min-height: 300px;
+    }
+    .subject-distribution-widget {
+        min-height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .semester-select-study {
+        width: 100%;
+    }
+    .total-time-header {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .total-time-display {
+        font-size: 32px;
+    }
+    #dateNavigation {
+        width: 100%;
+        justify-content: center;
+    }
+    .subject-chart-container {
+        flex-direction: column; /* 항상 세로 배치 */
+    }
+}
