@@ -268,40 +268,25 @@ function renderMiniCalendar() {
         applyWeekHighlight(weekRangeToHighlight, year, month, firstDayWeekday);
     }, 0);
 
-    // 날짜 클릭 이벤트 리스너 추가
+    // 날짜 클릭 이벤트 리스너 추가 (현재 달 날짜)
     miniCalendar.querySelectorAll('.mini-calendar-day:not(.other-month)').forEach(dayEl => {
         dayEl.addEventListener('click', function() {
             const dateStr = this.dataset.date;
 
             // 유효성 검사: dateStr이 없거나 잘못된 경우
             if (!dateStr || dateStr === 'undefined' || dateStr === 'null') {
-                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                renderMiniCalendar();
-                return;
+                return; // 아무것도 하지 않음
             }
 
             // 시간대 이슈 방지: YYYY-MM-DD 문자열을 파싱하여 로컬 날짜 객체 생성
             const parts = dateStr.split('-');
             if (parts.length !== 3) {
-                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                renderMiniCalendar();
-                return;
+                return; // 아무것도 하지 않음
             }
 
             const [year, month, day] = parts.map(Number);
             if (isNaN(year) || isNaN(month) || isNaN(day)) {
-                // 미니캘린더만 오늘이 포함된 월로 표시 (날짜 선택은 하지 않음)
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                currentMiniCalendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                renderMiniCalendar();
-                return;
+                return; // 아무것도 하지 않음
             }
 
             // 정상적인 날짜 클릭: selectedMiniCalendarDate 업데이트 및 메인 캘린더 이동
@@ -309,6 +294,14 @@ function renderMiniCalendar() {
             selectedMiniCalendarDate.setHours(0, 0, 0, 0);
             if(calendar) calendar.gotoDate(dateStr);
             renderMiniCalendar();
+        });
+    });
+
+    // 다른 달 날짜나 빈 공간 클릭 시 처리
+    miniCalendar.querySelectorAll('.mini-calendar-day.other-month').forEach(dayEl => {
+        dayEl.addEventListener('click', function() {
+            // 빈 공간(다른 달) 클릭: 아무것도 하지 않음 (하이라이트 유지)
+            // renderMiniCalendar를 호출하지 않으므로 기존 상태 유지
         });
     });
 }
