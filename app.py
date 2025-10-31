@@ -2053,33 +2053,46 @@ def get_study_analysis_data():
     from flask import g
     user_id = g.user.id
     
-    period = request.args.get('period', 'day') # day, week, month
+    period = request.args.get('period', 'daily') # daily, weekly, monthly
     date_str = request.args.get('date_str')
     semester_id = request.args.get('semester_id', type=int)
-    
-    try:
-        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except (ValueError, TypeError):
+
+    # 날짜 파싱 (없으면 오늘)
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError) as e:
+            print(f"Invalid date format: {date_str}, error: {e}")
+            target_date = datetime.now(KST).date()
+    else:
         target_date = datetime.now(KST).date()
-        
+
     if not semester_id:
          return jsonify({"status": "error", "message": "학기 ID가 필요합니다."}), 400
-         
+
     # 1. 기간(start_date, end_date) 설정
-    if period == 'day':
+    # period 값 정규화 (daily/day, weekly/week, monthly/month 모두 허용)
+    period_normalized = period.lower()
+    if period_normalized in ['day', 'daily']:
         start_date = end_date = target_date
         date_labels = [target_date.strftime('%Y-%m-%d')]
-    elif period == 'week':
+        period = 'daily'
+    elif period_normalized in ['week', 'weekly']:
         start_date = target_date - timedelta(days=target_date.weekday()) # 월요일
         end_date = start_date + timedelta(days=6) # 일요일
         date_labels = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
-    elif period == 'month':
+        period = 'weekly'
+    elif period_normalized in ['month', 'monthly']:
         start_date = target_date.replace(day=1)
         next_month = (start_date + timedelta(days=32)).replace(day=1)
         end_date = next_month - timedelta(days=1)
         date_labels = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range((end_date - start_date).days + 1)]
+        period = 'monthly'
     else:
-        return jsonify({"status": "error", "message": "유효하지 않은 기간입니다."}), 400
+        # 기본값은 daily
+        start_date = end_date = target_date
+        date_labels = [target_date.strftime('%Y-%m-%d')]
+        period = 'daily'
         
     try:
         # 2. 메인 그래프용 시계열 데이터 (날짜별 총 공부 시간)

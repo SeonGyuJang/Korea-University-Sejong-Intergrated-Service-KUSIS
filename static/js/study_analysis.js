@@ -367,13 +367,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             unit: unit,
                             tooltipFormat: tooltipFormat,
                              displayFormats: {
-                                hour: 'HH', 
-                                day: period === 'monthly' ? 'dd' : 'MM-dd' 
-                            }
-                        },
-                         adapters: {
-                            date: {
-                                locale: dateFns.locale.ko // [수정] 올바른 경로
+                                hour: 'HH',
+                                day: period === 'monthly' ? 'dd' : 'MM-dd'
                             }
                         },
                         title: { display: false }
@@ -921,8 +916,48 @@ document.addEventListener('DOMContentLoaded', async () => {
      }
 
 
-    function showNotification(message, type = 'info') { 
-        alert(`[${type.toUpperCase()}] ${message}`);
+    function showNotification(message, type = 'info') {
+        // 토스트 알림 생성
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-icon">${getToastIcon(type)}</div>
+            <div class="toast-message">${message}</div>
+            <button class="toast-close">&times;</button>
+        `;
+
+        // 토스트 컨테이너 찾기 또는 생성
+        let container = document.querySelector('.toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        container.appendChild(toast);
+
+        // 닫기 버튼 이벤트
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', () => {
+            toast.classList.add('toast-hide');
+            setTimeout(() => toast.remove(), 300);
+        });
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            toast.classList.add('toast-hide');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function getToastIcon(type) {
+        const icons = {
+            'success': '<i class="fas fa-check-circle"></i>',
+            'error': '<i class="fas fa-exclamation-circle"></i>',
+            'warning': '<i class="fas fa-exclamation-triangle"></i>',
+            'info': '<i class="fas fa-info-circle"></i>'
+        };
+        return icons[type] || icons['info'];
     }
 
     function showLoadingState(isLoading) {
