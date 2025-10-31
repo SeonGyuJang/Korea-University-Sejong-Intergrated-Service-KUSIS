@@ -13,5 +13,6 @@ from .study import StudyLog
 from .todo import Todo
 from .post import Post
 from .calendar import CalendarCategory, CalendarEvent
+from .pet import PetStatus
 
-__all__ = ['db', 'User', 'Semester', 'Subject', 'TimeSlot', 'Schedule', 'StudyLog', 'Todo', 'Post', 'CalendarCategory', 'CalendarEvent']
+__all__ = ['db', 'User', 'Semester', 'Subject', 'TimeSlot', 'Schedule', 'StudyLog', 'Todo', 'Post', 'CalendarCategory', 'CalendarEvent', 'PetStatus']

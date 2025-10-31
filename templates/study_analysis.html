@@ -41,14 +41,41 @@
                 <div class="total-time-display">
                     <span id="totalStudyTime">0h 0m</span>
                 </div>
-                 {# --- 공부 나무 (Gamification) --- #}
-                 <div class="study-tree-widget">
-                    <h4><i class="fas fa-tree"></i> 나의 공부 나무</h4>
-                    <div class="tree-container" id="studyTreeContainer">
-                        <img id="studyTreeImage" src="{{ url_for('static', filename='images/tree_stage_0.png') }}" alt="공부 나무">
-                        <div class="tree-level" id="treeLevelInfo">Lv. 0</div>
+                 {# --- 공부 펫 시스템 (Gamification) --- #}
+                 <div class="study-pet-widget">
+                    <div class="pet-header">
+                        <h4><i class="fas fa-paw"></i> <span id="petNameDisplay">공부친구</span></h4>
+                        <button id="petSettingsBtn" class="btn-icon" title="펫 설정"><i class="fas fa-cog"></i></button>
                     </div>
-                    <p id="treeMessage">공부해서 나무를 키워보세요!</p>
+                    <div class="pet-container" id="studyPetContainer">
+                        <div class="pet-image-wrapper">
+                            <img id="studyPetImage" src="{{ url_for('static', filename='images/pet_cat_lv1.png') }}" alt="공부 펫">
+                            <div class="pet-level-badge" id="petLevelBadge">Lv. 1</div>
+                        </div>
+                        <div class="pet-health-bar">
+                            <div class="health-bar-fill" id="petHealthFill" style="width: 100%;"></div>
+                        </div>
+                        <div class="pet-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">건강도</span>
+                                <span class="stat-value" id="petHealthValue">100%</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">감정</span>
+                                <span class="stat-value" id="petMoodValue">😊 행복</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">연속 공부</span>
+                                <span class="stat-value" id="petStreakValue">0일</span>
+                            </div>
+                        </div>
+                        <div class="pet-exp-bar">
+                            <div class="exp-bar-fill" id="petExpFill" style="width: 0%;"></div>
+                            <span class="exp-text" id="petExpText">EXP 0%</span>
+                        </div>
+                    </div>
+                    <p class="pet-message" id="petMessage">공부해서 펫을 키워보세요!</p>
+                    <div class="pet-badges" id="petBadges"></div>
                 </div>
             </div>
 
@@ -99,6 +126,47 @@
                         </ul>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 펫 설정 모달 --- #}
+    <div id="petSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>펫 설정</h3>
+                <button class="modal-close" id="closePetModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="petNameInput">펫 이름</label>
+                    <input type="text" id="petNameInput" class="form-control" placeholder="공부친구" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>펫 종류</label>
+                    <div class="pet-type-selector">
+                        <button class="pet-type-btn" data-type="cat">
+                            <i class="fas fa-cat"></i>
+                            <span>고양이</span>
+                        </button>
+                        <button class="pet-type-btn" data-type="dog">
+                            <i class="fas fa-dog"></i>
+                            <span>강아지</span>
+                        </button>
+                        <button class="pet-type-btn" data-type="rabbit">
+                            <i class="fas fa-dove"></i>
+                            <span>토끼</span>
+                        </button>
+                        <button class="pet-type-btn" data-type="bird">
+                            <i class="fas fa-feather"></i>
+                            <span>새</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelPetSettings">취소</button>
+                <button class="btn btn-primary" id="savePetSettings">저장</button>
             </div>
         </div>
     </div>

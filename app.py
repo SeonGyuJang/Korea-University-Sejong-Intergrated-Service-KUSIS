@@ -13,7 +13,7 @@ from sqlalchemy import inspect, func, text, desc, or_, and_
 import pytz
 
 # 모듈 import
-from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post, CalendarCategory, CalendarEvent
+from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post, CalendarCategory, CalendarEvent, PetStatus
 from utils.constants import *
 from utils.decorators import login_required, post_manager_required, admin_required
 from utils.helpers import sort_semesters, calculate_gpa, allowed_file as _allowed_file
@@ -1907,7 +1907,47 @@ def save_study_time():
             StudyLog.user_id == user_id,
             StudyLog.date == date_obj
         ).scalar() or 0
-        
+
+        # 펫 상태 업데이트
+        try:
+            pet = PetStatus.query.filter_by(user_id=user_id).first()
+            if not pet:
+                pet = PetStatus(
+                    user_id=user_id,
+                    pet_type='cat',
+                    pet_name='공부친구',
+                    level=1,
+                    experience=0,
+                    health=100,
+                    mood='happy',
+                    consecutive_study_days=0,
+                    total_study_time=0,
+                    badges=[]
+                )
+                db.session.add(pet)
+
+            # 경험치 추가
+            pet.add_experience(duration_to_add)
+            pet.total_study_time += duration_to_add
+
+            # 연속 공부 일수 업데이트
+            if pet.last_study_date:
+                days_diff = (date_obj - pet.last_study_date).days
+                if days_diff == 1:
+                    pet.consecutive_study_days += 1
+                elif days_diff > 1:
+                    pet.consecutive_study_days = 1
+            else:
+                pet.consecutive_study_days = 1
+
+            pet.last_study_date = date_obj
+            pet.update_status()
+            pet.check_and_award_badges()
+            db.session.commit()
+        except Exception as pet_error:
+            print(f"Warning: Failed to update pet status: {pet_error}")
+            # 펫 업데이트 실패해도 공부 시간은 저장
+
         return jsonify({"status": "success", "data": {"total_duration": today_total}})
 
     except ValueError:
@@ -1948,7 +1988,47 @@ def log_subject_study_time():
         )
         db.session.add(new_log)
         db.session.commit()
-        
+
+        # 펫 상태 업데이트
+        try:
+            pet = PetStatus.query.filter_by(user_id=user_id).first()
+            if not pet:
+                pet = PetStatus(
+                    user_id=user_id,
+                    pet_type='cat',
+                    pet_name='공부친구',
+                    level=1,
+                    experience=0,
+                    health=100,
+                    mood='happy',
+                    consecutive_study_days=0,
+                    total_study_time=0,
+                    badges=[]
+                )
+                db.session.add(pet)
+
+            # 경험치 추가
+            pet.add_experience(duration_seconds)
+            pet.total_study_time += duration_seconds
+
+            # 연속 공부 일수 업데이트
+            if pet.last_study_date:
+                days_diff = (date_obj - pet.last_study_date).days
+                if days_diff == 1:
+                    pet.consecutive_study_days += 1
+                elif days_diff > 1:
+                    pet.consecutive_study_days = 1
+            else:
+                pet.consecutive_study_days = 1
+
+            pet.last_study_date = date_obj
+            pet.update_status()
+            pet.check_and_award_badges()
+            db.session.commit()
+        except Exception as pet_error:
+            print(f"Warning: Failed to update pet status: {pet_error}")
+            # 펫 업데이트 실패해도 공부 시간은 저장
+
         return jsonify({"status": "success", "message": "공부 시간이 기록되었습니다."}), 201
 
     except ValueError:
@@ -2070,6 +2150,207 @@ def get_study_analysis_data():
         db.session.rollback()
         print(f"Error getting study analysis data: {e}")
         return jsonify({"status": "error", "message": f"데이터 분석 중 오류 발생: {e}"}), 500
+
+
+# --- 펫 시스템 API ---
+@app.route('/api/pet/status', methods=['GET'])
+@login_required
+def get_pet_status():
+    """펫 상태 조회"""
+    from flask import g
+    user_id = g.user.id
+
+    try:
+        pet = PetStatus.query.filter_by(user_id=user_id).first()
+
+        if not pet:
+            # 펫이 없으면 자동 생성
+            pet = PetStatus(
+                user_id=user_id,
+                pet_type='cat',
+                pet_name='공부친구',
+                level=1,
+                experience=0,
+                health=100,
+                mood='happy',
+                consecutive_study_days=0,
+                total_study_time=0,
+                badges=[]
+            )
+            db.session.add(pet)
+            db.session.commit()
+        else:
+            # 펫 상태 업데이트 (건강도, 감정)
+            pet.update_status()
+            db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'pet': pet.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error getting pet status: {e}")
+        return jsonify({"status": "error", "message": f"펫 상태 조회 중 오류 발생: {e}"}), 500
+
+
+@app.route('/api/pet/update', methods=['POST'])
+@login_required
+def update_pet_after_study():
+    """공부 후 펫 상태 업데이트 (경험치, 연속 일수, 건강도)"""
+    from flask import g
+    user_id = g.user.id
+    data = request.json
+
+    study_seconds = data.get('study_seconds', 0)
+    study_date_str = data.get('study_date')  # YYYY-MM-DD
+
+    if study_seconds <= 0:
+        return jsonify({"status": "error", "message": "공부 시간이 유효하지 않습니다."}), 400
+
+    try:
+        study_date = datetime.strptime(study_date_str, '%Y-%m-%d').date() if study_date_str else date.today()
+
+        pet = PetStatus.query.filter_by(user_id=user_id).first()
+
+        if not pet:
+            # 펫이 없으면 생성
+            pet = PetStatus(
+                user_id=user_id,
+                pet_type='cat',
+                pet_name='공부친구',
+                level=1,
+                experience=0,
+                health=100,
+                mood='happy',
+                consecutive_study_days=0,
+                total_study_time=0,
+                badges=[]
+            )
+            db.session.add(pet)
+
+        # 경험치 추가
+        exp_gained = pet.add_experience(study_seconds)
+
+        # 총 공부 시간 추가
+        pet.total_study_time += study_seconds
+
+        # 연속 공부 일수 업데이트
+        if pet.last_study_date:
+            days_diff = (study_date - pet.last_study_date).days
+            if days_diff == 1:
+                # 연속
+                pet.consecutive_study_days += 1
+            elif days_diff == 0:
+                # 같은 날
+                pass
+            else:
+                # 끊김
+                pet.consecutive_study_days = 1
+        else:
+            # 첫 공부
+            pet.consecutive_study_days = 1
+
+        pet.last_study_date = study_date
+
+        # 건강도 및 감정 상태 업데이트
+        pet.update_status()
+
+        # 배지 체크
+        new_badges = pet.check_and_award_badges()
+
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'pet': pet.to_dict(),
+            'exp_gained': exp_gained,
+            'new_badges': new_badges
+        })
+
+    except ValueError:
+        return jsonify({"status": "error", "message": "잘못된 날짜 형식입니다."}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating pet: {e}")
+        return jsonify({"status": "error", "message": f"펫 업데이트 중 오류 발생: {e}"}), 500
+
+
+@app.route('/api/pet/rename', methods=['PUT'])
+@login_required
+def rename_pet():
+    """펫 이름 변경"""
+    from flask import g
+    user_id = g.user.id
+    data = request.json
+
+    new_name = data.get('name', '').strip()
+
+    if not new_name or len(new_name) > 50:
+        return jsonify({"status": "error", "message": "이름은 1~50자 이내로 입력해주세요."}), 400
+
+    try:
+        pet = PetStatus.query.filter_by(user_id=user_id).first()
+
+        if not pet:
+            return jsonify({"status": "error", "message": "펫을 찾을 수 없습니다."}), 404
+
+        pet.pet_name = new_name
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': f'펫 이름이 "{new_name}"(으)로 변경되었습니다.',
+            'pet': pet.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error renaming pet: {e}")
+        return jsonify({"status": "error", "message": f"이름 변경 중 오류 발생: {e}"}), 500
+
+
+@app.route('/api/pet/change-type', methods=['PUT'])
+@login_required
+def change_pet_type():
+    """펫 종류 변경"""
+    from flask import g
+    user_id = g.user.id
+    data = request.json
+
+    new_type = data.get('pet_type', '').strip().lower()
+    allowed_types = ['cat', 'dog', 'rabbit', 'bird']
+
+    if new_type not in allowed_types:
+        return jsonify({"status": "error", "message": f"유효한 펫 종류: {', '.join(allowed_types)}"}), 400
+
+    try:
+        pet = PetStatus.query.filter_by(user_id=user_id).first()
+
+        if not pet:
+            return jsonify({"status": "error", "message": "펫을 찾을 수 없습니다."}), 404
+
+        pet.pet_type = new_type
+        db.session.commit()
+
+        type_names = {
+            'cat': '고양이',
+            'dog': '강아지',
+            'rabbit': '토끼',
+            'bird': '새'
+        }
+
+        return jsonify({
+            'status': 'success',
+            'message': f'펫 종류가 {type_names[new_type]}(으)로 변경되었습니다.',
+            'pet': pet.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error changing pet type: {e}")
+        return jsonify({"status": "error", "message": f"펫 종류 변경 중 오류 발생: {e}"}), 500
 
 
 @app.route('/api/credits/goal', methods=['POST'])

@@ -21,9 +21,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const subjectTimerDisplayEl = document.getElementById('subjectTimerDisplay');
     const currentTimingSubjectEl = document.getElementById('currentTimingSubject');
     const subjectDistTitleEl = document.getElementById('subjectDistTitle');
-    const studyTreeImage = document.getElementById('studyTreeImage');
-    const treeLevelInfo = document.getElementById('treeLevelInfo');
-    const treeMessage = document.getElementById('treeMessage');
+    const studyPetImage = document.getElementById('studyPetImage');
+    const petLevelBadge = document.getElementById('petLevelBadge');
+    const petMessage = document.getElementById('petMessage');
+    const petNameDisplay = document.getElementById('petNameDisplay');
+    const petHealthFill = document.getElementById('petHealthFill');
+    const petHealthValue = document.getElementById('petHealthValue');
+    const petMoodValue = document.getElementById('petMoodValue');
+    const petStreakValue = document.getElementById('petStreakValue');
+    const petExpFill = document.getElementById('petExpFill');
+    const petExpText = document.getElementById('petExpText');
+    const petBadges = document.getElementById('petBadges');
+    const petSettingsBtn = document.getElementById('petSettingsBtn');
+    const petSettingsModal = document.getElementById('petSettingsModal');
+    const closePetModal = document.getElementById('closePetModal');
+    const cancelPetSettings = document.getElementById('cancelPetSettings');
+    const savePetSettings = document.getElementById('savePetSettings');
+    const petNameInput = document.getElementById('petNameInput');
+    const petTypeBtns = document.querySelectorAll('.pet-type-btn');
     const dateNavigationDiv = document.getElementById('dateNavigation');
     const prevPeriodBtn = document.getElementById('prevPeriodBtn');
     const nextPeriodBtn = document.getElementById('nextPeriodBtn');
@@ -42,24 +57,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     let subjectTimerSeconds = 0;
     let timingSubjectId = null;
     let timingSubjectName = null;
+    let currentPet = null; // 펫 상태
+    let selectedPetType = 'cat'; // 선택된 펫 종류
 
     // --- Constants ---
-    const TREE_THRESHOLDS = [0, 3600, 7200, 14400, 28800, 57600]; // 초 단위 (0, 1h, 2h, 4h, 8h, 16h+)
-    const TREE_MESSAGES = [
-        "씨앗을 심었어요! 공부해서 나무를 키워보세요!",
-        "새싹이 돋아났어요! 꾸준히 공부하는 중!",
-        "작은 나무가 되었어요! 계속 성장시켜봐요!",
-        "나무가 제법 자랐네요! 공부 습관이 잡혔어요!",
-        "튼튼한 나무로 성장했어요! 대단해요!",
-        "울창한 나무가 되었어요! 꾸준함의 결실!"
-    ];
-    const BASE_TREE_IMAGE_PATH = '/static/images/'; // 나무 이미지 경로
+    const MOOD_EMOJIS = {
+        'happy': '😊',
+        'normal': '😐',
+        'sad': '😢',
+        'critical': '💔'
+    };
+    const MOOD_NAMES = {
+        'happy': '행복',
+        'normal': '보통',
+        'sad': '슬픔',
+        'critical': '위험'
+    };
+    const BADGE_INFO = {
+        'week_warrior': { name: '일주일 챔피언', icon: '🏆', color: '#FFD700' },
+        'month_master': { name: '한 달 마스터', icon: '👑', color: '#FF6B6B' },
+        'century_champion': { name: '백일 챔피언', icon: '💎', color: '#4ECDC4' },
+        'level_5_hero': { name: '레벨 5 영웅', icon: '⭐', color: '#95E1D3' },
+        'max_level_legend': { name: '전설', icon: '🌟', color: '#F38181' },
+        'hundred_hours': { name: '100시간 달성', icon: '⏰', color: '#AA96DA' }
+    };
+    const BASE_PET_IMAGE_PATH = '/static/images/'; // 펫 이미지 경로
 
     // --- Initialization ---
     async function initializeStudyAnalysis() {
         showLoadingState(true);
         setupEventListeners();
         currentDate.setHours(0, 0, 0, 0); // 날짜 기준은 자정으로
+
+        // 펫 상태 로드
+        await loadPetStatus();
+
         await loadAllSemesters(); // 학기 로드 및 드롭다운 채우기
 
         // 초기 학기 설정 (첫 번째 학기 또는 로컬 스토리지 값)
@@ -101,6 +133,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (prevPeriodBtn) prevPeriodBtn.addEventListener('click', () => navigatePeriod(-1));
         if (nextPeriodBtn) nextPeriodBtn.addEventListener('click', () => navigatePeriod(1));
         if (todayPeriodBtn) todayPeriodBtn.addEventListener('click', navigateToToday);
+
+        // 펫 설정 이벤트
+        if (petSettingsBtn) petSettingsBtn.addEventListener('click', openPetSettingsModal);
+        if (closePetModal) closePetModal.addEventListener('click', closePetSettingsModal);
+        if (cancelPetSettings) cancelPetSettings.addEventListener('click', closePetSettingsModal);
+        if (savePetSettings) savePetSettings.addEventListener('click', savePetSettingsChanges);
+
+        petTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                petTypeBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedPetType = btn.dataset.type;
+            });
+        });
     }
 
     // --- Data Loading ---
@@ -434,20 +480,192 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function updateStudyTree(totalSecondsOverall) {
-        if (!studyTreeImage || !treeLevelInfo || !treeMessage) return;
+    // --- Pet System Functions ---
+    async function loadPetStatus() {
+        try {
+            const response = await fetch('/api/pet/status');
+            if (!response.ok) throw new Error('펫 상태 로드 실패');
+            const data = await response.json();
 
-        let level = 0;
-        for (let i = TREE_THRESHOLDS.length - 1; i >= 0; i--) {
-            if (totalSecondsOverall >= TREE_THRESHOLDS[i]) {
-                level = i;
-                break;
+            if (data.status === 'success') {
+                currentPet = data.pet;
+                updatePetDisplay();
             }
+        } catch (error) {
+            console.error('Failed to load pet status:', error);
+            // 기본 펫 상태 표시
+            currentPet = {
+                pet_name: '공부친구',
+                pet_type: 'cat',
+                level: 1,
+                health: 100,
+                mood: 'happy',
+                experience: 0,
+                level_progress: 0,
+                consecutive_study_days: 0,
+                badges: []
+            };
+            updatePetDisplay();
+        }
+    }
+
+    function updatePetDisplay() {
+        if (!currentPet) return;
+
+        // 펫 이름
+        if (petNameDisplay) petNameDisplay.textContent = currentPet.pet_name;
+
+        // 펫 이미지 (레벨에 따라)
+        if (studyPetImage) {
+            const petLevel = Math.min(currentPet.level, 10);
+            studyPetImage.src = `${BASE_PET_IMAGE_PATH}pet_${currentPet.pet_type}_lv${petLevel}.png`;
+
+            // 이미지 로드 실패 시 기본 이미지
+            studyPetImage.onerror = function() {
+                this.src = `${BASE_PET_IMAGE_PATH}pet_cat_lv1.png`;
+            };
         }
 
-        studyTreeImage.src = `${BASE_TREE_IMAGE_PATH}tree_stage_${level}.png`;
-        treeLevelInfo.textContent = `Lv. ${level}`;
-        treeMessage.textContent = TREE_MESSAGES[level];
+        // 레벨 배지
+        if (petLevelBadge) petLevelBadge.textContent = `Lv. ${currentPet.level}`;
+
+        // 건강도
+        if (petHealthFill) {
+            const health = currentPet.health || 0;
+            petHealthFill.style.width = `${health}%`;
+
+            // 건강도에 따른 색상
+            if (health >= 80) {
+                petHealthFill.style.backgroundColor = '#4CAF50'; // 녹색
+            } else if (health >= 50) {
+                petHealthFill.style.backgroundColor = '#FFC107'; // 노란색
+            } else if (health >= 20) {
+                petHealthFill.style.backgroundColor = '#FF9800'; // 주황색
+            } else {
+                petHealthFill.style.backgroundColor = '#F44336'; // 빨간색
+            }
+        }
+        if (petHealthValue) petHealthValue.textContent = `${currentPet.health}%`;
+
+        // 감정
+        if (petMoodValue) {
+            const moodEmoji = MOOD_EMOJIS[currentPet.mood] || '😐';
+            const moodName = MOOD_NAMES[currentPet.mood] || '보통';
+            petMoodValue.textContent = `${moodEmoji} ${moodName}`;
+        }
+
+        // 연속 공부 일수
+        if (petStreakValue) petStreakValue.textContent = `${currentPet.consecutive_study_days}일`;
+
+        // 경험치 바
+        if (petExpFill && petExpText) {
+            const progress = currentPet.level_progress || 0;
+            petExpFill.style.width = `${progress}%`;
+            petExpText.textContent = `EXP ${progress}%`;
+        }
+
+        // 메시지
+        if (petMessage) petMessage.textContent = currentPet.mood_message || '공부해서 펫을 키워보세요!';
+
+        // 배지 표시
+        updateBadgesDisplay();
+    }
+
+    function updateBadgesDisplay() {
+        if (!petBadges || !currentPet) return;
+
+        const badges = currentPet.badges || [];
+        if (badges.length === 0) {
+            petBadges.innerHTML = '<p class="no-badges">아직 획득한 배지가 없습니다</p>';
+            return;
+        }
+
+        const badgesHtml = badges.map(badgeKey => {
+            const badge = BADGE_INFO[badgeKey];
+            if (!badge) return '';
+            return `
+                <div class="badge-item" style="border-color: ${badge.color};">
+                    <span class="badge-icon">${badge.icon}</span>
+                    <span class="badge-name">${badge.name}</span>
+                </div>
+            `;
+        }).join('');
+
+        petBadges.innerHTML = badgesHtml;
+    }
+
+    function openPetSettingsModal() {
+        if (!petSettingsModal || !currentPet) return;
+
+        // 현재 펫 정보로 모달 채우기
+        if (petNameInput) petNameInput.value = currentPet.pet_name;
+
+        // 현재 펫 종류 선택
+        selectedPetType = currentPet.pet_type;
+        petTypeBtns.forEach(btn => {
+            if (btn.dataset.type === selectedPetType) {
+                btn.classList.add('selected');
+            } else {
+                btn.classList.remove('selected');
+            }
+        });
+
+        petSettingsModal.classList.add('show');
+    }
+
+    function closePetSettingsModal() {
+        if (!petSettingsModal) return;
+        petSettingsModal.classList.remove('show');
+    }
+
+    async function savePetSettingsChanges() {
+        const newName = petNameInput.value.trim();
+
+        if (!newName || newName.length === 0) {
+            showNotification('펫 이름을 입력해주세요.', 'warning');
+            return;
+        }
+
+        try {
+            showLoadingState(true);
+
+            // 이름 변경
+            if (newName !== currentPet.pet_name) {
+                const nameResponse = await fetch('/api/pet/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const nameData = await nameResponse.json();
+                if (nameData.status !== 'success') {
+                    throw new Error(nameData.message || '이름 변경 실패');
+                }
+            }
+
+            // 종류 변경
+            if (selectedPetType !== currentPet.pet_type) {
+                const typeResponse = await fetch('/api/pet/change-type', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pet_type: selectedPetType })
+                });
+                const typeData = await typeResponse.json();
+                if (typeData.status !== 'success') {
+                    throw new Error(typeData.message || '펫 종류 변경 실패');
+                }
+            }
+
+            // 펫 상태 다시 로드
+            await loadPetStatus();
+            closePetSettingsModal();
+            showNotification('펫 설정이 저장되었습니다!', 'success');
+            showLoadingState(false);
+
+        } catch (error) {
+            console.error('Failed to save pet settings:', error);
+            showNotification(`설정 저장 실패: ${error.message}`, 'error');
+            showLoadingState(false);
+        }
     }
 
     function updateDateNavigation() {
@@ -531,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                  showLoadingState(true);
                  await loadDataForPeriod(currentPeriod, currentDate);
+                 await loadPetStatus(); // 펫 상태 업데이트
                  showLoadingState(false);
 
             } catch (error) {
@@ -713,9 +932,7 @@ document.addEventListener('DOMContentLoaded', async () => {
          if (studyTimeChartInstance) studyTimeChartInstance.destroy();
          if (subjectDistChartInstance) subjectDistChartInstance.destroy();
          if (subjectStudyListUl) subjectStudyListUl.innerHTML = '<li class="no-data">등록된 학기가 없습니다.</li>';
-         if (studyTreeImage) studyTreeImage.src = `${BASE_TREE_IMAGE_PATH}tree_stage_0.png`;
-         if (treeLevelInfo) treeLevelInfo.textContent = "Lv. 0";
-         if (treeMessage) treeMessage.textContent = "학기를 등록해주세요.";
+         if (petMessage) petMessage.textContent = "학기를 등록해주세요.";
          disablePageFunctionality();
     }
 
