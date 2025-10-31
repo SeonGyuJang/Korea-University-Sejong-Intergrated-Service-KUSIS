@@ -917,3 +917,171 @@
         }
     }
 }
+
+/* 전체 위젯 개선 */
+.widget,
+.total-study-widget,
+.chart-widget,
+.subject-timer-widget,
+.subject-distribution-widget {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+.widget:hover,
+.chart-widget:hover,
+.subject-timer-widget:hover,
+.subject-distribution-widget:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+.widget-header,
+.chart-title,
+.subject-dist-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.widget-header i,
+.chart-title i,
+.subject-dist-title i {
+    color: var(--korea-red);
+    font-size: 18px;
+}
+
+/* Period Tabs 개선 */
+.period-tabs {
+    display: flex;
+    gap: 8px;
+    background: var(--bg-secondary);
+    padding: 6px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+
+.period-tab {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.period-tab:hover {
+    background: rgba(165, 0, 52, 0.05);
+    color: var(--korea-red);
+}
+
+.period-tab.active {
+    background: var(--korea-red);
+    color: white;
+    box-shadow: 0 2px 8px rgba(165, 0, 52, 0.3);
+}
+
+.period-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: var(--korea-red);
+    border-radius: 2px;
+}
+
+/* 버튼 개선 */
+.btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--korea-red), #c7003f);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #8a0028, var(--korea-red));
+}
+
+/* 입력 필드 개선 */
+select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+.form-control {
+    transition: all 0.3s ease;
+}
+
+select:focus,
+input:focus,
+.form-control:focus {
+    outline: none;
+    border-color: var(--korea-red);
+    box-shadow: 0 0 0 3px rgba(165, 0, 52, 0.1);
+}
+
+/* 과목 목록 개선 */
+#subjectStudyList li {
+    transition: all 0.3s ease;
+}
+
+#subjectStudyList li:hover {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding-left: 10px;
+}
+
+/* 날짜 네비게이션 개선 */
+#dateNavigation .btn-sm {
+    transition: all 0.3s ease;
+    border-radius: 8px !important;
+}
+
+#dateNavigation .btn-sm:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.5) !important;
+    transform: scale(1.1);
+}
+
+/* 로딩 상태 개선 */
+.loading-overlay-chart {
+    backdrop-filter: blur(4px);
+    background: rgba(255, 255, 255, 0.8);
+}

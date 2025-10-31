@@ -345,54 +345,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (chartTitleEl) chartTitleEl.innerHTML = `<i class="fas fa-chart-bar"></i> ${chartLabel.split(' (')[0]}`;
 
+        // 그라데이션 생성
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(165, 0, 52, 0.9)');
+        gradient.addColorStop(1, 'rgba(165, 0, 52, 0.3)');
+
         studyTimeChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
                     label: chartLabel,
-                    data: chartData, 
-                    backgroundColor: 'rgba(165, 0, 52, 0.7)',
+                    data: chartData,
+                    backgroundColor: gradient,
                     borderColor: 'rgba(165, 0, 52, 1)',
-                    borderWidth: 1,
-                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    hoverBackgroundColor: 'rgba(165, 0, 52, 1)',
+                    hoverBorderWidth: 3,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                animation: {
+                    duration: 800,
+                    easing: 'easeInOutQuart'
+                },
                 scales: {
                     x: {
                         type: 'time',
                         time: {
                             unit: unit,
                             tooltipFormat: tooltipFormat,
-                             displayFormats: {
+                            displayFormats: {
                                 hour: 'HH',
                                 day: period === 'monthly' ? 'dd' : 'MM-dd'
                             }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11,
+                                weight: '500'
+                            },
+                            color: '#666'
                         },
                         title: { display: false }
                     },
                     y: {
                         beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11,
+                                weight: '500'
+                            },
+                            color: '#666',
+                            callback: function(value) {
+                                return value.toFixed(1) + 'h';
+                            }
+                        },
                         title: {
                             display: true,
-                            text: yAxisText 
+                            text: yAxisText,
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            },
+                            color: '#333'
                         }
                     }
                 },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            size: 13,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: false,
                         callbacks: {
+                            title: function(context) {
+                                const date = new Date(context[0].label);
+                                return date.toLocaleDateString('ko-KR', {
+                                    month: 'long',
+                                    day: 'numeric',
+                                    weekday: 'short'
+                                });
+                            },
                             label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) { label += ': '; }
-                                if (context.parsed.y !== null) {
-                                     label += context.parsed.y + ' 시간'; 
-                                }
-                                return label;
+                                const hours = parseFloat(context.parsed.y);
+                                const minutes = Math.round((hours % 1) * 60);
+                                const wholeHours = Math.floor(hours);
+                                return `📚 공부 시간: ${wholeHours}시간 ${minutes}분`;
                             }
                         }
                     }
@@ -464,28 +525,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: '공부 시간 (초)',
+                        label: '공부 시간',
                         data: chartDataValues,
                         backgroundColor: backgroundColors,
-                        hoverOffset: 4
+                        borderWidth: 3,
+                        borderColor: '#fff',
+                        hoverOffset: 12,
+                        hoverBorderWidth: 4,
+                        hoverBorderColor: '#fff'
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, 
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 800,
+                        easing: 'easeInOutQuart'
+                    },
                     plugins: {
-                        legend: { display: false }, 
+                        legend: { display: false },
                         tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 13,
+                                weight: '600'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            boxPadding: 6,
                             callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
                                 label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) { label += ': '; }
                                     const seconds = context.parsed;
                                     const { hours, minutes } = formatSecondsToHM(seconds);
-                                    label += `${hours}h ${minutes}m`;
                                     const percentage = ((seconds / totalSubjectSeconds) * 100).toFixed(1);
-                                    label += ` (${percentage}%)`;
-                                    return label;
+                                    return ` ${hours}시간 ${minutes}분 (${percentage}%)`;
                                 }
                             }
                         }
