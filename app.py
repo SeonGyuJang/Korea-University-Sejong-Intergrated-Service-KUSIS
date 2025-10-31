@@ -2052,7 +2052,7 @@ def log_subject_study_time():
 def get_study_analysis_data():
     from flask import g
     user_id = g.user.id
-    
+
     period = request.args.get('period', 'daily') # daily, weekly, monthly
     date_str = request.args.get('date_str')
     semester_id = request.args.get('semester_id', type=int)
@@ -2069,6 +2069,32 @@ def get_study_analysis_data():
 
     if not semester_id:
          return jsonify({"status": "error", "message": "학기 ID가 필요합니다."}), 400
+
+    # 테이블 존재 여부 확인
+    try:
+        inspector = inspect(db.engine)
+        if 'study_logs' not in inspector.get_table_names():
+            print("[WARNING] study_logs table does not exist")
+            # 빈 데이터 반환
+            return jsonify({
+                "status": "success",
+                "period": period,
+                "date_range": {
+                    "start": datetime.now(KST).date().isoformat(),
+                    "end": datetime.now(KST).date().isoformat()
+                },
+                "total_time": 0,
+                "today_total_time": 0,
+                "subject_data": [],
+                "timeseries_data": {
+                    "labels": [datetime.now(KST).date().strftime('%Y-%m-%d')],
+                    "data": [0]
+                }
+            })
+    except Exception as e:
+        print(f"[ERROR] Failed to check table existence: {e}")
+        import traceback
+        traceback.print_exc()
 
     # 1. 기간(start_date, end_date) 설정
     # period 값 정규화 (daily/day, weekly/week, monthly/month 모두 허용)
@@ -2095,62 +2121,93 @@ def get_study_analysis_data():
         period = 'daily'
         
     try:
+        print(f"[DEBUG] Study analysis - user_id: {user_id}, semester: {semester_id}, period: {period}, date: {target_date}")
+
         # 2. 메인 그래프용 시계열 데이터 (날짜별 총 공부 시간)
-        timeseries_query = db.session.query(
-            StudyLog.date,
-            func.sum(StudyLog.duration_seconds).label('total_duration')
-        ).filter(
-            StudyLog.user_id == user_id,
-            StudyLog.date.between(start_date, end_date)
-        ).group_by(
-            StudyLog.date
-        ).all()
-        
-        # 날짜 레이블에 맞춰 데이터 매핑
-        time_data_map = {str(result.date): result.total_duration for result in timeseries_query}
-        timeseries_data = [time_data_map.get(label, 0) for label in date_labels]
-        
+        try:
+            timeseries_query = db.session.query(
+                StudyLog.date,
+                func.sum(StudyLog.duration_seconds).label('total_duration')
+            ).filter(
+                StudyLog.user_id == user_id,
+                StudyLog.date.between(start_date, end_date)
+            ).group_by(
+                StudyLog.date
+            ).all()
+
+            # 날짜 레이블에 맞춰 데이터 매핑
+            time_data_map = {str(result.date): result.total_duration for result in timeseries_query}
+            timeseries_data = [time_data_map.get(label, 0) for label in date_labels]
+            print(f"[DEBUG] Timeseries: {len(timeseries_query)} records")
+        except Exception as e:
+            print(f"[ERROR] Timeseries query failed: {e}")
+            import traceback
+            traceback.print_exc()
+            timeseries_data = [0] * len(date_labels)
+
         # 3. 과목별 데이터 (도넛 차트용) + 총 시간
-        # 3a. 과목별 집계
-        subject_times_query = db.session.query(
-            Subject.name,
-            func.sum(StudyLog.duration_seconds).label('total_duration')
-        ).join(
-            Subject, Subject.id == StudyLog.subject_id
-        ).filter(
-            StudyLog.user_id == user_id,
-            StudyLog.date.between(start_date, end_date),
-            StudyLog.subject_id != None, # 과목이 있는 로그
-            Subject.semester_id == semester_id # 현재 선택된 학기
-        ).group_by(
-            Subject.name
-        ).all()
-        
-        subject_data = [{"name": name, "time": time} for name, time in subject_times_query]
-        
-        # 3b. '개인 공부' (subject_id=None) 집계
-        personal_time = db.session.query(
-            func.sum(StudyLog.duration_seconds)
-        ).filter(
-            StudyLog.user_id == user_id,
-            StudyLog.date.between(start_date, end_date),
-            StudyLog.subject_id == None
-        ).scalar() or 0
-        
-        if personal_time > 0:
-            subject_data.append({"name": "개인 공부", "time": personal_time})
-            
-        # 3c. 총 시간 (timeseries_data의 합계와 동일해야 함)
+        subject_data = []
+        try:
+            # 3a. 과목별 집계
+            subject_times_query = db.session.query(
+                Subject.name,
+                func.sum(StudyLog.duration_seconds).label('total_duration')
+            ).join(
+                Subject, Subject.id == StudyLog.subject_id
+            ).filter(
+                StudyLog.user_id == user_id,
+                StudyLog.date.between(start_date, end_date),
+                StudyLog.subject_id != None,
+                Subject.semester_id == semester_id
+            ).group_by(
+                Subject.name
+            ).all()
+
+            subject_data = [{"name": name, "time": int(time)} for name, time in subject_times_query]
+            print(f"[DEBUG] Subjects: {len(subject_data)}")
+        except Exception as e:
+            print(f"[ERROR] Subject query failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        try:
+            # 3b. '개인 공부' (subject_id=None) 집계
+            personal_time = db.session.query(
+                func.sum(StudyLog.duration_seconds)
+            ).filter(
+                StudyLog.user_id == user_id,
+                StudyLog.date.between(start_date, end_date),
+                StudyLog.subject_id == None
+            ).scalar() or 0
+
+            if personal_time > 0:
+                subject_data.append({"name": "개인 공부", "time": int(personal_time)})
+            print(f"[DEBUG] Personal: {personal_time}s")
+        except Exception as e:
+            print(f"[ERROR] Personal time query failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # 3c. 총 시간
         total_time = sum(timeseries_data)
-        
-        # 4. 오늘의 나무를 위한 오늘 총 공부 시간 (기간과 관계없이 항상 계산)
-        today_total_time = db.session.query(
-            func.sum(StudyLog.duration_seconds)
-        ).filter(
-            StudyLog.user_id == user_id,
-            StudyLog.date == datetime.now(KST).date()
-        ).scalar() or 0
-        
+
+        # 4. 오늘 총 공부 시간
+        try:
+            today_total_time = db.session.query(
+                func.sum(StudyLog.duration_seconds)
+            ).filter(
+                StudyLog.user_id == user_id,
+                StudyLog.date == datetime.now(KST).date()
+            ).scalar() or 0
+            print(f"[DEBUG] Today: {today_total_time}s")
+        except Exception as e:
+            print(f"[ERROR] Today query failed: {e}")
+            import traceback
+            traceback.print_exc()
+            today_total_time = 0
+
+        print(f"[DEBUG] SUCCESS - total: {total_time}s, subjects: {len(subject_data)}")
+
         return jsonify({
             "status": "success",
             "period": period,
@@ -2158,8 +2215,8 @@ def get_study_analysis_data():
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat()
             },
-            "total_time": total_time,
-            "today_total_time": today_total_time, # 게이미피케이션용
+            "total_time": int(total_time),
+            "today_total_time": int(today_total_time),
             "subject_data": sorted(subject_data, key=lambda x: x['time'], reverse=True),
             "timeseries_data": {
                 "labels": date_labels,
@@ -2169,8 +2226,10 @@ def get_study_analysis_data():
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error getting study analysis data: {e}")
-        return jsonify({"status": "error", "message": f"데이터 분석 중 오류 발생: {e}"}), 500
+        print(f"[ERROR] Study analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"데이터 분석 중 오류 발생: {str(e)}"}), 500
 
 
 # --- 펫 시스템 API ---
