@@ -264,19 +264,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function populateSubjectDropdown(subjects) {
         if (!subjectSelectTimer) return;
-        subjectSelectTimer.innerHTML = '<option value="">과목 선택</option>';
+
+        // 항상 "개인 공부" 옵션 추가
+        subjectSelectTimer.innerHTML = '<option value="personal">개인 공부 📚</option>';
+
         if (subjects && subjects.length > 0) {
             subjects.forEach(subject => {
                 const option = new Option(subject.name, subject.id);
                 subjectSelectTimer.add(option);
             });
-            subjectSelectTimer.disabled = false;
-            startSubjectTimerBtn.disabled = false;
-        } else {
-            subjectSelectTimer.innerHTML = '<option value="">등록된 과목 없음</option>';
-            subjectSelectTimer.disabled = true;
-            startSubjectTimerBtn.disabled = true;
         }
+
+        // 과목이 없어도 타이머는 사용 가능 (개인 공부로 사용)
+        subjectSelectTimer.disabled = false;
+        if (startSubjectTimerBtn) startSubjectTimerBtn.disabled = false;
     }
 
     function updateTotalTimeDisplay(totalSeconds, period, date) {
@@ -500,6 +501,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Pet System Functions ---
     async function loadPetStatus() {
         try {
+            // 이전 펫 상태 저장 (비교용)
+            const previousPet = currentPet ? { ...currentPet } : null;
+
             const response = await fetch('/api/pet/status');
             if (!response.ok) {
                 const errorText = await response.text();
@@ -510,7 +514,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (data.status === 'success' && data.pet) {
                 currentPet = data.pet;
-                updatePetDisplay();
+                updatePetDisplay(previousPet); // 이전 상태 전달
             } else {
                 throw new Error(data.message || '펫 데이터 없음');
             }
@@ -534,8 +538,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    function updatePetDisplay() {
+    function updatePetDisplay(previousPet = null) {
         if (!currentPet) return;
+
+        // 레벨업 감지
+        const leveledUp = previousPet && previousPet.level < currentPet.level;
+        const badgeEarned = previousPet &&
+            (!previousPet.badges || previousPet.badges.length < currentPet.badges.length);
 
         // 펫 이름
         if (petNameDisplay) petNameDisplay.textContent = currentPet.pet_name;
@@ -543,7 +552,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 펫 이미지 (레벨에 따라)
         if (studyPetImage) {
             const petLevel = Math.min(currentPet.level, 10);
-            studyPetImage.src = `${BASE_PET_IMAGE_PATH}pet_${currentPet.pet_type}_lv${petLevel}.png`;
+            const newSrc = `${BASE_PET_IMAGE_PATH}pet_${currentPet.pet_type}_lv${petLevel}.png`;
+
+            // 이미지가 변경된 경우에만 업데이트
+            if (studyPetImage.src !== newSrc) {
+                studyPetImage.src = newSrc;
+            }
+
+            // 건강도에 따른 펫 이미지 필터 효과
+            const health = currentPet.health || 0;
+            if (health >= 80) {
+                studyPetImage.style.filter = 'none';
+                studyPetImage.style.opacity = '1';
+            } else if (health >= 50) {
+                studyPetImage.style.filter = 'saturate(0.8)';
+                studyPetImage.style.opacity = '0.95';
+            } else if (health >= 20) {
+                studyPetImage.style.filter = 'saturate(0.5) brightness(0.9)';
+                studyPetImage.style.opacity = '0.85';
+            } else {
+                studyPetImage.style.filter = 'saturate(0.3) brightness(0.7) grayscale(0.3)';
+                studyPetImage.style.opacity = '0.7';
+            }
 
             // 이미지 로드 실패 시 기본 이미지
             studyPetImage.onerror = function() {
@@ -551,10 +581,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         }
 
-        // 레벨 배지
-        if (petLevelBadge) petLevelBadge.textContent = `Lv. ${currentPet.level}`;
+        // 레벨 배지 (레벨업 시 애니메이션)
+        if (petLevelBadge) {
+            petLevelBadge.textContent = `Lv. ${currentPet.level}`;
+            if (leveledUp) {
+                petLevelBadge.classList.add('level-up-animation');
+                setTimeout(() => petLevelBadge.classList.remove('level-up-animation'), 1000);
+            }
+        }
 
-        // 건강도
+        // 건강도 (애니메이션 효과)
         if (petHealthFill) {
             const health = currentPet.health || 0;
             petHealthFill.style.width = `${health}%`;
@@ -569,6 +605,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 petHealthFill.style.backgroundColor = '#F44336'; // 빨간색
             }
+
+            // 건강도 낮을 때 경고 애니메이션
+            if (health < 30) {
+                petHealthFill.classList.add('health-warning');
+            } else {
+                petHealthFill.classList.remove('health-warning');
+            }
         }
         if (petHealthValue) petHealthValue.textContent = `${currentPet.health}%`;
 
@@ -580,9 +623,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // 연속 공부 일수
-        if (petStreakValue) petStreakValue.textContent = `${currentPet.consecutive_study_days}일`;
+        if (petStreakValue) {
+            const days = currentPet.consecutive_study_days;
+            petStreakValue.textContent = `${days}일`;
 
-        // 경험치 바
+            // 연속 공부 7일 이상이면 강조
+            if (days >= 7) {
+                petStreakValue.style.color = '#FFD700';
+                petStreakValue.style.fontWeight = '700';
+            } else {
+                petStreakValue.style.color = '';
+                petStreakValue.style.fontWeight = '';
+            }
+        }
+
+        // 경험치 바 (애니메이션)
         if (petExpFill && petExpText) {
             const progress = currentPet.level_progress || 0;
             petExpFill.style.width = `${progress}%`;
@@ -590,10 +645,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // 메시지
-        if (petMessage) petMessage.textContent = currentPet.mood_message || '공부해서 펫을 키워보세요!';
+        if (petMessage) {
+            let message = currentPet.mood_message || '공부해서 펫을 키워보세요!';
+
+            // 레벨업 시 특별 메시지
+            if (leveledUp) {
+                message = `🎉 레벨 ${currentPet.level}로 성장했어요!`;
+                showNotification(`${currentPet.pet_name}이(가) 레벨 ${currentPet.level}이 되었습니다! 🎉`, 'success');
+            }
+
+            petMessage.textContent = message;
+        }
 
         // 배지 표시
         updateBadgesDisplay();
+
+        // 새 배지 획득 시 알림
+        if (badgeEarned && currentPet.badges && currentPet.badges.length > 0) {
+            const newBadge = currentPet.badges[currentPet.badges.length - 1];
+            const badgeInfo = BADGE_INFO[newBadge];
+            if (badgeInfo) {
+                showNotification(`${badgeInfo.icon} 새 배지 획득: ${badgeInfo.name}!`, 'success');
+            }
+        }
     }
 
     function updateBadgesDisplay() {
@@ -714,13 +788,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedId = subjectSelectTimer.value;
         const selectedOption = subjectSelectTimer.options[subjectSelectTimer.selectedIndex];
 
-        if (!selectedId) {
-            showNotification('측정할 과목을 선택해주세요.', 'warning');
-            return;
+        // 과목 선택 안 했으면 "개인 공부"로 설정
+        if (!selectedId || selectedId === '' || selectedId === 'personal') {
+            timingSubjectId = null; // null이면 개인 공부
+            timingSubjectName = '개인 공부';
+        } else {
+            timingSubjectId = selectedId;
+            timingSubjectName = selectedOption.text;
         }
 
-        timingSubjectId = selectedId;
-        timingSubjectName = selectedOption.text;
         subjectTimerSeconds = 0;
         updateSubjectTimerDisplay();
 
@@ -754,21 +830,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         subjectSelectTimer.disabled = false;
         currentTimingSubjectEl.textContent = '';
 
-        if (durationToSave > 0 && subjectIdToSave) {
+        if (durationToSave > 0) {
             try {
-                const saveDateStr = formatDateYYYYMMDD(new Date()); 
+                const saveDateStr = formatDateYYYYMMDD(new Date());
+
+                // subject_id가 null이면 개인 공부로 저장
+                const requestBody = {
+                    date_str: saveDateStr,
+                    duration_seconds: durationToSave
+                };
+
+                if (subjectIdToSave !== null && subjectIdToSave !== undefined) {
+                    requestBody.subject_id = parseInt(subjectIdToSave, 10);
+                }
+
                 const response = await fetch('/api/study-log/subject', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subject_id: parseInt(subjectIdToSave, 10), 
-                        date_str: saveDateStr, 
-                        duration_seconds: durationToSave
-                    })
+                    body: JSON.stringify(requestBody)
                 });
+
                 const result = await response.json();
                 if (result.status !== 'success') {
-                    throw new Error(result.message || '과목별 시간 저장 실패');
+                    throw new Error(result.message || '공부 시간 저장 실패');
                 }
                 showNotification(`"${subjectNameToSave}" ${formatSecondsToHMString(durationToSave)} 공부 시간 저장됨`, 'success');
 

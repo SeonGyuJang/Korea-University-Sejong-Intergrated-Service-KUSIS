@@ -1967,31 +1967,48 @@ def log_subject_study_time():
     from flask import g
     user_id = g.user.id
     data = request.json
-    
-    subject_id = data.get('subject_id', type=int)
-    duration_seconds = data.get('duration_seconds', type=int)
+
+    # subject_id는 optional (없으면 개인 공부)
+    subject_id = data.get('subject_id')
+    if subject_id is not None:
+        subject_id = int(subject_id)
+
+    duration_seconds = data.get('duration_seconds')
+    if duration_seconds is not None:
+        duration_seconds = int(duration_seconds)
+
     date_str = data.get('date_str') # KST 기준 날짜
 
-    if not all([subject_id, duration_seconds, date_str]):
-        return jsonify({"status": "error", "message": "과목 ID, 시간, 날짜는 필수입니다."}), 400
-    
+    print(f"[DEBUG] Study log - user: {user_id}, subject: {subject_id}, duration: {duration_seconds}s, date: {date_str}")
+
+    # duration_seconds와 date_str만 필수 (subject_id는 optional)
+    if not duration_seconds or not date_str:
+        return jsonify({"status": "error", "message": "시간과 날짜는 필수입니다."}), 400
+
+    if duration_seconds <= 0:
+        return jsonify({"status": "error", "message": "공부 시간은 0보다 커야 합니다."}), 400
+
     try:
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-        
-        # 과목 유효성 검사
-        subject = db.session.get(Subject, subject_id)
-        if not subject or subject.user_id != user_id:
-             return jsonify({"status": "error", "message": "유효하지 않은 과목입니다."}), 404
 
-        # 새 로그 생성
+        # 과목 유효성 검사 (subject_id가 있을 때만)
+        if subject_id is not None:
+            subject = db.session.get(Subject, subject_id)
+            if not subject or subject.user_id != user_id:
+                return jsonify({"status": "error", "message": "유효하지 않은 과목입니다."}), 404
+
+        # 새 로그 생성 (subject_id가 None이면 "개인 공부")
         new_log = StudyLog(
             user_id=user_id,
-            subject_id=subject_id,
+            subject_id=subject_id,  # None 가능
             date=date_obj,
             duration_seconds=duration_seconds
         )
         db.session.add(new_log)
         db.session.commit()
+
+        study_type = "개인 공부" if subject_id is None else f"과목 공부"
+        print(f"[DEBUG] Study log saved - {study_type}, {duration_seconds}s")
 
         # 펫 상태 업데이트 (테이블이 있을 때만)
         try:
