@@ -41,15 +41,27 @@
         </div>
     </div>
 
-    <script src="https://kit.fontawesome.com/6478f529f2.js" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
     {% block scripts %}
-    {# --- 추가: Chart.js 및 date-fns 어댑터 CDN --- #}
+    {# --- [수정] Chart.js 및 date-fns(v2) 관련 라이브러리 로드 순서 수정 --- #}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {# 1. date-fns 메인 라이브러리 (v2) #}
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2/umd/index.js"></script>
+    
+    {# --- [HOTFIX] date-fns v2 UMD locale 스크립트가 'dateFns.locale' 객체를 기대하므로 수동 초기화 --- #}
+    <script>
+        if (window.dateFns && !window.dateFns.locale) {
+            window.dateFns.locale = {};
+        }
+    </script>
+    {# --- 수정 끝 --- #}
+
+    {# 2. Chart.js 어댑터 #}
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    {# date-fns 로케일 (한국어) 추가 #}
-    <script src="https://cdn.jsdelivr.net/npm/date-fns/locale/ko/index.js"></script>
-    {# --- 추가 끝 --- #}
+    
+    {# 3. date-fns 로케일 (v2) #}
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2/umd/locale/ko/index.js"></script>
     {% endblock %}
     {% block page_scripts %}{% endblock %} {# 페이지별 스크립트는 여기에 로드됨 #}
 </body>

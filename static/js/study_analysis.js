@@ -144,22 +144,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        // JS에서 startDate, endDate 계산은 차트 그리드 생성용으로만 사용
         const { startDate, endDate } = getDateRange(period, date);
-        const startDateStr = formatDateYYYYMMDD(startDate);
-        const endDateStr = formatDateYYYYMMDD(endDate);
+        
+        // API로 보낼 date_str (기준 날짜)
+        const dateStrForAPI = formatDateYYYYMMDD(date);
 
         try {
-            // API 엔드포인트는 app.py 수정 시 정의된 것을 사용해야 함
-            // 예시: /api/study-logs-period?semester_id=...&start_date=...&end_date=...
-            const response = await fetch(`/api/study-logs-period?semester_id=${currentSemesterId}&start_date=${startDateStr}&end_date=${endDateStr}`);
+            // API 엔드포인트를 /api/study-analysis-data로 변경
+            // 쿼리 파라미터를 period와 date_str로 변경
+            const response = await fetch(`/api/study-analysis-data?semester_id=${currentSemesterId}&period=${period}&date_str=${dateStrForAPI}`);
+            
             if (!response.ok) throw new Error('학습 데이터 로드 실패');
             const data = await response.json();
 
             if (data.status === 'success') {
-                updateTotalTimeDisplay(data.total_seconds || 0, period, date);
-                updateStudyTimeChart(data.logs_by_date || {}, period, startDate, endDate);
-                updateSubjectDistribution(data.logs_by_subject || {}, period);
-                updateStudyTree(data.total_seconds_overall || 0); // 전체 누적 시간 필요
+                // API 응답 구조에 맞게 파싱
+                updateTotalTimeDisplay(data.total_time || 0, period, date);
+                updateStudyTimeChart(data.timeseries_data || {}, period, startDate, endDate);
+                updateSubjectDistribution(data.subject_data || [], period);
+                updateStudyTree(data.today_total_time || 0); // 오늘 총 시간 (나무용)
             } else {
                 throw new Error(data.message || '데이터 로드 실패');
             }
@@ -169,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 차트 및 표시 초기화
             updateTotalTimeDisplay(0, period, date);
             updateStudyTimeChart({}, period, startDate, endDate);
-            updateSubjectDistribution({}, period);
+            updateSubjectDistribution([], period);
             updateStudyTree(0);
         }
     }
@@ -228,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentTimePeriodEl.textContent = periodText;
     }
 
-    function updateStudyTimeChart(logsByDate, period, startDate, endDate) {
+    function updateStudyTimeChart(timeseries_data, period, startDate, endDate) {
         if (!studyTimeChartCanvas) return;
         const ctx = studyTimeChartCanvas.getContext('2d');
 
@@ -236,63 +240,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             studyTimeChartInstance.destroy();
         }
 
-        let labels = [];
-        let data = [];
+        // API가 반환한 {labels: [], data: []} 객체를 바로 사용
+        const labels = (timeseries_data.labels || []).map(label => new Date(label)); // 차트 x축은 Date 객체여야 함
+        const data = timeseries_data.data || [];
+        
         let unit = 'day';
         let tooltipFormat = 'yyyy-MM-dd';
         let chartLabel = '일일 공부 시간 (분)';
+        let yAxisText = '공부 시간 (시간)';
+        let chartData = [];
 
         switch (period) {
             case 'daily':
-                chartLabel = '시간별 공부 시간 (분)';
-                unit = 'hour';
-                tooltipFormat = 'HH:mm';
-                // 시간별 데이터 생성 (0-23시)
-                labels = Array.from({ length: 24 }, (_, i) => {
-                    const dateWithHour = new Date(startDate);
-                    dateWithHour.setHours(i, 0, 0, 0);
-                    return dateWithHour;
-                });
-                data = Array(24).fill(0);
-                const dayLog = logsByDate[formatDateYYYYMMDD(startDate)];
-                if (dayLog && dayLog.details) { // 시간별 상세 데이터가 있다고 가정
-                     for (const hourStr in dayLog.details) {
-                        const hour = parseInt(hourStr, 10);
-                        if(hour >= 0 && hour < 24) {
-                             data[hour] = (dayLog.details[hourStr] / 60).toFixed(1); // 분 단위
-                        }
-                    }
-                } else if (dayLog && dayLog.total_seconds) {
-                    // 시간별 데이터가 없고 일 총합만 있을 경우, 0시에 표시 (임시)
-                    data[0] = (dayLog.total_seconds / 60).toFixed(1);
-                }
+                chartLabel = '일일 총 공부 시간 (시간)';
+                unit = 'day'; 
+                tooltipFormat = 'yyyy-MM-dd (eee)';
+                chartData = data.map(val => (val / 3600).toFixed(2)); // 초 -> 시간 (소수점 2자리)
+                yAxisText = '공부 시간 (시간)';
                 break;
             case 'weekly':
                  chartLabel = '요일별 공부 시간 (시간)';
                  unit = 'day';
                  tooltipFormat = 'MM-dd (eee)';
-                 const weekStart = new Date(startDate);
-                 labels = Array.from({ length: 7 }, (_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i));
-                 data = labels.map(day => {
-                     const dateStr = formatDateYYYYMMDD(day);
-                     return ((logsByDate[dateStr]?.total_seconds || 0) / 3600).toFixed(1); // 시간 단위
-                 });
+                 chartData = data.map(val => (val / 3600).toFixed(1)); // 초 -> 시간
+                 yAxisText = '공부 시간 (시간)';
                  break;
             case 'monthly':
                  chartLabel = '일별 공부 시간 (시간)';
                  unit = 'day';
                  tooltipFormat = 'MM-dd';
-                 const daysInMonth = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
-                 const monthStart = new Date(startDate);
-                 labels = Array.from({ length: daysInMonth }, (_, i) => new Date(monthStart.getFullYear(), monthStart.getMonth(), i + 1));
-                 data = labels.map(day => {
-                     const dateStr = formatDateYYYYMMDD(day);
-                     return ((logsByDate[dateStr]?.total_seconds || 0) / 3600).toFixed(1); // 시간 단위
-                 });
+                 chartData = data.map(val => (val / 3600).toFixed(1)); // 초 -> 시간
+                 yAxisText = '공부 시간 (시간)';
                  break;
         }
-
-        if (chartTitleEl) chartTitleEl.innerHTML = `<i class="fas fa-chart-bar"></i> ${chartLabel.split(' ')[0]} 공부 기록`;
+        
+        if (chartTitleEl) chartTitleEl.innerHTML = `<i class="fas fa-chart-bar"></i> ${chartLabel.split(' (')[0]}`;
 
         studyTimeChartInstance = new Chart(ctx, {
             type: 'bar',
@@ -300,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 labels: labels,
                 datasets: [{
                     label: chartLabel,
-                    data: data,
+                    data: chartData, 
                     backgroundColor: 'rgba(165, 0, 52, 0.7)',
                     borderColor: 'rgba(165, 0, 52, 1)',
                     borderWidth: 1,
@@ -317,13 +299,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                             unit: unit,
                             tooltipFormat: tooltipFormat,
                              displayFormats: {
-                                hour: 'HH', // 일간
-                                day: 'dd(eee)' // 주간, 월간
+                                hour: 'HH', 
+                                day: period === 'monthly' ? 'dd' : 'MM-dd' 
                             }
                         },
                          adapters: {
                             date: {
-                                locale: dateFns.localeKo // date-fns 로케일 설정
+                                locale: dateFns.locale.ko // [수정] 올바른 경로
                             }
                         },
                         title: { display: false }
@@ -332,7 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: period === 'daily' ? '공부 시간 (분)' : '공부 시간 (시간)'
+                            text: yAxisText 
                         }
                     }
                 },
@@ -344,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 let label = context.dataset.label || '';
                                 if (label) { label += ': '; }
                                 if (context.parsed.y !== null) {
-                                     label += context.parsed.y + (period === 'daily' ? ' 분' : ' 시간');
+                                     label += context.parsed.y + ' 시간'; 
                                 }
                                 return label;
                             }
@@ -355,44 +337,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function updateSubjectDistribution(logsBySubject, period) {
+    function updateSubjectDistribution(subjectData, period) {
         if (!subjectDistChartCanvas || !subjectStudyListUl || !subjectDistTitleEl) return;
-
-        const subjectData = [];
-        const backgroundColors = [];
-        const labels = [];
+        
         let totalSubjectSeconds = 0;
+        subjectData.forEach(item => {
+            totalSubjectSeconds += item.time;
+        });
 
-        // 색상 팔레트
         const colors = [
             '#A50034', '#C7003F', '#E74C3C', '#F39C12', '#F1C40F',
             '#2ECC71', '#27AE60', '#3498DB', '#2980B9', '#9B59B6',
             '#8E44AD', '#34495E', '#2C3E50', '#95A5A6', '#7F8C8D'
         ];
         let colorIndex = 0;
+        
+        const backgroundColors = [];
+        const labels = [];
 
-        // 과목 데이터 처리 및 총 시간 계산
-        for (const subjectId in logsBySubject) {
-            const subjectLog = logsBySubject[subjectId];
-            const subject = currentSubjects.find(s => s.id == subjectId); // == 사용 (타입 다를 수 있음)
-            const subjectName = subject ? subject.name : `과목 ID ${subjectId}`; // 과목 이름 찾기
+        subjectData.sort((a, b) => b.time - a.time);
 
-            if (subjectLog.total_seconds > 0) {
-                subjectData.push({
-                    id: subjectId,
-                    name: subjectName,
-                    seconds: subjectLog.total_seconds
-                });
-                totalSubjectSeconds += subjectLog.total_seconds;
-            }
-        }
-
-        // 시간순으로 정렬
-        subjectData.sort((a, b) => b.seconds - a.seconds);
-
-        // 차트 데이터 및 레이블 생성
         const listItemsHtml = subjectData.map(item => {
-            const { hours, minutes } = formatSecondsToHM(item.seconds);
+            const { hours, minutes } = formatSecondsToHM(item.time); 
             const color = colors[colorIndex % colors.length];
             backgroundColors.push(color);
             labels.push(item.name);
@@ -408,7 +374,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }).join('');
 
-        // 제목 업데이트
         let distTitle = '';
          switch (period) {
             case 'daily': distTitle = '오늘 과목별 분포'; break;
@@ -417,21 +382,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         subjectDistTitleEl.innerHTML = `<i class="fas fa-pie-chart"></i> ${distTitle}`;
 
-
-        // 목록 업데이트
         if (subjectData.length > 0) {
             subjectStudyListUl.innerHTML = listItemsHtml;
         } else {
             subjectStudyListUl.innerHTML = '<li class="no-data">기록된 과목별 공부 시간이 없습니다.</li>';
         }
 
-        // 도넛 차트 업데이트
         if (subjectDistChartInstance) {
             subjectDistChartInstance.destroy();
         }
 
         if (subjectData.length > 0 && totalSubjectSeconds > 0) {
-             const chartDataValues = subjectData.map(item => item.seconds);
+             const chartDataValues = subjectData.map(item => item.time); 
 
             subjectDistChartInstance = new Chart(subjectDistChartCanvas.getContext('2d'), {
                 type: 'doughnut',
@@ -446,9 +408,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, // 크기 조절 용이하게
+                    maintainAspectRatio: false, 
                     plugins: {
-                        legend: { display: false }, // 범례는 목록으로 대체
+                        legend: { display: false }, 
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
@@ -457,7 +419,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     const seconds = context.parsed;
                                     const { hours, minutes } = formatSecondsToHM(seconds);
                                     label += `${hours}h ${minutes}m`;
-                                    // 백분율 추가
                                     const percentage = ((seconds / totalSubjectSeconds) * 100).toFixed(1);
                                     label += ` (${percentage}%)`;
                                     return label;
@@ -469,7 +430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             subjectDistChartCanvas.style.display = 'block';
         } else {
-            // 데이터 없을 때 캔버스 숨김
              subjectDistChartCanvas.style.display = 'none';
         }
     }
@@ -488,10 +448,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         studyTreeImage.src = `${BASE_TREE_IMAGE_PATH}tree_stage_${level}.png`;
         treeLevelInfo.textContent = `Lv. ${level}`;
         treeMessage.textContent = TREE_MESSAGES[level];
-
-        // 레벨에 따른 스타일 변경 (옵션)
-        // const treeColorVar = `--tree-level-${level}`;
-        // studyTreeImage.style.filter = `drop-shadow(0 0 5px var(${treeColorVar}))`;
     }
 
     function updateDateNavigation() {
@@ -502,9 +458,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (currentPeriod === 'daily') {
             dateNavigationDiv.style.display = 'flex';
             currentDateDisplay.textContent = formatDateMMDD(currentDate) + ` (${getWeekdayShort(currentDate)})`;
-            nextPeriodBtn.disabled = (currentDate.toDateString() === today.toDateString()); // 오늘 이후는 비활성화
+            nextPeriodBtn.disabled = (currentDate.toDateString() === today.toDateString()); 
         } else {
-            // 주간/월간은 아직 네비게이션 미지원 (필요 시 구현)
              dateNavigationDiv.style.display = 'none';
         }
     }
@@ -547,7 +502,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const subjectIdToSave = timingSubjectId;
         const subjectNameToSave = timingSubjectName;
 
-        // 상태 초기화
         subjectTimerSeconds = 0;
         timingSubjectId = null;
         timingSubjectName = null;
@@ -558,17 +512,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentTimingSubjectEl.textContent = '';
 
         if (durationToSave > 0 && subjectIdToSave) {
-            // API 호출하여 저장
             try {
-                const saveDateStr = formatDateYYYYMMDD(new Date()); // 저장 날짜는 항상 오늘
-                // API 엔드포인트는 app.py 수정 시 정의된 것을 사용
-                // 예시: POST /api/study-time-subject
-                const response = await fetch('/api/study-time-subject', {
+                const saveDateStr = formatDateYYYYMMDD(new Date()); 
+                const response = await fetch('/api/study-log/subject', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        subject_id: subjectIdToSave,
-                        date: saveDateStr,
+                        subject_id: parseInt(subjectIdToSave, 10), 
+                        date_str: saveDateStr, 
                         duration_seconds: durationToSave
                     })
                 });
@@ -578,7 +529,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 showNotification(`"${subjectNameToSave}" ${formatSecondsToHMString(durationToSave)} 공부 시간 저장됨`, 'success');
 
-                // 저장 후 현재 보고 있는 기간의 데이터 다시 로드
                  showLoadingState(true);
                  await loadDataForPeriod(currentPeriod, currentDate);
                  showLoadingState(false);
@@ -603,15 +553,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function handleSemesterChange() {
         if (!semesterSelect) return;
         const selectedId = semesterSelect.value;
-        if (selectedId && selectedId != currentSemesterId) { // != 사용 (문자열 비교 가능성)
+        if (selectedId && selectedId != currentSemesterId) { 
             currentSemesterId = selectedId;
             showLoadingState(true);
             await loadSubjectsForSemester(currentSemesterId);
-            // 현재 기간/날짜 기준으로 데이터 다시 로드
             await loadDataForPeriod(currentPeriod, currentDate);
             showLoadingState(false);
         } else if (!selectedId) {
-            // 학기 선택 안 함
             currentSemesterId = null;
             disablePageFunctionality();
         }
@@ -671,7 +619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let str = '';
         if (hours > 0) str += `${hours}시간 `;
         if (minutes > 0) str += `${minutes}분 `;
-        if (hours === 0 && minutes === 0 || remainingSeconds > 0) { // 초 단위 표시 (옵션)
+        if (hours === 0 && minutes === 0 || remainingSeconds > 0) { 
             str += `${remainingSeconds}초`;
         }
         return str.trim() || '0초';
@@ -702,16 +650,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 startDate = new Date(date);
                 endDate = new Date(date);
         }
-         endDate.setHours(23, 59, 59, 999); // 종료일은 마지막 시간까지 포함
+         endDate.setHours(23, 59, 59, 999); 
         return { startDate, endDate };
     }
 
-     // 주의 시작(월요일), 종료(일요일) 날짜 구하기
      function getWeekRange(d) {
         d = new Date(d);
         d.setHours(0,0,0,0);
-        const day = d.getDay(); // 0(일) ~ 6(토)
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 월요일로 조정
+        const day = d.getDay(); 
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
         const monday = new Date(d.setDate(diff));
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
@@ -720,15 +667,12 @@ document.addEventListener('DOMContentLoaded', async () => {
      }
 
 
-    function showNotification(message, type = 'info') { // type: 'info', 'success', 'error', 'warning'
-        // 간단 알림 (기존 layout.js의 기능 사용 또는 직접 구현)
+    function showNotification(message, type = 'info') { 
         alert(`[${type.toUpperCase()}] ${message}`);
-        // 필요 시 더 정교한 알림 UI 구현
     }
 
     function showLoadingState(isLoading) {
-        // 페이지 전체 또는 특정 영역에 로딩 오버레이 표시/숨김
-        const overlay = document.getElementById('loadingOverlay'); // layout.js 의 오버레이 사용
+        const overlay = document.getElementById('loadingOverlay'); 
         const loadingText = document.getElementById('loadingText');
          if (overlay) {
              if (isLoading) {
@@ -736,7 +680,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 overlay.classList.add('active');
             } else {
                 overlay.classList.remove('active');
-                if(loadingText) loadingText.textContent = "이동 중입니다..."; // 기본값 복원
+                if(loadingText) loadingText.textContent = "이동 중입니다..."; 
             }
         }
     }
@@ -754,12 +698,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     function enablePageFunctionality() {
          if(subjectSelectTimer) subjectSelectTimer.disabled = !(currentSubjects.length > 0);
          if(startSubjectTimerBtn) startSubjectTimerBtn.disabled = !(currentSubjects.length > 0);
-         // stop 버튼은 타이머 시작 시 활성화되므로 여기서 건드리지 않음
          periodTabs.forEach(tab => tab.disabled = false);
          if (prevPeriodBtn) prevPeriodBtn.disabled = false;
          if (nextPeriodBtn) nextPeriodBtn.disabled = false;
          if (todayPeriodBtn) todayPeriodBtn.disabled = false;
-         updateDateNavigation(); // 날짜 네비게이션 상태 업데이트
+         updateDateNavigation(); 
     }
 
     function displayNoSemesterMessage() {
