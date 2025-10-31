@@ -1908,44 +1908,48 @@ def save_study_time():
             StudyLog.date == date_obj
         ).scalar() or 0
 
-        # 펫 상태 업데이트
+        # 펫 상태 업데이트 (테이블이 있을 때만)
         try:
-            pet = PetStatus.query.filter_by(user_id=user_id).first()
-            if not pet:
-                pet = PetStatus(
-                    user_id=user_id,
-                    pet_type='cat',
-                    pet_name='공부친구',
-                    level=1,
-                    experience=0,
-                    health=100,
-                    mood='happy',
-                    consecutive_study_days=0,
-                    total_study_time=0,
-                    badges=[]
-                )
-                db.session.add(pet)
+            inspector = db.inspect(db.engine)
+            if 'pet_status' in inspector.get_table_names():
+                pet = PetStatus.query.filter_by(user_id=user_id).first()
+                if not pet:
+                    pet = PetStatus(
+                        user_id=user_id,
+                        pet_type='cat',
+                        pet_name='공부친구',
+                        level=1,
+                        experience=0,
+                        health=100,
+                        mood='happy',
+                        consecutive_study_days=0,
+                        total_study_time=0,
+                        badges=[]
+                    )
+                    db.session.add(pet)
 
-            # 경험치 추가
-            pet.add_experience(duration_to_add)
-            pet.total_study_time += duration_to_add
+                # 경험치 추가
+                pet.add_experience(duration_to_add)
+                pet.total_study_time += duration_to_add
 
-            # 연속 공부 일수 업데이트
-            if pet.last_study_date:
-                days_diff = (date_obj - pet.last_study_date).days
-                if days_diff == 1:
-                    pet.consecutive_study_days += 1
-                elif days_diff > 1:
+                # 연속 공부 일수 업데이트
+                if pet.last_study_date:
+                    days_diff = (date_obj - pet.last_study_date).days
+                    if days_diff == 1:
+                        pet.consecutive_study_days += 1
+                    elif days_diff > 1:
+                        pet.consecutive_study_days = 1
+                else:
                     pet.consecutive_study_days = 1
-            else:
-                pet.consecutive_study_days = 1
 
-            pet.last_study_date = date_obj
-            pet.update_status()
-            pet.check_and_award_badges()
-            db.session.commit()
+                pet.last_study_date = date_obj
+                pet.update_status()
+                pet.check_and_award_badges()
+                db.session.commit()
         except Exception as pet_error:
             print(f"Warning: Failed to update pet status: {pet_error}")
+            import traceback
+            traceback.print_exc()
             # 펫 업데이트 실패해도 공부 시간은 저장
 
         return jsonify({"status": "success", "data": {"total_duration": today_total}})
@@ -1989,44 +1993,48 @@ def log_subject_study_time():
         db.session.add(new_log)
         db.session.commit()
 
-        # 펫 상태 업데이트
+        # 펫 상태 업데이트 (테이블이 있을 때만)
         try:
-            pet = PetStatus.query.filter_by(user_id=user_id).first()
-            if not pet:
-                pet = PetStatus(
-                    user_id=user_id,
-                    pet_type='cat',
-                    pet_name='공부친구',
-                    level=1,
-                    experience=0,
-                    health=100,
-                    mood='happy',
-                    consecutive_study_days=0,
-                    total_study_time=0,
-                    badges=[]
-                )
-                db.session.add(pet)
+            inspector = db.inspect(db.engine)
+            if 'pet_status' in inspector.get_table_names():
+                pet = PetStatus.query.filter_by(user_id=user_id).first()
+                if not pet:
+                    pet = PetStatus(
+                        user_id=user_id,
+                        pet_type='cat',
+                        pet_name='공부친구',
+                        level=1,
+                        experience=0,
+                        health=100,
+                        mood='happy',
+                        consecutive_study_days=0,
+                        total_study_time=0,
+                        badges=[]
+                    )
+                    db.session.add(pet)
 
-            # 경험치 추가
-            pet.add_experience(duration_seconds)
-            pet.total_study_time += duration_seconds
+                # 경험치 추가
+                pet.add_experience(duration_seconds)
+                pet.total_study_time += duration_seconds
 
-            # 연속 공부 일수 업데이트
-            if pet.last_study_date:
-                days_diff = (date_obj - pet.last_study_date).days
-                if days_diff == 1:
-                    pet.consecutive_study_days += 1
-                elif days_diff > 1:
+                # 연속 공부 일수 업데이트
+                if pet.last_study_date:
+                    days_diff = (date_obj - pet.last_study_date).days
+                    if days_diff == 1:
+                        pet.consecutive_study_days += 1
+                    elif days_diff > 1:
+                        pet.consecutive_study_days = 1
+                else:
                     pet.consecutive_study_days = 1
-            else:
-                pet.consecutive_study_days = 1
 
-            pet.last_study_date = date_obj
-            pet.update_status()
-            pet.check_and_award_badges()
-            db.session.commit()
+                pet.last_study_date = date_obj
+                pet.update_status()
+                pet.check_and_award_badges()
+                db.session.commit()
         except Exception as pet_error:
             print(f"Warning: Failed to update pet status: {pet_error}")
+            import traceback
+            traceback.print_exc()
             # 펫 업데이트 실패해도 공부 시간은 저장
 
         return jsonify({"status": "success", "message": "공부 시간이 기록되었습니다."}), 201
@@ -2161,6 +2169,30 @@ def get_pet_status():
     user_id = g.user.id
 
     try:
+        # 테이블 존재 여부 확인
+        inspector = db.inspect(db.engine)
+        if 'pet_status' not in inspector.get_table_names():
+            # 테이블이 없으면 기본 펫 데이터 반환
+            print("Warning: pet_status table does not exist")
+            return jsonify({
+                'status': 'success',
+                'pet': {
+                    'user_id': user_id,
+                    'pet_type': 'cat',
+                    'pet_name': '공부친구',
+                    'level': 1,
+                    'experience': 0,
+                    'level_progress': 0,
+                    'health': 100,
+                    'mood': 'happy',
+                    'mood_message': '공부해서 펫을 키워보세요!',
+                    'last_study_date': None,
+                    'consecutive_study_days': 0,
+                    'total_study_time': 0,
+                    'badges': []
+                }
+            })
+
         pet = PetStatus.query.filter_by(user_id=user_id).first()
 
         if not pet:
@@ -2179,6 +2211,7 @@ def get_pet_status():
             )
             db.session.add(pet)
             db.session.commit()
+            print(f"Created new pet for user {user_id}")
         else:
             # 펫 상태 업데이트 (건강도, 감정)
             pet.update_status()
@@ -2192,7 +2225,28 @@ def get_pet_status():
     except Exception as e:
         db.session.rollback()
         print(f"Error getting pet status: {e}")
-        return jsonify({"status": "error", "message": f"펫 상태 조회 중 오류 발생: {e}"}), 500
+        import traceback
+        traceback.print_exc()
+
+        # 오류 발생 시에도 기본 펫 반환
+        return jsonify({
+            'status': 'success',
+            'pet': {
+                'user_id': user_id,
+                'pet_type': 'cat',
+                'pet_name': '공부친구',
+                'level': 1,
+                'experience': 0,
+                'level_progress': 0,
+                'health': 100,
+                'mood': 'happy',
+                'mood_message': '공부해서 펫을 키워보세요!',
+                'last_study_date': None,
+                'consecutive_study_days': 0,
+                'total_study_time': 0,
+                'badges': []
+            }
+        })
 
 
 @app.route('/api/pet/update', methods=['POST'])

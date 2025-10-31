@@ -85,28 +85,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Initialization ---
     async function initializeStudyAnalysis() {
-        showLoadingState(true);
-        setupEventListeners();
-        currentDate.setHours(0, 0, 0, 0); // 날짜 기준은 자정으로
+        try {
+            showLoadingState(true);
+            setupEventListeners();
+            currentDate.setHours(0, 0, 0, 0); // 날짜 기준은 자정으로
 
-        // 펫 상태 로드
-        await loadPetStatus();
+            // 펫 상태 로드 (실패해도 계속 진행)
+            try {
+                await loadPetStatus();
+            } catch (petError) {
+                console.warn('Pet status load failed, continuing with default:', petError);
+                // 기본 펫 상태로 표시
+                currentPet = {
+                    pet_name: '공부친구',
+                    pet_type: 'cat',
+                    level: 1,
+                    health: 100,
+                    mood: 'happy',
+                    experience: 0,
+                    level_progress: 0,
+                    consecutive_study_days: 0,
+                    badges: [],
+                    mood_message: '공부해서 펫을 키워보세요!'
+                };
+                updatePetDisplay();
+            }
 
-        await loadAllSemesters(); // 학기 로드 및 드롭다운 채우기
+            await loadAllSemesters(); // 학기 로드 및 드롭다운 채우기
 
-        // 초기 학기 설정 (첫 번째 학기 또는 로컬 스토리지 값)
-        currentSemesterId = allSemesters.length > 0 ? allSemesters[0].id : null;
-        if (semesterSelect) semesterSelect.value = currentSemesterId;
+            // 초기 학기 설정 (첫 번째 학기 또는 로컬 스토리지 값)
+            currentSemesterId = allSemesters.length > 0 ? allSemesters[0].id : null;
+            if (semesterSelect) semesterSelect.value = currentSemesterId;
 
-        if (currentSemesterId) {
-            await loadSubjectsForSemester(currentSemesterId);
-            await loadDataForPeriod(currentPeriod, currentDate); // 오늘 날짜 기준으로 초기 데이터 로드
-            updateDateNavigation(); // 날짜 네비게이션 초기화
-        } else {
-            // 학기가 없을 경우 처리
-            displayNoSemesterMessage();
+            if (currentSemesterId) {
+                await loadSubjectsForSemester(currentSemesterId);
+                await loadDataForPeriod(currentPeriod, currentDate); // 오늘 날짜 기준으로 초기 데이터 로드
+                updateDateNavigation(); // 날짜 네비게이션 초기화
+            } else {
+                // 학기가 없을 경우 처리
+                displayNoSemesterMessage();
+            }
+        } catch (error) {
+            console.error('Initialization error:', error);
+            showNotification('페이지 초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.', 'error');
+        } finally {
+            showLoadingState(false);
         }
-        showLoadingState(false);
     }
 
     // --- Event Listeners ---
@@ -209,7 +233,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateTotalTimeDisplay(data.total_time || 0, period, date);
                 updateStudyTimeChart(data.timeseries_data || {}, period, startDate, endDate);
                 updateSubjectDistribution(data.subject_data || [], period);
-                updateStudyTree(data.today_total_time || 0); // 오늘 총 시간 (나무용)
             } else {
                 throw new Error(data.message || '데이터 로드 실패');
             }
@@ -218,9 +241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             showNotification(`데이터 로드 실패: ${error.message}`, 'error');
             // 차트 및 표시 초기화
             updateTotalTimeDisplay(0, period, date);
-            updateStudyTimeChart({}, period, startDate, endDate);
+            updateStudyTimeChart({labels: [], data: []}, period, startDate, endDate);
             updateSubjectDistribution([], period);
-            updateStudyTree(0);
         }
     }
 
@@ -484,12 +506,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadPetStatus() {
         try {
             const response = await fetch('/api/pet/status');
-            if (!response.ok) throw new Error('펫 상태 로드 실패');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Pet status API error:', response.status, errorText);
+                throw new Error(`펫 상태 로드 실패 (${response.status})`);
+            }
             const data = await response.json();
 
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.pet) {
                 currentPet = data.pet;
                 updatePetDisplay();
+            } else {
+                throw new Error(data.message || '펫 데이터 없음');
             }
         } catch (error) {
             console.error('Failed to load pet status:', error);
@@ -503,9 +531,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 experience: 0,
                 level_progress: 0,
                 consecutive_study_days: 0,
-                badges: []
+                badges: [],
+                mood_message: '공부해서 펫을 키워보세요!'
             };
             updatePetDisplay();
+            throw error; // 상위로 전파
         }
     }
 
@@ -749,7 +779,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                  showLoadingState(true);
                  await loadDataForPeriod(currentPeriod, currentDate);
-                 await loadPetStatus(); // 펫 상태 업데이트
+                 // 펫 상태 업데이트 (실패해도 계속 진행)
+                 try {
+                     await loadPetStatus();
+                 } catch (petError) {
+                     console.warn('Pet update failed after timer stop:', petError);
+                 }
                  showLoadingState(false);
 
             } catch (error) {
