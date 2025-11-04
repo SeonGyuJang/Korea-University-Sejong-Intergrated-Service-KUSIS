@@ -508,7 +508,7 @@
 
 .chart-container {
     position: relative;
-    min-height: 300px;
+    min-height: 350px;
     padding: var(--space-4);
 }
 
@@ -961,7 +961,8 @@
    ============================================== */
 
 .activity-list {
-    max-height: 400px;
+    max-height: 500px;
+    min-height: 350px;
     overflow-y: auto;
 }
 
