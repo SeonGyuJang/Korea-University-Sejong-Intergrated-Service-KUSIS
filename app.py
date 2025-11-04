@@ -2078,11 +2078,11 @@ def get_study_analysis_data():
             Subject.name,
             func.sum(StudyLog.duration_seconds).label('total_duration')
         ).join(
-            Subject, Subject.id == StudyLog.subject_id
+            StudyLog, StudyLog.subject_id == Subject.id
         ).filter(
             StudyLog.user_id == user_id,
             StudyLog.date.between(start_date, end_date),
-            StudyLog.subject_id != None, # 과목이 있는 로그
+            StudyLog.subject_id.isnot(None), # 과목이 있는 로그
             Subject.semester_id == semester_id # 현재 선택된 학기
         ).group_by(
             Subject.name
@@ -2096,7 +2096,7 @@ def get_study_analysis_data():
         ).filter(
             StudyLog.user_id == user_id,
             StudyLog.date.between(start_date, end_date),
-            StudyLog.subject_id == None
+            StudyLog.subject_id.is_(None)
         ).scalar() or 0
 
         if personal_time > 0:
@@ -2153,15 +2153,15 @@ def get_study_analysis_data():
         daily_average = total_time // days_count if days_count > 0 else 0
 
         # 7. 시간대별 데이터 (0-23시)
-        # 이 부분은 실제 로그 시각 정보가 없으므로 임시로 랜덤 분포 생성
+        # 이 부분은 실제 로그 시각 정보가 없으므로 임시로 균등 분포 생성
         # 실제로는 로그에 시각 정보가 있어야 함
         hourly_data = {}
-        # 간단한 예시: 9-22시 사이에 공부 시간 분산
+        # 간단한 예시: 9-21시 사이에 공부 시간 균등 분산
         if total_time > 0:
-            import random
             study_hours = [9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+            avg_per_hour = total_time // len(study_hours)
             for hour in study_hours:
-                hourly_data[hour] = int(total_time * random.uniform(0.05, 0.15))
+                hourly_data[hour] = avg_per_hour
 
         # 8. 평균 세션 시간 (로그 당 평균)
         log_count = db.session.query(
@@ -2186,7 +2186,7 @@ def get_study_analysis_data():
             StudyLog.duration_seconds,
             Subject.name.label('subject_name')
         ).outerjoin(
-            Subject, Subject.id == StudyLog.subject_id
+            Subject, StudyLog.subject_id == Subject.id
         ).filter(
             StudyLog.user_id == user_id
         ).order_by(
