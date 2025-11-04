@@ -1,10 +1,9 @@
 {# templates/fragments/_post_card.html #}
 <article class="post-card" data-post-id="{{ post.id }}">
     
-    {# --- 카드 헤더: 작성자 정보 --- #}
+    {# --- 카드 헤더: 작성자 정보 (변경 없음) --- #}
     <header class="post-card-header">
         <div class="post-author-avatar">
-            {# 관리자/협력직원 아이콘 #}
             {% if post.author.permission == 'admin' %}
                 <i class="fas fa-shield-alt" title="관리자"></i>
             {% elif post.author.permission == 'associate' %}
@@ -19,44 +18,50 @@
         </div>
     </header>
 
-    {# --- 카드 본문: 제목, 내용, 이미지 --- #}
+    {# --- 카드 본문: [수정] 제목을 링크로 변경, 내용에 preview 클래스 추가 --- #}
     <div class="post-card-body">
-        <h2 class="post-card-title">{{ post.title }}</h2>
-        <div class="post-card-content">
+        {# 제목을 클릭하면 상세 페이지로 이동 #}
+        <a href="{{ url_for('view_post', post_id=post.id) }}" class="post-card-title-link">
+            <h2 class="post-card-title">{{ post.title }}</h2>
+        </a>
+        
+        {# 긴 내용은 CSS로 인해 일부만 보이고 생략됨 #}
+        <div class="post-card-content-preview">
             {{ post.content | safe }}
         </div>
         
         {# --- 이미지 갤러리 --- #}
         {% set image_list = post.image_filenames.split(',') if post.image_filenames else [] %}
         {% if image_list %}
-            <div class="post-card-images cols-{{ image_list|length if image_list|length <= 3 else 3 }}">
-                {% for filename in image_list %}
-                <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="{{ post.title }} 이미지" class="post-card-image">
-                {% endfor %}
-            </div>
+            {# [수정] 이미지 클릭 시 상세 페이지로 이동하는 링크 추가 #}
+            <a href="{{ url_for('view_post', post_id=post.id) }}" class="post-card-images-link">
+                <div class="post-card-images cols-{{ image_list|length if image_list|length <= 3 else 3 }}">
+                    {% for filename in image_list %}
+                    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="{{ post.title }} 이미지" class="post-card-image">
+                    {% endfor %}
+                </div>
+            </a>
         {% endif %}
     </div>
 
-    {# --- 카드 액션: 좋아요, 댓글, 공유 --- #}
+    {# --- 카드 액션: [수정] flex-grow: 1로 본문 영역을 밀어내도록 함 --- #}
     <footer class="post-card-actions">
         <div>
             {# --- 좋아요 버튼 --- #}
             {% set user_liked = post.id in user_likes %}
             <button class="action-button like-btn {{ 'liked' if user_liked else '' }}" data-post-id="{{ post.id }}">
                 <i class="fas fa-heart"></i>
-                {# --- [수정] | length -> .count() --- #}
                 <span class="like-count">{{ post.likes.count() }}</span>
             </button>
             {# --- 댓글 버튼 --- #}
             <button class="action-button comment-btn" data-post-id="{{ post.id }}">
-                <i class="fas fa-comment"></i>
-                {# --- [수정] | length -> .count() --- #}
+                <i class="fas fa-comment-alt"></i>
                 <span class="comment-count">{{ post.comments.count() }}</span>
             </button>
         </div>
         {# --- 공유 버튼 --- #}
         <button class="action-button share-btn" data-post-id="{{ post.id }}">
-            <i class="fas fa-share-square"></i>
+            <i class="fas fa-share-alt"></i>
             <span>공유</span>
         </button>
     </footer>
@@ -67,7 +72,7 @@
             {# JS로 채워짐 #}
         </div>
         <form class="comment-input-form" data-post-id="{{ post.id }}">
-            <input type="text" class="comment-input" placeholder="익명 댓글을 입력하세요..." required>
+            <input type="text" class="comment-input" placeholder="댓글을 입력하세요..." required>
             <button type="submit" class="comment-submit-btn" title="댓글 등록">
                 <i class="fas fa-paper-plane"></i>
             </button>

@@ -8,23 +8,29 @@
 
 {% block content %}
 <div class="content-area community-page">
-    <div class="community-feed-container">
+    {# --- [수정] 전체 너비를 사용하는 .community-container로 변경 --- #}
+    <div class="community-container">
         
+        {# --- [수정] 헤더에 '새 글 작성' 버튼 추가 --- #}
         <header class="community-header">
-            <h3><i class="fas fa-users"></i> 커뮤니티</h3>
+            <h3><i class="fas fa-users"></i> 커뮤니티 피드</h3>
+            <a href="{{ url_for('create_post') }}" class="btn-new-post">
+                <i class="fas fa-plus"></i> 새 게시물 작성
+            </a>
         </header>
 
-        {# --- 게시물 피드 --- #}
-        <div class="community-feed" id="communityFeed">
+        {# --- [수정] 피드 컨테이너를 .community-grid로 변경 (CSS에서 그리드 적용) --- #}
+        <div class="community-grid" id="communityFeed">
             
             {% if posts %}
                 {% for post in posts %}
                     {# post_card.html 템플릿을 인클루드합니다. #}
                     {% include 'fragments/_post_card.html' %}
                 {% else %}
-                <div class="widget" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-inbox" style="font-size: 30px; color: var(--text-secondary); margin-bottom: 15px;"></i>
-                    <p style="color: var(--text-secondary);">아직 승인된 게시물이 없습니다.</p>
+                <div class="widget community-empty-message">
+                    <i class="fas fa-inbox"></i>
+                    <p>아직 승인된 게시물이 없습니다.</p>
+                    <p>첫 번째 게시물을 작성해보세요!</p>
                 </div>
                 {% endfor %}
             {% endif %}
