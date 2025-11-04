@@ -589,7 +589,7 @@ def register():
         student_id = request.form.get('student_id')
         password = request.form.get('password')
         password_confirm = request.form.get('password_confirm')
-        dob = request.form.get('dob') # 생년월일 (YYYY-MM-DD)
+        dob = request.form.get('dob')
         college = request.form.get('college')
         department = request.form.get('department')
 
@@ -865,7 +865,7 @@ def create_post():
                 author_id=user.id,
                 is_approved=is_approved,
                 is_notice=is_notice,
-                image_filenames=image_filenames_str, # <<< 수정됨
+                image_filenames=image_filenames_str, 
                 category=category,
                 expires_at=expires_at_dt,
                 is_visible=True
