@@ -2359,44 +2359,68 @@ def get_comments(post_id):
         return jsonify({"status": "error", "message": "댓글 조회 중 오류 발생"}), 500
 
 
+# app.py
+
+# app.py
+
 @app.route('/api/posts/<int:post_id>/comments', methods=['POST'])
 @login_required
 def post_comment(post_id):
     """
     [수정] 새 댓글/답글 작성 API
-    - parent_id를 받을 수 있도록 수정
+    - parent_id 처리 오류 수정
+    - get_json()을 try 블록 안으로 이동
     """
     from flask import g
     user_id = g.user.id
-    data = request.get_json()
-    content = data.get('content', '').strip()
-    parent_id = data.get('parent_id', type=int) # [신규] parent_id 받기
-
-    post = db.session.get(Post, post_id)
-    if not post:
-        return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
-
-    if not content:
-        return jsonify({"status": "error", "message": "댓글 내용이 없습니다."}), 400
-        
-    # [신규] 부모 댓글 유효성 검사
-    if parent_id:
-        parent_comment = db.session.get(Comment, parent_id)
-        # 부모 댓글이 존재하지 않거나, 같은 게시물의 댓글이 아니면 오류
-        if not parent_comment or parent_comment.post_id != post_id:
-            return jsonify({"status": "error", "message": "유효하지 않은 부모 댓글입니다."}), 400
 
     try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "JSON 데이터를 찾을 수 없습니다."}), 400
+
+        content = data.get('content', '').strip()
+        
+        # --- [수정된 부분] ---
+        # data.get() 에서는 'type=' 키워드 인수를 사용할 수 없습니다.
+        # 값을 가져온 후 타입을 검사하도록 수정합니다.
+        parent_id_raw = data.get('parent_id')
+        parent_id = None # 기본값
+        
+        if parent_id_raw is not None:
+            try:
+                # 숫자로 변환 시도
+                parent_id = int(parent_id_raw)
+                if parent_id <= 0: # 0이나 음수는 유효하지 않은 ID로 간주
+                    parent_id = None
+            except (ValueError, TypeError):
+                # 숫자가 아닌 값이 들어오면 오류 반환
+                return jsonify({"status": "error", "message": "부모 ID가 올바른 형식이 아닙니다."}), 400
+        # --- [수정 끝] ---
+
+        post = db.session.get(Post, post_id)
+        if not post:
+            return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
+
+        if not content:
+            return jsonify({"status": "error", "message": "댓글 내용이 없습니다."}), 400
+            
+        # 부모 댓글 유효성 검사
+        if parent_id:
+            parent_comment = db.session.get(Comment, parent_id)
+            # 부모 댓글이 존재하지 않거나, 같은 게시물의 댓글이 아니면 오류
+            if not parent_comment or parent_comment.post_id != post_id:
+                return jsonify({"status": "error", "message": "유효하지 않은 부모 댓글입니다."}), 400
+
         new_comment = Comment(
             post_id=post_id,
             user_id=user_id,
             content=content,
-            parent_id=parent_id # [신규] parent_id 저장
+            parent_id=parent_id 
         )
         db.session.add(new_comment)
         db.session.commit()
         
-        # [수정] JS에서 재조립하므로, 새 댓글 정보만 간단히 반환
         return jsonify({
             "status": "success",
             "message": "댓글이 등록되었습니다.",
@@ -2406,7 +2430,12 @@ def post_comment(post_id):
     except Exception as e:
         db.session.rollback()
         print(f"Error posting comment: {e}")
-        return jsonify({"status": "error", "message": "댓글 등록 중 오류 발생"}), 500
+        # get_json() 실패 시 발생하는 오류 처리
+        if isinstance(e, AttributeError) and "'NoneType' object has no attribute 'get'":
+             return jsonify({"status": "error", "message": "잘못된 요청 형식입니다 (Content-Type: application/json 필요)."}), 400
+        # 기타 500 오류
+        return jsonify({"status": "error", "message": f"댓글 등록 중 서버 오류 발생: {e}"}), 500
+    
 
 # --- 캘린더 관련 엔드포인트 ---
 @app.route('/calendar')
@@ -2834,6 +2863,6 @@ if __name__ == '__main__':
         print(f"Error starting scheduler: {e}")
 
 
-    port = int(os.environ.get("PORT", 2424))
+    port = int(os.environ.get("PORT", 1717))
     # debug=True는 FLASK_DEBUG=True 환경 변수로 제어
     app.run(debug=os.environ.get("FLASK_DEBUG", "False").lower() == "true", host='0.0.0.0', port=port)
