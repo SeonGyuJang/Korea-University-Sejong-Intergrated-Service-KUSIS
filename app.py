@@ -2241,23 +2241,39 @@ def update_credit_goal():
         db.session.rollback()
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
+# --- [수정] 커뮤니티 피드 라우트 (UI 개편) ---
 @app.route('/community')
 @login_required
 def community_feed():
-    """커뮤니티 피드 페이지 렌더링"""
+    """
+    [수정] 커뮤니티 피드 페이지 렌더링
+    - 카테고리 필터링 기능 추가
+    """
     from flask import g
     user = g.user
     
+    # 카테고리 목록 (게시물 작성 시 사용되는 상수와 일치)
+    categories = ['공지', '홍보', '안내', '업데이트', '일반']
+    
+    # URL 쿼리에서 'category' 파라미터 가져오기
+    selected_category = request.args.get('category', 'all')
+    
     try:
-        # 승인되고, 현재 노출 가능한 모든 게시물 (공지 포함)
         now_utc = datetime.utcnow()
-        posts = Post.query.filter(
+        
+        # 기본 쿼리: 승인되고, 노출 가능하며, 만료되지 않은 게시물
+        query = Post.query.filter(
             Post.is_approved == True,
             Post.is_visible == True,
             or_(Post.expires_at == None, Post.expires_at > now_utc)
-        ).order_by(desc(Post.created_at)).all()
+        )
         
-        # 현재 사용자가 좋아요 누른 게시물 ID 목록
+        # 카테고리 필터링 적용
+        if selected_category != 'all' and selected_category in categories:
+            query = query.filter(Post.category == selected_category)
+
+        posts = query.order_by(desc(Post.created_at)).all()
+        
         user_likes = db.session.query(PostLike.post_id).filter_by(user_id=user.id).all()
         user_likes_set = {like.post_id for like in user_likes}
 
@@ -2265,12 +2281,21 @@ def community_feed():
             'community.html', 
             user=user, 
             posts=posts, 
-            user_likes=user_likes_set
+            user_likes=user_likes_set,
+            post_categories=categories, # 템플릿에 카테고리 목록 전달
+            selected_category=selected_category # 템플릿에 현재 카테고리 전달
         )
     except Exception as e:
         print(f"Error loading community feed: {e}")
         flash("커뮤니티 피드를 불러오는 중 오류가 발생했습니다.", "danger")
-        return render_template('community.html', user=user, posts=[], user_likes=set())
+        return render_template(
+            'community.html', 
+            user=user, 
+            posts=[], 
+            user_likes=set(),
+            post_categories=categories,
+            selected_category=selected_category
+        )
 
 @app.route('/api/posts/<int:post_id>/like', methods=['POST'])
 @login_required
@@ -2312,45 +2337,53 @@ def toggle_like(post_id):
         print(f"Error toggling like: {e}")
         return jsonify({"status": "error", "message": "좋아요 처리 중 오류 발생"}), 500
 
+# --- [수정] 익명 버그 수정된 get_comments 함수 ---
 @app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
 @login_required
 def get_comments(post_id):
     """
     [수정] 게시물 댓글 조회 API (답글 포함)
-    - 모든 댓글을 플랫 리스트로 반환 (JS에서 중첩 구조로 만듦)
+    - 익명 사용자 ID 매핑 로직 수정
     """
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
     
     try:
-        # [수정] 모든 댓글을 생성 시간 순으로 정렬
         comments = post.comments.order_by(Comment.created_at.asc()).all()
         
         post_author_id = post.author_id
+        
+        # --- [수정된 로직] ---
+        # 이 요청 내에서 사용될 user_id와 익명 번호를 매핑합니다.
         anonymous_map = {}
         anonymous_counter = 1
         
         comments_data = []
         for comment in comments:
             display_name = ""
+            
             if comment.user_id == post_author_id:
                 display_name = "작성자"
             else:
+                # 이전에 매핑된 적 없는 user_id라면 새로 '익명 N' 번호를 할당합니다.
                 if comment.user_id not in anonymous_map:
                     anonymous_map[comment.user_id] = f"익명 {anonymous_counter}"
-                    anonymous_counter += 1
+                    anonymous_counter += 1 # 다음 번호를 위해 카운터 증가
+                
+                # 매핑된 '익명 N' 번호를 사용합니다.
                 display_name = anonymous_map[comment.user_id]
             
-            comment_dict = comment.to_dict() # parent_id가 포함됨
+            comment_dict = comment.to_dict()
             comment_dict['display_name'] = display_name
-            del comment_dict['user_id'] # user_id는 프론트로 보내지 않음
+            del comment_dict['user_id'] 
             
             comments_data.append(comment_dict)
+        # --- [수정 끝] ---
             
         return jsonify({
             "status": "success",
-            "comments": comments_data, # [수정] 플랫 리스트 반환
+            "comments": comments_data,
             "post_author_id": post_author_id # (JS에서 '작성자' 표기용)
         })
         

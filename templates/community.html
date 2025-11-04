@@ -8,24 +8,40 @@
 
 {% block content %}
 <div class="content-area community-page">
-    {# --- [수정] 전체 너비를 사용하는 .community-container로 변경 --- #}
     <div class="community-container">
         
-        {# --- [수정] 헤더에 '새 글 작성' 버튼 추가 (권한 확인) --- #}
+        {# --- [수정] 헤더 -> 카테고리 탭 메뉴 + 새 글 작성 버튼 --- #}
         <header class="community-header">
-            <h3><i class="fas fa-users"></i> 커뮤니티 피드</h3>
+            <div class="community-tabs">
+                {# '전체' 탭 #}
+                <a href="{{ url_for('community_feed', category='all') }}" 
+                   class="tab-item {% if selected_category == 'all' %}active{% endif %}">
+                    <i class="fas fa-layer-group"></i>
+                    <span>전체</span>
+                </a>
+                
+                {# 카테고리별 탭 동적 생성 #}
+                {% set category_icons = {'공지': 'fas fa-bullhorn', '홍보': 'fas fa-ad', '안내': 'fas fa-info-circle', '업데이트': 'fas fa-sync-alt', '일반': 'fas fa-comment-alt'} %}
+                {% for category in post_categories %}
+                <a href="{{ url_for('community_feed', category=category) }}" 
+                   class="tab-item {% if selected_category == category %}active{% endif %}">
+                    <i class="{{ category_icons.get(category, 'fas fa-comment-alt') }}"></i>
+                    <span>{{ category }}</span>
+                </a>
+                {% endfor %}
+            </div>
             
-            {# --- [수정 1, 2] 관리자/협력회원에게만 버튼 표시 --- #}
+            {# 새 글 작성 버튼 (권한 확인) #}
             {% if user and user.can_manage_posts %}
-            <a href="{{ url_for('create_post') }}" class="btn-new-post">
-                <i class="fas fa-plus"></i> 새 게시물 작성
+            <a href="{{ url_for('create_post') }}" class="btn-new-post" title="새 게시물 작성">
+                <i class="fas fa-plus"></i>
+                <span class="btn-new-post-text">새 글 작성</span>
             </a>
             {% endif %}
-            {# --- 수정 끝 --- #}
-            
         </header>
+        {# --- 수정 끝 --- #}
 
-        {# --- [수정] 피드 컨테이너를 .community-grid로 변경 (CSS에서 그리드 적용) --- #}
+        {# --- 피드 그리드 (변경 없음) --- #}
         <div class="community-grid" id="communityFeed">
             
             {% if posts %}
@@ -35,9 +51,9 @@
                 {% else %}
                 <div class="widget community-empty-message">
                     <i class="fas fa-inbox"></i>
-                    <p>아직 승인된 게시물이 없습니다.</p>
-                    {% if user and user.can_manage_posts %} {# [수정] 권한이 있을 때만 작성 유도 #}
-                    <p>첫 번째 게시물을 작성해보세요!</p>
+                    <p>선택한 카테고리에 게시물이 없습니다.</p>
+                    {% if user and user.can_manage_posts %}
+                    <p>새로운 게시물을 작성해보세요!</p>
                     {% endif %}
                 </div>
                 {% endfor %}

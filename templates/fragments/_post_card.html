@@ -18,33 +18,29 @@
         </div>
     </header>
 
-    {# --- 카드 본문: [수정] 제목을 링크로 변경, 내용에 preview 클래스 추가 --- #}
-    <div class="post-card-body">
-        {# 제목을 클릭하면 상세 페이지로 이동 #}
-        <a href="{{ url_for('view_post', post_id=post.id) }}" class="post-card-title-link">
+    {# --- [수정] 카드 본문: 제목, 내용, 이미지를 하나의 링크로 묶음 --- #}
+    <a href="{{ url_for('view_post', post_id=post.id) }}" class="post-card-link-wrapper">
+        <div class="post-card-body">
             <h2 class="post-card-title">{{ post.title }}</h2>
-        </a>
-        
-        {# 긴 내용은 CSS로 인해 일부만 보이고 생략됨 #}
-        <div class="post-card-content-preview">
-            {{ post.content | safe }}
-        </div>
-        
-        {# --- 이미지 갤러리 --- #}
-        {% set image_list = post.image_filenames.split(',') if post.image_filenames else [] %}
-        {% if image_list %}
-            {# [수정] 이미지 클릭 시 상세 페이지로 이동하는 링크 추가 #}
-            <a href="{{ url_for('view_post', post_id=post.id) }}" class="post-card-images-link">
+            
+            <div class="post-card-content-preview">
+                {{ post.content | safe }}
+            </div>
+            
+            {# --- 이미지 갤러리 --- #}
+            {% set image_list = post.image_filenames.split(',') if post.image_filenames else [] %}
+            {% if image_list %}
                 <div class="post-card-images cols-{{ image_list|length if image_list|length <= 3 else 3 }}">
                     {% for filename in image_list %}
                     <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="{{ post.title }} 이미지" class="post-card-image">
                     {% endfor %}
                 </div>
-            </a>
-        {% endif %}
-    </div>
+            {% endif %}
+        </div>
+    </a>
+    {# --- 수정 끝 --- #}
 
-    {# --- [수정] 카드 액션: 래퍼 <div> 제거, 댓글 버튼을 <a> 태그로 변경 --- #}
+    {# --- 카드 액션: (HTML 구조 변경 없음, CSS로 디자인만 변경) --- #}
     <footer class="post-card-actions">
         {# --- 좋아요 버튼 --- #}
         {% set user_liked = post.id in user_likes %}
@@ -52,7 +48,7 @@
             <i class="fas fa-heart"></i>
             <span class="like-count">{{ post.likes.count() }}</span>
         </button>
-        {# --- [수정] 댓글 버튼 -> 상세 페이지 링크로 변경 --- #}
+        {# --- [수정] 댓글 버튼 -> 상세 페이지 링크 (CSS로 버튼처럼 보이게) --- #}
         <a href="{{ url_for('view_post', post_id=post.id) }}" class="action-button comment-btn">
             <i class="fas fa-comment-alt"></i>
             <span class="comment-count">{{ post.comments.count() }}</span>
@@ -63,7 +59,5 @@
             <span>공유</span>
         </button>
     </footer>
-
-    {# --- [삭제] 기존 인라인 댓글 섹션 전체 삭제 --- #}
     
 </article>

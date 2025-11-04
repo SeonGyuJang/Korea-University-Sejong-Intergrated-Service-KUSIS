@@ -1,21 +1,18 @@
 /* static/css/community.css */
 
-/* [수정] 페이지 기본 레이아웃 (기존 .community-page 덮어쓰기) */
+/* [수정] 페이지 기본 레이아웃 */
 .community-page {
-    display: block; /* grid 덮어쓰기 */
-    grid-template-columns: none;
-    gap: 0;
-    /* main.css의 padding: 20px가 적용되도록 함 */
+    display: block;
 }
 
-/* [수정] 피드 컨테이너 -> 전체 너비 컨테이너로 변경 */
+/* [수정] 피드 컨테이너 -> 트렌디한 최대 너비 적용 */
 .community-container {
-    max-width: none; /* 최대 너비 제한 제거 */
+    max-width: 1200px; /* 가독성을 위한 최대 너비 설정 */
     margin: 0 auto;
-    padding: 20px; /* main.css의 padding과 동일하게 설정 */
+    padding: 20px;
 }
 
-/* [수정] 커뮤니티 헤더 (flex 적용) */
+/* --- [신규] 커뮤니티 헤더 (탭 + 버튼) --- */
 .community-header {
     display: flex;
     justify-content: space-between;
@@ -23,28 +20,51 @@
     margin-bottom: 25px;
     border-bottom: 2px solid var(--border-color);
     padding-bottom: 15px;
+    gap: 20px;
+    flex-wrap: wrap; /* 모바일에서 줄바꿈 */
 }
 
-.community-header h3 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-primary);
+/* [신규] 카테고리 탭 메뉴 */
+.community-tabs {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap; /* 탭이 많아지면 줄바꿈 */
 }
 
-.community-header h3 i {
-    color: var(--korea-red);
+.tab-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 25px; /* 알약 모양 */
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+}
+.tab-item:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+.tab-item.active {
+    background: var(--korea-red);
+    color: white;
+    box-shadow: 0 4px 10px rgba(165, 0, 52, 0.2);
+}
+.tab-item i {
+    font-size: 1.1em;
 }
 
-/* [신규] 새 게시물 작성 버튼 */
+/* [수정] 새 글 작성 버튼 */
 .btn-new-post {
     background: linear-gradient(135deg, var(--korea-red), var(--korea-red-light));
     color: white;
-    padding: 10px 18px;
-    border-radius: 20px;
-    font-size: 14px;
+    padding: 12px 20px; /* 패딩 증가 */
+    border-radius: 25px; /* 탭과 통일 */
+    font-size: 15px;
     font-weight: 600;
     text-decoration: none;
     display: flex;
@@ -52,10 +72,193 @@
     gap: 8px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: 0 4px 12px rgba(165, 0, 52, 0.2);
+    flex-shrink: 0; /* 줄어들지 않도록 */
 }
 .btn-new-post:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(165, 0, 52, 0.3);
+}
+
+/* [수정] 피드 그리드 */
+.community-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px; /* 갭 증가 */
+}
+
+/* --- [수정] 개별 포스트 카드 --- */
+.post-card {
+    background: var(--bg-secondary);
+    border-radius: 12px; /* 모서리 둥글게 */
+    /* [수정] 그림자 -> 더 부드럽고 세련되게 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.post-card:hover {
+    /* [수정] 호버 시 그림자 강조 */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-5px);
+}
+
+/* 카드 헤더 (변경 없음) */
+.post-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: #fdfdfd;
+}
+.post-author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.post-author-avatar i {
+    font-size: 18px;
+    color: var(--text-secondary);
+}
+.post-author-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+.post-author-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.post-timestamp {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* [신규] 카드 본문 전체 링크 래퍼 */
+.post-card-link-wrapper {
+    text-decoration: none;
+    color: inherit;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+.post-card-link-wrapper:hover .post-card-title {
+    color: var(--korea-red); /* 링크 호버 시 제목 색상 변경 */
+}
+.post-card-link-wrapper:hover .post-card-image {
+    opacity: 0.85; /* 링크 호버 시 이미지 효과 */
+}
+
+/* 카드 본문 */
+.post-card-body {
+    padding: 20px 20px 15px 20px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.post-card-title {
+    font-size: 18px; /* [수정] 제목 크기 살짝 줄임 (카드 크기 대비) */
+    font-weight: 700;
+    color: var(--text-primary); /* 기본 색상 */
+    margin-bottom: 15px;
+    line-height: 1.4; /* [신규] 줄간격 */
+    transition: color 0.2s;
+}
+
+/* [수정] 본문 미리보기 (마스크 개선) */
+.post-card-content-preview {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #333;
+    word-break: break-word;
+    max-height: 85px; /* 약 3-4줄 */
+    overflow: hidden;
+    position: relative;
+    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+/* [수정] 이미지 갤러리 */
+.post-card-images {
+    display: grid;
+    gap: 5px; /* 갭 감소 */
+    margin-top: 15px;
+    border-radius: 8px; /* [신규] 갤러리 전체 래퍼에 radius */
+    overflow: hidden;
+}
+.post-card-images.cols-1 { grid-template-columns: 1fr; }
+.post-card-images.cols-2 { grid-template-columns: 1fr 1fr; }
+.post-card-images.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.post-card-image {
+    width: 100%;
+    aspect-ratio: 16 / 10; /* 비율 유지 */
+    object-fit: cover;
+    /* [수정] 개별 이미지 테두리/radius 제거 (부모에서 overflow:hidden) */
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+/* 카드 액션 (좋아요, 댓글, 공유) */
+.post-card-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 10px 15px; /* [수정] 패딩 조정 */
+    border-top: 1px solid var(--border-color);
+    background: #fdfdfd; /* [수정] 배경색 살짝 변경 */
+    margin-top: auto; /* 항상 하단에 고정 */
+}
+
+.action-button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    text-decoration: none; /* [신규] <a> 태그 대비 */
+}
+
+.action-button:hover {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+.action-button i {
+    font-size: 16px;
+}
+
+.action-button.liked {
+    color: var(--korea-red);
+}
+.action-button.liked i {
+    font-weight: 900;
+}
+
+/* [신규] 댓글 버튼 <a> 태그 스타일 */
+.action-button.comment-btn {
+    color: var(--text-secondary);
+}
+.action-button.comment-btn:hover {
+    color: var(--text-primary);
 }
 
 /* [신규] 커뮤니티 빈 메시지 스타일 */
@@ -78,407 +281,57 @@
     line-height: 1.6;
 }
 
-/* [수정] 피드 -> 반응형 그리드로 변경 */
-.community-grid {
-    display: grid;
-    /* 320px 최소 너비를 가진 카드들을 자동으로 채움 */
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
-}
-
-/* --- 개별 포스트 카드 --- */
-.post-card {
-    background: var(--bg-secondary);
-    border-radius: 16px; /* 모서리 둥글게 */
-    box-shadow: var(--shadow);
-    /* [삭제] margin-bottom (grid gap으로 대체) */
-    overflow: hidden;
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
-    border: 1px solid var(--border-color); /* [신규] 깔끔한 테두리 */
-    display: flex; /* [신규] 내부 요소 flex로 정렬 (푸터 하단 고정용) */
-    flex-direction: column;
-}
-
-.post-card:hover {
-    box-shadow: var(--shadow-hover);
-    transform: translateY(-4px); /* [신규] 호버 시 살짝 떠오름 */
-}
-
-/* 카드 헤더 (작성자 정보) */
-.post-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color); /* [신규] 헤더와 본문 구분 */
-    background: #fdfdfd; /* [신규] 헤더 배경색 */
-}
-
-.post-author-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color); /* [신규] 아바타 테두리 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.post-author-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.post-author-avatar i {
-    font-size: 18px; /* [수정] 아이콘 크기 살짝 조정 */
-    color: var(--text-secondary);
-}
-
-/* [오류 수정] 비어있던 규칙 채우기 */
-.post-author-info {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-}
-
-.post-author-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.post-timestamp {
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-
-/* 카드 본문 */
-.post-card-body {
-    padding: 20px 20px 15px 20px; /* [수정] 패딩 조정 */
-    flex-grow: 1; /* [신규] 남은 공간을 채워 푸터를 하단으로 밀어냄 */
-    display: flex; /* [신규] 내부 요소 flex */
-    flex-direction: column;
-}
-
-/* [신규] 제목 링크 스타일 */
-.post-card-title-link {
-    text-decoration: none;
-    color: var(--text-primary);
-    transition: color 0.2s;
-}
-.post-card-title-link:hover {
-    color: var(--korea-red);
-}
-
-.post-card-title {
-    font-size: 20px;
-    font-weight: 700; /* [수정] 폰트 두께 증가 */
-    color: inherit; /* 링크 색상 상속 */
-    margin-bottom: 15px;
-}
-
-/* [수정] 본문 내용 -> 미리보기용 클래스로 변경 */
-.post-card-content-preview {
-    font-size: 15px;
-    line-height: 1.7;
-    color: #333;
-    word-break: break-word;
-    
-    /* [신규] 트렌디한 본문 생략 처리 */
-    max-height: 100px; /* 약 4-5줄 */
-    overflow: hidden;
-    position: relative;
-    /* [신규] 내용이 잘릴 때만 fade-out 효과 적용 */
-    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-}
-
-/* [신규] 이미지를 감싸는 링크 (클릭 영역) */
-.post-card-images-link {
-    display: block;
-    margin-top: 15px;
-    text-decoration: none;
-}
-
-.post-card-images {
-    display: grid;
-    gap: 8px; /* [수정] 갭 감소 */
-    /* [수정] 1,2,3개일 때 다른 그리드 적용 */
-    grid-template-columns: 1fr;
-}
-.post-card-images.cols-2 { 
-    grid-template-columns: 1fr 1fr; 
-}
-.post-card-images.cols-3 { 
-    grid-template-columns: 1fr 1fr 1fr; 
-}
-
-.post-card-image {
-    width: 100%;
-    aspect-ratio: 16 / 10; /* [신규] 이미지 비율 고정 */
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: opacity 0.2s;
-}
-.post-card-images-link:hover .post-card-image {
-    opacity: 0.85; /* [신규] 이미지 호버 시 효과 */
-}
-
-/* [수정 5] 카드 액션 (좋아요, 댓글, 공유) */
-.post-card-actions {
-    display: flex;
-    justify-content: flex-start; /* [수정] space-between -> flex-start */
-    gap: 8px; /* [신규] 버튼 간 간격 */
-    padding: 8px 15px;
-    border-top: 1px solid var(--border-color);
-    background: #fcfcfc;
-    margin-top: auto;
-}
-
-.action-button {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 600; /* [수정] 폰트 두께 증가 */
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px; /* [수정] 패딩 조정 */
-    border-radius: 6px;
-    transition: all 0.2s;
-}
-
-.action-button:hover {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-.action-button i {
-    font-size: 16px;
-    transition: transform 0.2s;
-}
-.action-button:hover i {
-    transform: scale(1.1);
-}
-
-.action-button.liked {
-    color: var(--korea-red);
-}
-.action-button.liked:hover i {
-    transform: scale(1.1);
-}
-
-.action-button.liked i {
-    font-weight: 900;
-}
-/* [신규] 댓글 버튼 아이콘 변경 */
-.action-button.comment-btn i {
-    font-family: "Font Awesome 5 Free";
-    font-weight: 400; /* 빈 아이콘 */
-}
-.action-button.comment-btn:hover i {
-    font-weight: 900; /* 꽉 찬 아이콘 */
-}
-/* [신규] 공유 버튼 아이콘 변경 */
-.action-button.share-btn i {
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900; /* 꽉 찬 아이콘 */
-}
-
-
-/* 댓글 섹션 */
-.comment-section {
-    padding: 0 20px 15px 20px; /* [수정] 패딩 조정 */
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-primary); /* [수정] 카드와 다른 배경색 */
-}
-
-.comment-section-content {
-    max-height: 300px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    padding: 15px 0;
-    /* [신규] 스크롤바 스타일 */
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-color) transparent;
-}
-.comment-section-content::-webkit-scrollbar {
-    width: 6px;
-}
-.comment-section-content::-webkit-scrollbar-thumb {
-    background-color: var(--border-color);
-    border-radius: 3px;
-}
-
-/* [오류 수정] 비어있던 규칙 채우기 */
-.comment-item {
-    display: flex;
-    gap: 10px;
-}
-
-.comment-author-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--bg-secondary); /* [수정] 배경색 변경 */
-    border: 1px solid var(--border-color); /* [신규] 테두리 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.comment-author-avatar i {
-    color: var(--text-secondary);
-    font-size: 16px;
-}
-
-.comment-content {
-    flex-grow: 1;
-    background: var(--bg-secondary); /* [수정] 배경색 변경 */
-    border-radius: 10px;
-    padding: 10px 14px;
-    border: 1px solid var(--border-color); /* [신규] 테두리 */
-}
-
-/* [오류 수정] 비어있던 규칙 채우기 */
-.comment-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 5px;
-}
-
-.comment-author {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-.comment-author.author { /* 작성자 */
-    color: var(--korea-red);
-}
-.comment-author.anonymous { /* 익명 */
-    color: var(--text-primary);
-}
-
-.comment-timestamp {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.comment-text {
-    font-size: 14px;
-    line-height: 1.6;
-    color: #333;
-    word-break: break-word;
-}
-
-/* [수정] 댓글 입력 폼 (스티키) */
-.comment-input-form {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px; /* [수정] 간격 조정 */
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
-    /* [신규] 스크롤 시 하단에 고정 */
-    position: sticky;
-    bottom: 0;
-    background: var(--bg-primary);
-    padding-bottom: 5px; /* 하단 여백 */
-}
-
-.comment-input {
-    flex-grow: 1;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary); /* [수정] 배경색 변경 */
-    border-radius: 20px;
-    padding: 10px 15px;
-    font-size: 14px;
-    outline: none;
-    transition: all 0.2s;
-}
-
-.comment-input:focus {
-    background: var(--bg-secondary);
-    border-color: var(--korea-red);
-    box-shadow: 0 0 0 3px rgba(165, 0, 52, 0.1); /* [신규] 포커스 효과 */
-}
-
-.comment-submit-btn {
-    background: var(--korea-red);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.2s;
-}
-.comment-submit-btn:hover {
-    background: var(--korea-red-dark);
-    transform: scale(1.1); /* [신규] 호버 효과 */
-}
-.comment-submit-btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* [수정] 댓글 더보기 버튼 */
-.view-comments-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 14px; /* [수정] 폰트 크기 증가 */
-    font-weight: 600; /* [수정] 폰트 두께 증가 */
-    cursor: pointer;
-    padding: 10px; /* [수정] 클릭 영역 증가 */
-    margin-top: 10px;
-    width: 100%; /* [신규] 너비 100% */
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-.view-comments-btn:hover {
-    color: var(--korea-red);
-    background: var(--bg-secondary);
-}
-
 /* --- 반응형 --- */
 @media (max-width: 768px) {
     .community-container {
-        padding: 10px; /* 모바일 패딩 축소 */
+        padding: 10px;
     }
     .community-grid {
-        /* 1열로 자동 변경 (auto-fit과 minmax 덕분) */
-        gap: 15px; /* 모바일 갭 축소 */
+        gap: 15px;
     }
     .post-card-header, .post-card-body, .post-card-actions {
-        padding-left: 15px; /* 모바일 카드 패딩 축소 */
-        padding-right: 15px;
-    }
-    .comment-section {
         padding-left: 15px;
         padding-right: 15px;
     }
-    .community-header h3 {
-        font-size: 20px;
+    .community-header {
+        flex-direction: column; /* 헤더 세로 배치 */
+        align-items: stretch; /* 꽉 채우기 */
+    }
+    .community-tabs {
+        justify-content: flex-start; /* 탭 왼쪽 정렬 */
+    }
+    .tab-item {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    .tab-item span {
+        display: none; /* 모바일에선 아이콘만 표시 */
+    }
+    .tab-item.active span {
+        display: inline; /* 활성 탭은 텍스트 표시 */
     }
     .btn-new-post {
-        padding: 8px 12px;
-        font-size: 13px;
+        padding: 10px 16px;
+        font-size: 14px;
+        justify-content: center; /* 중앙 정렬 */
     }
-    .btn-new-post .fas {
-        display: none; /* 모바일에서 아이콘 숨김 */
+    .btn-new-post-text {
+        display: inline; /* 모바일에서도 텍스트 표시 */
+    }
+}
+@media (max-width: 480px) {
+    .community-grid {
+        grid-template-columns: 1fr; /* 모바일에서 1열 고정 */
+    }
+    .tab-item span {
+        display: none; /* 작은 모바일은 활성 탭도 아이콘만 */
+    }
+    .tab-item {
+        padding: 10px;
+        min-width: 44px;
+        justify-content: center;
+    }
+    .tab-item i {
+        margin-right: 0;
     }
 }
