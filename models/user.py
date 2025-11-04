@@ -23,6 +23,11 @@ class User(db.Model):
     todos = db.relationship('Todo', backref='user', lazy=True, cascade="all, delete-orphan")
     posts = db.relationship('Post', backref='author', lazy=True, cascade="all, delete-orphan")
 
+    # --- [신규] 커뮤니티 관계 추가 ---
+    comments = db.relationship('Comment', back_populates='author', lazy=True, cascade="all, delete-orphan")
+    likes = db.relationship('PostLike', back_populates='user', lazy=True, cascade="all, delete-orphan")
+    # --- [신규] 추가 끝 ---
+
     @property
     def is_admin(self):
         return self.permission == 'admin'

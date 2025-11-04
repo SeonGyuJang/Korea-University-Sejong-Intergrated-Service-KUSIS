@@ -1,0 +1,76 @@
+{# templates/fragments/_post_card.html #}
+<article class="post-card" data-post-id="{{ post.id }}">
+    
+    {# --- 카드 헤더: 작성자 정보 --- #}
+    <header class="post-card-header">
+        <div class="post-author-avatar">
+            {# 관리자/협력직원 아이콘 #}
+            {% if post.author.permission == 'admin' %}
+                <i class="fas fa-shield-alt" title="관리자"></i>
+            {% elif post.author.permission == 'associate' %}
+                <i class="fas fa-user-tie" title="협력회원"></i>
+            {% else %}
+                <i class="fas fa-user"></i>
+            {% endif %}
+        </div>
+        <div class="post-author-info">
+            <span class="post-author-name">{{ post.author.name }}</span>
+            <span class="post-timestamp">{{ post.created_at | kst }} (KST)</span>
+        </div>
+    </header>
+
+    {# --- 카드 본문: 제목, 내용, 이미지 --- #}
+    <div class="post-card-body">
+        <h2 class="post-card-title">{{ post.title }}</h2>
+        <div class="post-card-content">
+            {{ post.content | safe }}
+        </div>
+        
+        {# --- 이미지 갤러리 --- #}
+        {% set image_list = post.image_filenames.split(',') if post.image_filenames else [] %}
+        {% if image_list %}
+            <div class="post-card-images cols-{{ image_list|length if image_list|length <= 3 else 3 }}">
+                {% for filename in image_list %}
+                <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="{{ post.title }} 이미지" class="post-card-image">
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    {# --- 카드 액션: 좋아요, 댓글, 공유 --- #}
+    <footer class="post-card-actions">
+        <div>
+            {# --- 좋아요 버튼 --- #}
+            {% set user_liked = post.id in user_likes %}
+            <button class="action-button like-btn {{ 'liked' if user_liked else '' }}" data-post-id="{{ post.id }}">
+                <i class="fas fa-heart"></i>
+                {# --- [수정] | length -> .count() --- #}
+                <span class="like-count">{{ post.likes.count() }}</span>
+            </button>
+            {# --- 댓글 버튼 --- #}
+            <button class="action-button comment-btn" data-post-id="{{ post.id }}">
+                <i class="fas fa-comment"></i>
+                {# --- [수정] | length -> .count() --- #}
+                <span class="comment-count">{{ post.comments.count() }}</span>
+            </button>
+        </div>
+        {# --- 공유 버튼 --- #}
+        <button class="action-button share-btn" data-post-id="{{ post.id }}">
+            <i class="fas fa-share-square"></i>
+            <span>공유</span>
+        </button>
+    </footer>
+
+    {# --- 댓글 섹션 (숨겨져 있음) --- #}
+    <div class="comment-section" style="display: none;">
+        <div class="comment-section-content" id="comment-list-{{ post.id }}">
+            {# JS로 채워짐 #}
+        </div>
+        <form class="comment-input-form" data-post-id="{{ post.id }}">
+            <input type="text" class="comment-input" placeholder="익명 댓글을 입력하세요..." required>
+            <button type="submit" class="comment-submit-btn" title="댓글 등록">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</article>

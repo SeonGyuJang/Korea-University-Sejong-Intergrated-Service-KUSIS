@@ -17,37 +17,37 @@
             <i class="fas fa-calendar-alt"></i>
             <span class="nav-text">시간표 관리</span>
         </a>
-        {# --- 게시물 관리 탭 추가 (Req 4) --- #}
-        {% if user and user.can_manage_posts %} {# 관리자 또는 협력직원 #}
+        {# --- 게시물 관리 탭 (기존 유지) --- #}
+        {% if user and user.can_manage_posts %}
         <a href="{{ url_for('post_management') }}" class="nav-item {% if request.path == '/post_management' or request.path.startswith('/post/') %}active{% endif %}" data-page="post_management">
-            <i class="fas fa-edit"></i> {# 아이콘 수정 가능 #}
+            <i class="fas fa-edit"></i>
             <span class="nav-text">게시물 관리</span>
         </a>
         {% endif %}
-        {# ----------------------------------- #}
+        
         <a href="{{ url_for('calendar_page') }}" class="nav-item {% if request.path == '/calendar' %}active{% endif %}" data-page="calendar">
             <i class="fas fa-calendar"></i>
             <span class="nav-text">캘린더</span>
         </a>
-        {# --- 수정: 공부 분석 탭 링크 추가 --- #}
+        
         <a href="{{ url_for('study_analysis') }}" class="nav-item {% if request.path == '/study-analysis' %}active{% endif %}" data-page="study-analysis">
             <i class="fas fa-chart-line"></i>
             <span class="nav-text">공부 분석</span>
         </a>
-        {# --- 수정 끝 --- #}
-        <a href="#" class="nav-item" data-page="friends">
+
+        {# --- [수정] 커뮤니티 링크 변경 --- #}
+        <a href="{{ url_for('community_feed') }}" class="nav-item {% if request.path == '/community' %}active{% endif %}" data-page="community">
             <i class="fas fa-users"></i>
             <span class="nav-text">커뮤니티</span>
         </a>
+        {# --- [수정] 끝 --- #}
 
-        {# --- 수정된 부분 (기존 관리자 페이지 링크) --- #}
-        {% if user and user.is_admin %} {# 관리자만 #}
+        {% if user and user.is_admin %}
         <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.path == '/admin' %}active{% endif %}" data-page="admin">
             <i class="fas fa-user-cog"></i>
             <span class="nav-text">관리자 페이지</span>
         </a>
         {% endif %}
-        {# --- 수정 끝 --- #}
 
         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 10px 0;">
         {% endif %}

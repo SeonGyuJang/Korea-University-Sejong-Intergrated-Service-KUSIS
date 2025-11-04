@@ -19,6 +19,11 @@ class Post(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
 
+    # --- [신규] 커뮤니티 관계 추가 ---
+    comments = db.relationship('Comment', back_populates='post', lazy='dynamic', cascade="all, delete-orphan")
+    likes = db.relationship('PostLike', back_populates='post', lazy='dynamic', cascade="all, delete-orphan")
+    # --- [신규] 추가 끝 ---
+
     def to_dict(self, include_content=False):
         image_list = self.image_filenames.split(',') if self.image_filenames else []
         data = {
@@ -31,7 +36,11 @@ class Post(db.Model):
             'image_filenames': image_list,
             'category': self.category,
             'expires_at': self.expires_at.isoformat() if self.expires_at else None,
-            'is_visible': self.is_visible
+            'is_visible': self.is_visible,
+            # --- [신규] 커뮤니티 데이터 추가 ---
+            'like_count': self.likes.count(),
+            'comment_count': self.comments.count()
+            # --- [신규] 추가 끝 ---
         }
         if include_content:
             data['content'] = self.content

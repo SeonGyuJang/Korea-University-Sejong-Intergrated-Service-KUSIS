@@ -13,7 +13,7 @@ from sqlalchemy import inspect, func, text, desc, or_, and_
 import pytz
 
 # 모듈 import
-from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post, CalendarCategory, CalendarEvent
+from models import db, User, Semester, Subject, TimeSlot, Schedule, StudyLog, Todo, Post, CalendarCategory, CalendarEvent, Comment, PostLike
 from utils.constants import *
 from utils.decorators import login_required, post_manager_required, admin_required
 from utils.helpers import sort_semesters, calculate_gpa, allowed_file as _allowed_file
@@ -2216,6 +2216,158 @@ def update_credit_goal():
         db.session.rollback()
         return jsonify({"status": "error", "message": f"업데이트 중 오류 발생: {e}"}), 500
 
+@app.route('/community')
+@login_required
+def community_feed():
+    """커뮤니티 피드 페이지 렌더링"""
+    from flask import g
+    user = g.user
+    
+    try:
+        # 승인되고, 현재 노출 가능한 모든 게시물 (공지 포함)
+        now_utc = datetime.utcnow()
+        posts = Post.query.filter(
+            Post.is_approved == True,
+            Post.is_visible == True,
+            or_(Post.expires_at == None, Post.expires_at > now_utc)
+        ).order_by(desc(Post.created_at)).all()
+        
+        # 현재 사용자가 좋아요 누른 게시물 ID 목록
+        user_likes = db.session.query(PostLike.post_id).filter_by(user_id=user.id).all()
+        user_likes_set = {like.post_id for like in user_likes}
+
+        return render_template(
+            'community.html', 
+            user=user, 
+            posts=posts, 
+            user_likes=user_likes_set
+        )
+    except Exception as e:
+        print(f"Error loading community feed: {e}")
+        flash("커뮤니티 피드를 불러오는 중 오류가 발생했습니다.", "danger")
+        return render_template('community.html', user=user, posts=[], user_likes=set())
+
+@app.route('/api/posts/<int:post_id>/like', methods=['POST'])
+@login_required
+def toggle_like(post_id):
+    """게시물 좋아요 토글 API"""
+    from flask import g
+    user_id = g.user.id
+
+    post = db.session.get(Post, post_id)
+    if not post:
+        return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
+
+    like = PostLike.query.filter_by(post_id=post_id, user_id=user_id).first()
+
+    try:
+        if like:
+            # 좋아요 취소
+            db.session.delete(like)
+            db.session.commit()
+            return jsonify({
+                "status": "success", 
+                "message": "좋아요를 취소했습니다.",
+                "liked": False,
+                "like_count": post.likes.count() # lazy='dynamic'이므로 count() 사용
+            })
+        else:
+            # 좋아요 추가
+            new_like = PostLike(post_id=post_id, user_id=user_id)
+            db.session.add(new_like)
+            db.session.commit()
+            return jsonify({
+                "status": "success", 
+                "message": "좋아요를 눌렀습니다.",
+                "liked": True,
+                "like_count": post.likes.count()
+            })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error toggling like: {e}")
+        return jsonify({"status": "error", "message": "좋아요 처리 중 오류 발생"}), 500
+
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
+@login_required
+def get_comments(post_id):
+    """게시물 댓글 조회 API (익명 처리)"""
+    post = db.session.get(Post, post_id)
+    if not post:
+        return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
+    
+    try:
+        comments = post.comments.order_by(Comment.created_at.asc()).all()
+        
+        post_author_id = post.author_id
+        anonymous_map = {}
+        anonymous_counter = 1
+        
+        comments_data = []
+        for comment in comments:
+            display_name = ""
+            if comment.user_id == post_author_id:
+                display_name = "작성자"
+            else:
+                if comment.user_id not in anonymous_map:
+                    anonymous_map[comment.user_id] = f"익명 {anonymous_counter}"
+                    anonymous_counter += 1
+                display_name = anonymous_map[comment.user_id]
+            
+            comment_dict = comment.to_dict()
+            comment_dict['display_name'] = display_name
+            # user_id는 보안을 위해 제거
+            del comment_dict['user_id']
+            
+            comments_data.append(comment_dict)
+            
+        return jsonify({
+            "status": "success",
+            "comments": comments_data,
+            "post_author_id": post_author_id # (참고용, 현재 로직에선 불필요)
+        })
+        
+    except Exception as e:
+        print(f"Error fetching comments: {e}")
+        return jsonify({"status": "error", "message": "댓글 조회 중 오류 발생"}), 500
+
+
+@app.route('/api/posts/<int:post_id>/comments', methods=['POST'])
+@login_required
+def post_comment(post_id):
+    """새 댓글 작성 API"""
+    from flask import g
+    user_id = g.user.id
+    data = request.get_json()
+    content = data.get('content', '').strip()
+
+    post = db.session.get(Post, post_id)
+    if not post:
+        return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
+
+    if not content:
+        return jsonify({"status": "error", "message": "댓글 내용이 없습니다."}), 400
+
+    try:
+        new_comment = Comment(
+            post_id=post_id,
+            user_id=user_id,
+            content=content
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "댓글이 등록되었습니다.",
+            "comment": new_comment.to_dict(), # (참고용)
+            "total_comments": post.comments.count()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error posting comment: {e}")
+        return jsonify({"status": "error", "message": "댓글 등록 중 오류 발생"}), 500
+
 # --- 캘린더 관련 엔드포인트 ---
 @app.route('/calendar')
 @login_required
@@ -2642,6 +2794,6 @@ if __name__ == '__main__':
         print(f"Error starting scheduler: {e}")
 
 
-    port = int(os.environ.get("PORT", 1111))
+    port = int(os.environ.get("PORT", 2424))
     # debug=True는 FLASK_DEBUG=True 환경 변수로 제어
     app.run(debug=os.environ.get("FLASK_DEBUG", "False").lower() == "true", host='0.0.0.0', port=port)

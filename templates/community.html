@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}KUSIS - 커뮤니티{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/community.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="content-area community-page">
+    <div class="community-feed-container">
+        
+        <header class="community-header">
+            <h3><i class="fas fa-users"></i> 커뮤니티</h3>
+        </header>
+
+        {# --- 게시물 피드 --- #}
+        <div class="community-feed" id="communityFeed">
+            
+            {% if posts %}
+                {% for post in posts %}
+                    {# post_card.html 템플릿을 인클루드합니다. #}
+                    {% include 'fragments/_post_card.html' %}
+                {% else %}
+                <div class="widget" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-inbox" style="font-size: 30px; color: var(--text-secondary); margin-bottom: 15px;"></i>
+                    <p style="color: var(--text-secondary);">아직 승인된 게시물이 없습니다.</p>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+        </div>
+        {# --- 피드 끝 --- #}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='js/community.js') }}"></script>
+{% endblock %}
