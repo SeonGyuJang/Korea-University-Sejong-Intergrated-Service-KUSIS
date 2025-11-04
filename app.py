@@ -1965,18 +1965,18 @@ def get_study_analysis_data():
     from flask import g
     user_id = g.user.id
     
-    period = request.args.get('period', 'day') # day, week, month
+    period = request.args.get('period', 'daily') # daily, weekly, monthly
     date_str = request.args.get('date_str')
     semester_id = request.args.get('semester_id', type=int)
-    
+
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except (ValueError, TypeError):
         target_date = datetime.now(KST).date()
-        
+
     if not semester_id:
          return jsonify({"status": "error", "message": "학기 ID가 필요합니다."}), 400
-         
+
     # 1. 기간(start_date, end_date) 설정
     if period == 'daily':
         start_date = end_date = target_date

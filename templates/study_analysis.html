@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}KUSIS - 학습 분석{% endblock %}
+{% block title %}학습 분석 - KUSIS{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/study_analysis.css') }}">
@@ -8,311 +8,304 @@
 
 {% block content %}
 <div class="study-analytics-page">
-    <!-- 페이지 헤더 -->
-    <header class="analytics-header">
-        <div class="header-content">
-            <div class="title-section">
-                <h1><i class="fas fa-chart-line"></i> 학습 분석</h1>
-                <p class="subtitle">나의 학습 여정을 한눈에</p>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="fas fa-chart-line"></i>
+                <span>학습 분석</span>
             </div>
-            <div class="header-controls">
-                <select id="semesterSelect" class="modern-select">
+            <h1 class="hero-title">당신의 학습 여정을 <br><span class="gradient-text">시각화</span>하다</h1>
+            <p class="hero-subtitle">데이터 기반 인사이트로 더 나은 학습 경험을 만들어보세요</p>
+
+            <div class="hero-controls">
+                <select id="semesterSelect" class="premium-select">
                     <option value="">학기 선택</option>
                 </select>
-                <button id="refreshBtn" class="icon-btn" title="새로고침">
+                <button id="refreshBtn" class="icon-button" title="새로고침">
                     <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
         </div>
-    </header>
 
-    <!-- 기간 탭 -->
-    <div class="period-selector">
-        <button class="period-btn active" data-period="daily">
-            <i class="fas fa-calendar-day"></i>
-            <span>일간</span>
-        </button>
-        <button class="period-btn" data-period="weekly">
-            <i class="fas fa-calendar-week"></i>
-            <span>주간</span>
-        </button>
-        <button class="period-btn" data-period="monthly">
-            <i class="fas fa-calendar-alt"></i>
-            <span>월간</span>
-        </button>
-    </div>
-
-    <!-- 날짜 네비게이션 -->
-    <div class="date-navigation">
-        <button id="prevDateBtn" class="nav-btn">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-        <div class="current-period">
-            <i class="fas fa-calendar"></i>
-            <span id="currentPeriodText">오늘</span>
-        </div>
-        <button id="nextDateBtn" class="nav-btn">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-        <button id="todayBtn" class="today-btn">오늘</button>
-    </div>
-
-    <!-- 메인 컨텐츠 -->
-    <div class="analytics-container">
-        <!-- 좌측 컬럼: 통계 및 차트 -->
-        <div class="left-column">
-            <!-- 요약 카드 -->
-            <div class="summary-cards">
-                <div class="summary-card primary">
-                    <div class="card-icon">
-                        <i class="fas fa-hourglass-half"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="card-label">현재 기간 총 시간</h3>
-                        <p class="card-value" id="totalStudyTime">0h 0m</p>
-                        <span class="card-change" id="timeChange">-</span>
-                    </div>
-                </div>
-
-                <div class="summary-card success">
-                    <div class="card-icon">
-                        <i class="fas fa-fire"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="card-label">연속 학습</h3>
-                        <p class="card-value" id="studyStreak">0일</p>
-                        <span class="card-change">계속 유지하세요!</span>
-                    </div>
-                </div>
-
-                <div class="summary-card info">
-                    <div class="card-icon">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="card-label">일일 평균</h3>
-                        <p class="card-value" id="dailyAverage">0h 0m</p>
-                        <span class="card-change" id="avgChange">-</span>
-                    </div>
-                </div>
-
-                <div class="summary-card warning">
-                    <div class="card-icon">
-                        <i class="fas fa-trophy"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3 class="card-label">목표 달성률</h3>
-                        <p class="card-value" id="goalProgress">0%</p>
-                        <span class="card-change">목표: 2시간/일</span>
-                    </div>
+        <!-- Floating Stats -->
+        <div class="floating-stats">
+            <div class="stat-item">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-info">
+                    <span class="stat-label">연속 학습</span>
+                    <span class="stat-value" id="heroStreak">0일</span>
                 </div>
             </div>
-
-            <!-- 메인 차트 -->
-            <div class="chart-card main-chart">
-                <div class="card-header">
-                    <h2><i class="fas fa-chart-area"></i> 학습 시간 추이</h2>
-                    <div class="chart-legend" id="chartLegend"></div>
+            <div class="stat-item">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-info">
+                    <span class="stat-label">오늘 학습</span>
+                    <span class="stat-value" id="heroToday">0h</span>
                 </div>
-                <div class="chart-wrapper">
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-info">
+                    <span class="stat-label">달성률</span>
+                    <span class="stat-value" id="heroGoal">0%</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Period Selector -->
+    <div class="period-selector-wrapper">
+        <div class="period-selector">
+            <button class="period-tab active" data-period="daily">
+                <i class="fas fa-calendar-day"></i>
+                <span>일간</span>
+            </button>
+            <button class="period-tab" data-period="weekly">
+                <i class="fas fa-calendar-week"></i>
+                <span>주간</span>
+            </button>
+            <button class="period-tab" data-period="monthly">
+                <i class="fas fa-calendar-alt"></i>
+                <span>월간</span>
+            </button>
+        </div>
+
+        <div class="date-nav">
+            <button id="prevDateBtn" class="nav-arrow"><i class="fas fa-chevron-left"></i></button>
+            <div class="current-period" id="currentPeriodText">오늘</div>
+            <button id="nextDateBtn" class="nav-arrow"><i class="fas fa-chevron-right"></i></button>
+            <button id="todayBtn" class="today-button">오늘</button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard-grid">
+        <!-- Left Column -->
+        <div class="dashboard-left">
+            <!-- Main Chart Card -->
+            <div class="glass-card featured-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <div class="title-icon">
+                            <i class="fas fa-chart-area"></i>
+                        </div>
+                        <div>
+                            <h3>학습 시간 추이</h3>
+                            <p class="card-subtitle">기간별 학습 패턴 분석</p>
+                        </div>
+                    </div>
+                    <div class="total-time-badge">
+                        <span class="badge-label">총 학습 시간</span>
+                        <span class="badge-value" id="totalStudyTime">0h 0m</span>
+                    </div>
+                </div>
+                <div class="chart-container large">
                     <canvas id="mainChart"></canvas>
                 </div>
             </div>
 
-            <!-- 과목별 분석 -->
-            <div class="chart-card">
+            <!-- Subject Analysis -->
+            <div class="glass-card">
                 <div class="card-header">
-                    <h2><i class="fas fa-book"></i> 과목별 분석</h2>
-                    <div class="view-toggle">
-                        <button class="toggle-btn active" data-view="chart">
+                    <div class="card-title">
+                        <div class="title-icon">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <div>
+                            <h3>과목별 분석</h3>
+                            <p class="card-subtitle">학습 시간 분포</p>
+                        </div>
+                    </div>
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="chart">
                             <i class="fas fa-chart-pie"></i>
                         </button>
-                        <button class="toggle-btn" data-view="list">
+                        <button class="view-btn" data-view="list">
                             <i class="fas fa-list"></i>
                         </button>
                     </div>
                 </div>
-                <div class="chart-wrapper">
-                    <div id="subjectChartView" class="subject-view">
-                        <canvas id="subjectChart"></canvas>
-                    </div>
-                    <div id="subjectListView" class="subject-view" style="display: none;">
-                        <div class="subject-list" id="subjectList">
-                            <div class="empty-state">
-                                <i class="fas fa-inbox"></i>
-                                <p>데이터가 없습니다</p>
-                            </div>
-                        </div>
-                    </div>
+                <div class="chart-container" id="subjectChartView">
+                    <canvas id="subjectChart"></canvas>
+                </div>
+                <div class="subject-list-container" id="subjectListView" style="display: none;">
+                    <div id="subjectList"></div>
                 </div>
             </div>
 
-            <!-- 학습 패턴 분석 -->
-            <div class="chart-card">
+            <!-- Pattern Analysis -->
+            <div class="glass-card">
                 <div class="card-header">
-                    <h2><i class="fas fa-clock"></i> 시간대별 학습 패턴</h2>
+                    <div class="card-title">
+                        <div class="title-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div>
+                            <h3>시간대별 패턴</h3>
+                            <p class="card-subtitle">24시간 학습 분포</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="chart-wrapper">
+                <div class="chart-container">
                     <canvas id="patternChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- 우측 컬럼: 타이머 및 인사이트 -->
-        <div class="right-column">
-            <!-- 스마트 타이머 -->
-            <div class="timer-card">
-                <div class="card-header">
-                    <h2><i class="fas fa-stopwatch"></i> 스마트 타이머</h2>
+        <!-- Right Column -->
+        <div class="dashboard-right">
+            <!-- Timer Card -->
+            <div class="glass-card timer-card">
+                <div class="card-header-simple">
+                    <h3>
+                        <i class="fas fa-stopwatch"></i>
+                        스마트 타이머
+                    </h3>
                 </div>
-                <div class="timer-content">
-                    <!-- 과목 선택 -->
-                    <div class="subject-selector">
-                        <label for="timerSubject">과목 선택</label>
-                        <select id="timerSubject" class="modern-select">
-                            <option value="">개인 공부</option>
-                        </select>
+
+                <div class="timer-subject-select">
+                    <label>과목 선택</label>
+                    <select id="timerSubject" class="modern-input">
+                        <option value="">개인 공부</option>
+                    </select>
+                </div>
+
+                <div class="timer-display-wrapper">
+                    <svg class="timer-circle" viewBox="0 0 200 200">
+                        <defs>
+                            <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#a41e35;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#e74c3c;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="timer-bg" cx="100" cy="100" r="85" />
+                        <circle class="timer-progress" cx="100" cy="100" r="85" id="timerCircle" />
+                    </svg>
+                    <div class="timer-center">
+                        <div class="timer-time" id="timerDisplay">00:00:00</div>
+                        <div class="timer-status" id="timerStatus">준비</div>
+                    </div>
+                </div>
+
+                <div class="timer-controls">
+                    <button id="startBtn" class="timer-btn start">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button id="pauseBtn" class="timer-btn pause" disabled>
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button id="stopBtn" class="timer-btn stop" disabled>
+                        <i class="fas fa-stop"></i>
+                    </button>
+                </div>
+
+                <div class="quick-start-section">
+                    <h4>빠른 시작</h4>
+                    <div id="quickButtons" class="quick-buttons"></div>
+                </div>
+            </div>
+
+            <!-- Insights Card -->
+            <div class="glass-card">
+                <div class="card-header-simple">
+                    <h3>
+                        <i class="fas fa-lightbulb"></i>
+                        학습 인사이트
+                    </h3>
+                </div>
+                <div class="insights-list">
+                    <div class="insight-item">
+                        <div class="insight-emoji">⭐</div>
+                        <div class="insight-content">
+                            <span class="insight-label">최고 집중 과목</span>
+                            <span class="insight-value" id="bestSubject">-</span>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-emoji">☀️</div>
+                        <div class="insight-content">
+                            <span class="insight-label">최적 학습 시간</span>
+                            <span class="insight-value" id="bestTime">-</span>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-emoji">🧠</div>
+                        <div class="insight-content">
+                            <span class="insight-label">평균 집중 시간</span>
+                            <span class="insight-value" id="avgFocus">-</span>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-emoji">📈</div>
+                        <div class="insight-content">
+                            <span class="insight-label">이번 주 트렌드</span>
+                            <span class="insight-value" id="weekTrend">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Goal Card -->
+            <div class="glass-card">
+                <div class="card-header-simple">
+                    <h3>
+                        <i class="fas fa-bullseye"></i>
+                        일일 목표
+                    </h3>
+                </div>
+                <div class="goal-setting">
+                    <div class="goal-input-group">
+                        <input type="number" id="dailyGoal" class="modern-input" min="0" max="24" step="0.5" value="2">
+                        <span class="input-suffix">시간</span>
                     </div>
 
-                    <!-- 원형 타이머 -->
-                    <div class="circular-timer">
-                        <svg viewBox="0 0 200 200">
-                            <circle class="timer-track" cx="100" cy="100" r="85"></circle>
-                            <circle class="timer-fill" cx="100" cy="100" r="85" id="timerCircle"></circle>
+                    <div class="goal-progress">
+                        <svg class="goal-ring" viewBox="0 0 120 120">
+                            <circle class="ring-bg" cx="60" cy="60" r="50" />
+                            <circle class="ring-progress" cx="60" cy="60" r="50" id="goalRing" />
                         </svg>
-                        <div class="timer-display">
-                            <div class="time-text" id="timerDisplay">00:00:00</div>
-                            <div class="timer-status" id="timerStatus">준비</div>
-                        </div>
-                    </div>
-
-                    <!-- 타이머 컨트롤 -->
-                    <div class="timer-controls">
-                        <button id="startBtn" class="control-btn start">
-                            <i class="fas fa-play"></i>
-                            <span>시작</span>
-                        </button>
-                        <button id="pauseBtn" class="control-btn pause" disabled>
-                            <i class="fas fa-pause"></i>
-                            <span>일시정지</span>
-                        </button>
-                        <button id="stopBtn" class="control-btn stop" disabled>
-                            <i class="fas fa-stop"></i>
-                            <span>완료</span>
-                        </button>
-                    </div>
-
-                    <!-- 빠른 시작 버튼 -->
-                    <div class="quick-start" id="quickStart">
-                        <h4>빠른 시작</h4>
-                        <div class="quick-buttons" id="quickButtons">
-                            <!-- 동적 생성 -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 학습 인사이트 -->
-            <div class="insights-card">
-                <div class="card-header">
-                    <h2><i class="fas fa-lightbulb"></i> 학습 인사이트</h2>
-                </div>
-                <div class="insights-content">
-                    <div class="insight-item">
-                        <div class="insight-icon best">
-                            <i class="fas fa-star"></i>
-                        </div>
-                        <div class="insight-text">
-                            <h4>최고 집중 과목</h4>
-                            <p id="bestSubject">-</p>
-                        </div>
-                    </div>
-
-                    <div class="insight-item">
-                        <div class="insight-icon time">
-                            <i class="fas fa-sun"></i>
-                        </div>
-                        <div class="insight-text">
-                            <h4>최적 학습 시간</h4>
-                            <p id="bestTime">-</p>
-                        </div>
-                    </div>
-
-                    <div class="insight-item">
-                        <div class="insight-icon focus">
-                            <i class="fas fa-brain"></i>
-                        </div>
-                        <div class="insight-text">
-                            <h4>평균 집중 시간</h4>
-                            <p id="avgFocus">-</p>
-                        </div>
-                    </div>
-
-                    <div class="insight-item">
-                        <div class="insight-icon trend">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <div class="insight-text">
-                            <h4>이번 주 트렌드</h4>
-                            <p id="weekTrend">-</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 최근 활동 -->
-            <div class="activity-card">
-                <div class="card-header">
-                    <h2><i class="fas fa-history"></i> 최근 활동</h2>
-                </div>
-                <div class="activity-content">
-                    <div class="activity-list" id="activityList">
-                        <div class="empty-state">
-                            <i class="fas fa-clipboard-list"></i>
-                            <p>최근 활동이 없습니다</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 목표 설정 -->
-            <div class="goal-card">
-                <div class="card-header">
-                    <h2><i class="fas fa-bullseye"></i> 목표 설정</h2>
-                </div>
-                <div class="goal-content">
-                    <div class="goal-input">
-                        <label for="dailyGoal">일일 목표 (시간)</label>
-                        <input type="number" id="dailyGoal" min="0" max="24" step="0.5" value="2" class="modern-input">
-                    </div>
-                    <div class="goal-progress-ring">
-                        <svg viewBox="0 0 120 120">
-                            <circle class="progress-bg" cx="60" cy="60" r="50"></circle>
-                            <circle class="progress-bar" cx="60" cy="60" r="50" id="goalRing"></circle>
-                        </svg>
-                        <div class="progress-text">
+                        <div class="goal-center">
                             <span id="goalPercentage">0%</span>
                         </div>
                     </div>
-                    <button id="saveGoalBtn" class="save-goal-btn">
-                        <i class="fas fa-save"></i> 목표 저장
+
+                    <button id="saveGoalBtn" class="primary-button">
+                        <i class="fas fa-save"></i>
+                        목표 저장
                     </button>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="glass-card">
+                <div class="card-header-simple">
+                    <h3>
+                        <i class="fas fa-history"></i>
+                        최근 활동
+                    </h3>
+                </div>
+                <div class="activity-list" id="activityList">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>최근 활동이 없습니다</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 로딩 오버레이 -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
     <div class="loading-spinner">
-        <i class="fas fa-spinner fa-spin"></i>
+        <div class="spinner"></div>
         <p>데이터 로딩 중...</p>
     </div>
 </div>
 
-<!-- 알림 토스트 -->
-<div id="notificationToast" class="notification-toast"></div>
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
 
 {% endblock %}
 

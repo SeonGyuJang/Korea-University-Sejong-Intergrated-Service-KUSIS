@@ -39,8 +39,13 @@
         semesterSelect: document.getElementById('semesterSelect'),
         refreshBtn: document.getElementById('refreshBtn'),
 
+        // Hero stats
+        heroStreak: document.getElementById('heroStreak'),
+        heroToday: document.getElementById('heroToday'),
+        heroGoal: document.getElementById('heroGoal'),
+
         // 기간 선택
-        periodBtns: document.querySelectorAll('.period-btn'),
+        periodBtns: document.querySelectorAll('.period-tab'),
 
         // 날짜 네비게이션
         prevDateBtn: document.getElementById('prevDateBtn'),
@@ -50,11 +55,6 @@
 
         // 요약 카드
         totalStudyTime: document.getElementById('totalStudyTime'),
-        studyStreak: document.getElementById('studyStreak'),
-        dailyAverage: document.getElementById('dailyAverage'),
-        goalProgress: document.getElementById('goalProgress'),
-        timeChange: document.getElementById('timeChange'),
-        avgChange: document.getElementById('avgChange'),
 
         // 차트
         mainChartCanvas: document.getElementById('mainChart'),
@@ -62,7 +62,7 @@
         patternChartCanvas: document.getElementById('patternChart'),
 
         // 과목 뷰
-        viewToggleBtns: document.querySelectorAll('.toggle-btn'),
+        viewToggleBtns: document.querySelectorAll('.view-btn'),
         subjectChartView: document.getElementById('subjectChartView'),
         subjectListView: document.getElementById('subjectListView'),
         subjectList: document.getElementById('subjectList'),
@@ -94,7 +94,7 @@
 
         // 로딩 & 알림
         loadingOverlay: document.getElementById('loadingOverlay'),
-        notificationToast: document.getElementById('notificationToast')
+        toast: document.getElementById('toast')
     };
 
     // ===========================
@@ -204,19 +204,23 @@
         // 로딩 표시/숨김
         showLoading(show = true) {
             if (elements.loadingOverlay) {
-                elements.loadingOverlay.style.display = show ? 'flex' : 'none';
+                if (show) {
+                    elements.loadingOverlay.classList.add('show');
+                } else {
+                    elements.loadingOverlay.classList.remove('show');
+                }
             }
         },
 
         // 알림 토스트 표시
         showNotification(message, type = 'info') {
-            if (!elements.notificationToast) return;
+            if (!elements.toast) return;
 
-            elements.notificationToast.textContent = message;
-            elements.notificationToast.className = `notification-toast show ${type}`;
+            elements.toast.textContent = message;
+            elements.toast.className = `toast show ${type}`;
 
             setTimeout(() => {
-                elements.notificationToast.classList.remove('show');
+                elements.toast.classList.remove('show');
             }, 3000);
         },
 
@@ -600,37 +604,25 @@
             const totalSeconds = data.total_time || 0;
             elements.totalStudyTime.textContent = utils.formatDuration(totalSeconds);
 
-            // 시간 변화 (전 기간 대비)
-            if (data.previous_total !== undefined) {
-                const change = totalSeconds - data.previous_total;
-                if (change > 0) {
-                    elements.timeChange.textContent = `▲ ${utils.formatDuration(change)}`;
-                    elements.timeChange.style.color = 'var(--success-color)';
-                } else if (change < 0) {
-                    elements.timeChange.textContent = `▼ ${utils.formatDuration(Math.abs(change))}`;
-                    elements.timeChange.style.color = 'var(--danger-color)';
-                } else {
-                    elements.timeChange.textContent = '변화 없음';
-                    elements.timeChange.style.color = 'var(--text-light)';
-                }
-            }
-
-            // 연속 학습 일수
+            // Hero Stats 업데이트
             const streak = data.streak || 0;
-            elements.studyStreak.textContent = `${streak}일`;
+            elements.heroStreak.textContent = `${streak}일`;
 
-            // 일일 평균
-            const avgSeconds = data.daily_average || 0;
-            elements.dailyAverage.textContent = utils.formatDuration(avgSeconds);
+            // 오늘 학습 시간
+            const todaySeconds = data.today_total_time || 0;
+            const todayHours = (todaySeconds / 3600).toFixed(1);
+            elements.heroToday.textContent = `${todayHours}h`;
 
             // 목표 달성률
             if (state.currentPeriod === 'daily') {
                 const goalSeconds = state.dailyGoal * 3600;
                 const progress = Math.min(100, (totalSeconds / goalSeconds) * 100);
-                elements.goalProgress.textContent = `${Math.round(progress)}%`;
+                elements.heroGoal.textContent = `${Math.round(progress)}%`;
                 this.updateGoalRing(progress);
             } else {
-                elements.goalProgress.textContent = '-';
+                const goalSeconds = state.dailyGoal * 3600;
+                const progress = Math.min(100, (todaySeconds / goalSeconds) * 100);
+                elements.heroGoal.textContent = `${Math.round(progress)}%`;
             }
         },
 
@@ -655,13 +647,13 @@
                 const percentage = total > 0 ? ((subject.time / total) * 100).toFixed(1) : 0;
 
                 const item = document.createElement('div');
-                item.className = 'subject-item';
+                item.className = 'subject-list-item';
                 item.innerHTML = `
-                    <div class="subject-info">
-                        <div class="subject-color" style="background: ${colors[index]};"></div>
+                    <div class="subject-name-wrapper">
+                        <div class="subject-color-dot" style="background: ${colors[index]};"></div>
                         <span class="subject-name">${subject.name}</span>
                     </div>
-                    <div>
+                    <div class="subject-time-info">
                         <span class="subject-time">${utils.formatDuration(subject.time)}</span>
                         <span class="subject-percentage">${percentage}%</span>
                     </div>
@@ -744,12 +736,12 @@
                 const subjectName = log.subject_name || '개인 공부';
 
                 item.innerHTML = `
-                    <div class="activity-icon">
+                    <div class="activity-icon-wrapper">
                         <i class="fas fa-book-open"></i>
                     </div>
                     <div class="activity-details">
-                        <div class="activity-title">${subjectName}</div>
-                        <div class="activity-time">${timeAgo}</div>
+                        <div class="activity-subject">${subjectName}</div>
+                        <div class="activity-time-ago">${timeAgo}</div>
                     </div>
                     <div class="activity-duration">${utils.formatDuration(log.duration)}</div>
                 `;
