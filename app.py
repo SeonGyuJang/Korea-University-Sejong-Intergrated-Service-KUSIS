@@ -1326,41 +1326,41 @@ def get_schedule():
                         "location": location
                     })
 
-            # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
-            if is_logged_in:
-                current_semester = None
-                all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
-                if all_semesters:
-                    current_found = False
-                    today_date_obj = today_kst.date()
-                    for s in all_semesters:
-                        start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
-                        if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
-                            current_semester = s
-                            current_found = True
-                            break
+        # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
+        if is_logged_in:
+            current_semester = None
+            all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
+            if all_semesters:
+                current_found = False
+                today_date_obj = today_kst.date()
+                for s in all_semesters:
+                    start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
+                    if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
+                        current_semester = s
+                        current_found = True
+                        break
 
-                    if not current_found and all_semesters:
-                        season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-                        all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
-                        current_semester = all_semesters[0]
+                if not current_found and all_semesters:
+                    season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+                    all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
+                    current_semester = all_semesters[0]
 
-                if current_semester and 1 <= today_day_of_week <= 5:
-                    today_subjects = Subject.query.join(TimeSlot).filter(
-                        Subject.semester_id == current_semester.id
-                    ).filter(
-                        TimeSlot.day_of_week == today_day_of_week
-                    ).all()
+            if current_semester and 1 <= today_day_of_week <= 5:
+                today_subjects = Subject.query.join(TimeSlot).filter(
+                    Subject.semester_id == current_semester.id
+                ).filter(
+                    TimeSlot.day_of_week == today_day_of_week
+                ).all()
 
-                    for subject in today_subjects:
-                        subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
-                        for ts in subject_timeslots_today:
-                            schedule_list.append({
-                                "type": "class",
-                                "time": ts.start_time,
-                                "title": subject.name,
-                                "location": ts.room
-                            })
+                for subject in today_subjects:
+                    subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
+                    for ts in subject_timeslots_today:
+                        schedule_list.append({
+                            "type": "class",
+                            "time": ts.start_time,
+                            "title": subject.name,
+                            "location": ts.room
+                        })
 
         schedule_list.sort(key=lambda x: x['time'] if x['time'] != '종일' else '00:00')
         return jsonify(schedule_list)
@@ -1884,26 +1884,24 @@ def get_study_stats():
     user_id = g.user.id
     try:
         today_kst = datetime.now(KST).date()
-        today_str = today_kst.strftime('%Y-%m-%d')
-        
+
         # 오늘 총 공부 시간 (모든 과목 + 개인)
         today_seconds_agg = db.session.query(
             func.sum(StudyLog.duration_seconds)
         ).filter(
             StudyLog.user_id == user_id,
-            StudyLog.date == today_str
+            StudyLog.date == today_kst
         ).scalar() or 0
 
         # 주간 평균 계산
         seven_days_ago_kst = today_kst - timedelta(days=6)
-        seven_days_ago_str = seven_days_ago_kst.strftime('%Y-%m-%d')
 
         weekly_total_seconds_agg = db.session.query(
             func.sum(StudyLog.duration_seconds)
         ).filter(
             StudyLog.user_id == user_id,
-            StudyLog.date >= seven_days_ago_str,
-            StudyLog.date <= today_str
+            StudyLog.date >= seven_days_ago_kst,
+            StudyLog.date <= today_kst
         ).scalar() or 0
 
         weekly_avg_seconds = weekly_total_seconds_agg / 7.0
