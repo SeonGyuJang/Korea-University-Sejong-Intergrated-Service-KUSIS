@@ -2009,17 +2009,15 @@ def get_study_analysis_data():
             # 임시: 전체 시간을 임의의 시간대에 분산 (실제로는 로그에 시간 정보 필요)
             timeseries_data = [0] * 24
             if day_total > 0:
-                # 9-21시 사이에 랜덤하게 분산
-                import random
-                remaining = day_total
-                study_hours = list(range(9, 22))  # 9시-21시
+                # 9-21시 사이에 균등하게 분산
+                study_hours = list(range(9, 22))  # 9시-21시 (13개 시간대)
+                avg_per_hour = day_total // len(study_hours)
+                remainder = day_total % len(study_hours)
+
                 for i, hour in enumerate(study_hours):
-                    if i == len(study_hours) - 1:
-                        timeseries_data[hour] = remaining
-                    else:
-                        portion = int(remaining * random.uniform(0.05, 0.15))
-                        timeseries_data[hour] = portion
-                        remaining -= portion
+                    timeseries_data[hour] = avg_per_hour
+                    if i < remainder:  # 나머지를 앞쪽 시간대에 배분
+                        timeseries_data[hour] += 1
         else:
             # 주간/월간: 날짜별 데이터
             timeseries_query = db.session.query(

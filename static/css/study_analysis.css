@@ -385,6 +385,7 @@
     display: grid;
     grid-template-columns: 1fr 400px;
     gap: var(--space-6);
+    align-items: start; /* 위젯을 상단 정렬 */
 }
 
 .dashboard-left,
@@ -392,6 +393,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
+    align-items: stretch; /* 위젯들이 너비를 꽉 채우도록 */
 }
 
 /* ==============================================
@@ -406,11 +408,19 @@
     padding: var(--space-8);
     box-shadow: var(--shadow-lg);
     transition: var(--transition-slow);
+    display: flex;
+    flex-direction: column;
 }
 
 .glass-card:hover {
     box-shadow: var(--shadow-xl);
     transform: translateY(-2px);
+}
+
+/* 각 열의 마지막 카드가 남은 공간을 채우도록 */
+.dashboard-left > .glass-card:last-child,
+.dashboard-right > .glass-card:last-child {
+    flex-grow: 1;
 }
 
 .featured-card {
@@ -510,10 +520,17 @@
     position: relative;
     min-height: 350px;
     padding: var(--space-4);
+    flex-grow: 1; /* 카드 내에서 남은 공간을 채움 */
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-container.large {
     min-height: 400px;
+}
+
+.chart-container > canvas {
+    flex-grow: 1;
 }
 
 /* View Switcher */
@@ -961,7 +978,7 @@
    ============================================== */
 
 .activity-list {
-    max-height: 500px;
+    flex-grow: 1; /* 카드 내에서 남은 공간을 채움 */
     min-height: 350px;
     overflow-y: auto;
 }
