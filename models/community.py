@@ -12,10 +12,21 @@ class Comment(db.Model):
     user_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False, index=True)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # --- [신규] 답글(Nested Comments)을 위한 부모 ID ---
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True, index=True)
 
     # Relationships
     author = db.relationship('User', back_populates='comments')
     post = db.relationship('Post', back_populates='comments')
+    
+    # --- [신규] 답글 관계 (self-referential) ---
+    replies = db.relationship(
+        'Comment', 
+        backref=db.backref('parent', remote_side=[id]), 
+        lazy='dynamic', 
+        cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {
@@ -23,7 +34,8 @@ class Comment(db.Model):
             'post_id': self.post_id,
             'user_id': self.user_id,
             'content': self.content,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'parent_id': self.parent_id  # [신규] 부모 ID 추가
         }
 
 class PostLike(db.Model):

@@ -226,6 +226,20 @@ def create_initial_data():
             print("--- [MIGRATION] 'is_visible' column not found in 'posts' table. Adding column... ---")
             db.session.execute(text("ALTER TABLE posts ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE"))
             print("--- [MIGRATION] 'is_visible' column added with default TRUE. ---")
+            
+        # --- [신규] Comment 테이블에 parent_id 추가 ---
+        if inspector.has_table('comments'):
+            comment_columns = [col['name'] for col in inspector.get_columns('comments')]
+            if 'parent_id' not in comment_columns:
+                print("--- [MIGRATION] 'parent_id' column not found in 'comments' table. Adding column and FK constraint... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE comments ADD COLUMN parent_id INTEGER NULL"))
+                    db.session.execute(text("ALTER TABLE comments ADD CONSTRAINT fk_comments_parent_id FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'parent_id' column and FK constraint added successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'parent_id' to 'comments': {e} ---")
 
         # --- CalendarEvent 테이블 마이그레이션 (모든 필드) ---
         if inspector.has_table('calendar_events'):
@@ -910,8 +924,19 @@ def view_post(post_id):
 
     # --- 이미지 파일명 리스트 준비 ---
     image_filenames_list = post.image_filenames.split(',') if post.image_filenames else []
+    
+    # --- [신규] 현재 사용자가 좋아요 눌렀는지 확인 ---
+    user_liked = False
+    if user:
+        user_liked = PostLike.query.filter_by(post_id=post.id, user_id=user.id).first() is not None
 
-    return render_template('view_post.html', post=post, user=user, image_filenames=image_filenames_list) # 리스트 전달
+    return render_template(
+        'view_post.html', 
+        post=post, 
+        user=user, 
+        image_filenames=image_filenames_list,
+        user_liked=user_liked # [신규] 좋아요 여부 전달
+    )
 
 
 # --- 게시물 수정 라우트 (대폭 수정) ---
@@ -2290,12 +2315,16 @@ def toggle_like(post_id):
 @app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
 @login_required
 def get_comments(post_id):
-    """게시물 댓글 조회 API (익명 처리)"""
+    """
+    [수정] 게시물 댓글 조회 API (답글 포함)
+    - 모든 댓글을 플랫 리스트로 반환 (JS에서 중첩 구조로 만듦)
+    """
     post = db.session.get(Post, post_id)
     if not post:
         return jsonify({"status": "error", "message": "게시물을 찾을 수 없습니다."}), 404
     
     try:
+        # [수정] 모든 댓글을 생성 시간 순으로 정렬
         comments = post.comments.order_by(Comment.created_at.asc()).all()
         
         post_author_id = post.author_id
@@ -2313,17 +2342,16 @@ def get_comments(post_id):
                     anonymous_counter += 1
                 display_name = anonymous_map[comment.user_id]
             
-            comment_dict = comment.to_dict()
+            comment_dict = comment.to_dict() # parent_id가 포함됨
             comment_dict['display_name'] = display_name
-            # user_id는 보안을 위해 제거
-            del comment_dict['user_id']
+            del comment_dict['user_id'] # user_id는 프론트로 보내지 않음
             
             comments_data.append(comment_dict)
             
         return jsonify({
             "status": "success",
-            "comments": comments_data,
-            "post_author_id": post_author_id # (참고용, 현재 로직에선 불필요)
+            "comments": comments_data, # [수정] 플랫 리스트 반환
+            "post_author_id": post_author_id # (JS에서 '작성자' 표기용)
         })
         
     except Exception as e:
@@ -2334,11 +2362,15 @@ def get_comments(post_id):
 @app.route('/api/posts/<int:post_id>/comments', methods=['POST'])
 @login_required
 def post_comment(post_id):
-    """새 댓글 작성 API"""
+    """
+    [수정] 새 댓글/답글 작성 API
+    - parent_id를 받을 수 있도록 수정
+    """
     from flask import g
     user_id = g.user.id
     data = request.get_json()
     content = data.get('content', '').strip()
+    parent_id = data.get('parent_id', type=int) # [신규] parent_id 받기
 
     post = db.session.get(Post, post_id)
     if not post:
@@ -2346,20 +2378,28 @@ def post_comment(post_id):
 
     if not content:
         return jsonify({"status": "error", "message": "댓글 내용이 없습니다."}), 400
+        
+    # [신규] 부모 댓글 유효성 검사
+    if parent_id:
+        parent_comment = db.session.get(Comment, parent_id)
+        # 부모 댓글이 존재하지 않거나, 같은 게시물의 댓글이 아니면 오류
+        if not parent_comment or parent_comment.post_id != post_id:
+            return jsonify({"status": "error", "message": "유효하지 않은 부모 댓글입니다."}), 400
 
     try:
         new_comment = Comment(
             post_id=post_id,
             user_id=user_id,
-            content=content
+            content=content,
+            parent_id=parent_id # [신규] parent_id 저장
         )
         db.session.add(new_comment)
         db.session.commit()
         
+        # [수정] JS에서 재조립하므로, 새 댓글 정보만 간단히 반환
         return jsonify({
             "status": "success",
             "message": "댓글이 등록되었습니다.",
-            "comment": new_comment.to_dict(), # (참고용)
             "total_comments": post.comments.count()
         }), 201
         

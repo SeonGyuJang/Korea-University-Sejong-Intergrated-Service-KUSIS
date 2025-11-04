@@ -44,21 +44,19 @@
         {% endif %}
     </div>
 
-    {# --- 카드 액션: [수정] flex-grow: 1로 본문 영역을 밀어내도록 함 --- #}
+    {# --- [수정] 카드 액션: 래퍼 <div> 제거, 댓글 버튼을 <a> 태그로 변경 --- #}
     <footer class="post-card-actions">
-        <div>
-            {# --- 좋아요 버튼 --- #}
-            {% set user_liked = post.id in user_likes %}
-            <button class="action-button like-btn {{ 'liked' if user_liked else '' }}" data-post-id="{{ post.id }}">
-                <i class="fas fa-heart"></i>
-                <span class="like-count">{{ post.likes.count() }}</span>
-            </button>
-            {# --- 댓글 버튼 --- #}
-            <button class="action-button comment-btn" data-post-id="{{ post.id }}">
-                <i class="fas fa-comment-alt"></i>
-                <span class="comment-count">{{ post.comments.count() }}</span>
-            </button>
-        </div>
+        {# --- 좋아요 버튼 --- #}
+        {% set user_liked = post.id in user_likes %}
+        <button class="action-button like-btn {{ 'liked' if user_liked else '' }}" data-post-id="{{ post.id }}">
+            <i class="fas fa-heart"></i>
+            <span class="like-count">{{ post.likes.count() }}</span>
+        </button>
+        {# --- [수정] 댓글 버튼 -> 상세 페이지 링크로 변경 --- #}
+        <a href="{{ url_for('view_post', post_id=post.id) }}" class="action-button comment-btn">
+            <i class="fas fa-comment-alt"></i>
+            <span class="comment-count">{{ post.comments.count() }}</span>
+        </a>
         {# --- 공유 버튼 --- #}
         <button class="action-button share-btn" data-post-id="{{ post.id }}">
             <i class="fas fa-share-alt"></i>
@@ -66,16 +64,6 @@
         </button>
     </footer>
 
-    {# --- 댓글 섹션 (숨겨져 있음) --- #}
-    <div class="comment-section" style="display: none;">
-        <div class="comment-section-content" id="comment-list-{{ post.id }}">
-            {# JS로 채워짐 #}
-        </div>
-        <form class="comment-input-form" data-post-id="{{ post.id }}">
-            <input type="text" class="comment-input" placeholder="댓글을 입력하세요..." required>
-            <button type="submit" class="comment-submit-btn" title="댓글 등록">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-        </form>
-    </div>
+    {# --- [삭제] 기존 인라인 댓글 섹션 전체 삭제 --- #}
+    
 </article>

@@ -230,14 +230,15 @@
     opacity: 0.85; /* [신규] 이미지 호버 시 효과 */
 }
 
-/* 카드 액션 (좋아요, 댓글, 공유) */
+/* [수정 5] 카드 액션 (좋아요, 댓글, 공유) */
 .post-card-actions {
     display: flex;
-    justify-content: space-between;
-    padding: 8px 15px; /* [수정] 패딩 조정 */
+    justify-content: flex-start; /* [수정] space-between -> flex-start */
+    gap: 8px; /* [신규] 버튼 간 간격 */
+    padding: 8px 15px;
     border-top: 1px solid var(--border-color);
-    background: #fcfcfc; /* [수정] 배경색 변경 */
-    margin-top: auto; /* [신규] flex-grow로 인해 하단에 붙음 */
+    background: #fcfcfc;
+    margin-top: auto;
 }
 
 .action-button {

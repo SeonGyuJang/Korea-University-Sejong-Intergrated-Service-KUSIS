@@ -7,7 +7,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="content-area view-post-page">
+{# [신규] post.id를 JS에서 사용할 수 있도록 data-post-id 추가 #}
+<div class="content-area view-post-page" data-post-id="{{ post.id }}">
     <div class="view-post-container">
         {# 제목과 버튼 영역 #}
         <header class="post-header">
@@ -19,9 +20,17 @@
             </div>
             {# 버튼 그룹 #}
             <div>
-                <a href="{{ url_for('post_management') }}" class="btn btn-outline">
-                    <i class="fas fa-list"></i> 목록으로
-                </a>
+                {# [수정] 권한에 따라 '목록으로' 버튼 URL 변경 #}
+                {% if user and user.can_manage_posts %}
+                    <a href="{{ url_for('post_management') }}" class="btn btn-outline">
+                        <i class="fas fa-list"></i> 목록으로
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('community_feed') }}" class="btn btn-outline">
+                        <i class="fas fa-list"></i> 목록으로
+                    </a>
+                {% endif %}
+                
                 {# 수정 버튼 추가 (권한 확인) #}
                 {% if user.is_admin or post.author_id == user.id %}
                 <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn btn-outline btn-edit-view">
@@ -41,17 +50,14 @@
         {# 메타 정보 #}
         <div class="post-meta">
             <span class="meta-item"><i class="fas fa-user"></i> 작성자 : <strong>{{ post.author.name }}</strong></span>
-            {# kst 필터 사용하여 KST로 표시 #}
             <span class="meta-item"><i class="fas fa-calendar-alt"></i> 작성일 : <strong>{{ post.created_at | kst }}</strong> (KST)</span>
             {% if post.expires_at %}
-                {# kst 필터 사용하여 KST로 표시 #}
                 <span class="meta-item"><i class="far fa-calendar-times"></i> 노출 마감 : <strong>{{ post.expires_at | kst }}</strong> (KST)</span>
             {% endif %}
         </div>
 
         {# 본문 컨텐츠 영역 #}
         <article class="post-body">
-            {# --- [수정] 여러 이미지 표시 --- #}
             {% if image_filenames %}
             <div class="post-image-gallery">
                 {% for filename in image_filenames %}
@@ -59,12 +65,51 @@
                 {% endfor %}
             </div>
             {% endif %}
-            {# --- 수정 끝 --- #}
 
             <div class="post-content">
                 {{ post.content | safe }} {# DB 저장 시 <br> 처리되었으므로 safe 필터 사용 #}
             </div>
         </article>
+
+        {# --- [신규] 게시물 하단 액션 버튼 (좋아요) --- #}
+        <footer class="post-page-actions">
+            <button class="action-button like-btn {{ 'liked' if user_liked else '' }}" id="post-like-btn" data-post-id="{{ post.id }}">
+                <i class="fas fa-heart"></i>
+                <span class="like-count" id="post-like-count">{{ post.likes.count() }}</span>
+                <span>좋아요</span>
+            </button>
+        </footer>
+
+        {# --- [신규] 댓글 섹션 --- #}
+        <section class="comment-section-container">
+            <h3>
+                <i class="fas fa-comments"></i> 댓글
+                <span id="comment-count-display">{{ post.comments.count() }}</span>
+            </h3>
+
+            {# 새 댓글 작성 폼 #}
+            <form id="new-comment-form" class="comment-form">
+                <div class="comment-author-avatar">
+                    <i class="fas fa-user"></i> {# 현재 사용자 아이콘 #}
+                </div>
+                <textarea id="new-comment-input" class="comment-input" placeholder="댓글을 남겨주세요..." rows="1" required></textarea>
+                <button type="submit" class="comment-submit-btn" id="new-comment-submit" title="댓글 등록">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+
+            {# 댓글 목록이 렌더링될 곳 #}
+            <div class="comment-list" id="comment-list">
+                {# JS로 채워짐 #}
+            </div>
+        </section>
+        {# --- 댓글 섹션 끝 --- #}
+
     </div>
 </div>
+{% endblock %}
+
+{% block page_scripts %}
+{# [신규] view_post.js 스크립트 로드 #}
+<script src="{{ url_for('static', filename='js/view_post.js') }}"></script>
 {% endblock %}
