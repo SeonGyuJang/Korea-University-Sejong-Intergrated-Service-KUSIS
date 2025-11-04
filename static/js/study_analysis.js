@@ -311,6 +311,9 @@
             gradient.addColorStop(0, 'rgba(164, 30, 53, 0.3)');
             gradient.addColorStop(1, 'rgba(164, 30, 53, 0.05)');
 
+            // 데이터가 모두 0인지 확인
+            const hasData = data && data.some(d => d > 0);
+
             state.charts.main = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -341,6 +344,7 @@
                             callbacks: {
                                 label: function(context) {
                                     const minutes = context.parsed.y;
+                                    if (minutes === 0) return '학습 없음';
                                     const hours = Math.floor(minutes / 60);
                                     const mins = minutes % 60;
                                     if (hours > 0) {
@@ -900,16 +904,22 @@
                 if (state.timer.isPaused) {
                     elements.timerStatus.textContent = '일시정지';
                     elements.startBtn.disabled = true;
-                    elements.pauseBtn.disabled = true;
+                    elements.pauseBtn.disabled = false; // 재개 버튼 활성화
                     elements.stopBtn.disabled = false;
-                    elements.pauseBtn.innerHTML = '<i class="fas fa-play"></i><span>재개</span>';
+                    elements.pauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    elements.pauseBtn.title = '재개';
+                    elements.pauseBtn.classList.remove('pause');
+                    elements.pauseBtn.classList.add('resume');
                     elements.timerSubject.disabled = true;
                 } else {
                     elements.timerStatus.textContent = '측정 중';
                     elements.startBtn.disabled = true;
                     elements.pauseBtn.disabled = false;
                     elements.stopBtn.disabled = false;
-                    elements.pauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>일시정지</span>';
+                    elements.pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    elements.pauseBtn.title = '일시정지';
+                    elements.pauseBtn.classList.remove('resume');
+                    elements.pauseBtn.classList.add('pause');
                     elements.timerSubject.disabled = true;
                 }
             } else {
@@ -917,7 +927,10 @@
                 elements.startBtn.disabled = false;
                 elements.pauseBtn.disabled = true;
                 elements.stopBtn.disabled = true;
-                elements.pauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>일시정지</span>';
+                elements.pauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                elements.pauseBtn.title = '일시정지';
+                elements.pauseBtn.classList.remove('resume');
+                elements.pauseBtn.classList.add('pause');
                 elements.timerSubject.disabled = false;
             }
         }
@@ -929,16 +942,48 @@
     async function loadSemesters() {
         try {
             state.allSemesters = await api.getSemesters();
-
-            if (state.allSemesters.length > 0) {
-                // 첫 번째 학기를 기본값으로
-                state.currentSemester = state.allSemesters[0];
-            }
-
             ui.updateSemesterSelect();
         } catch (error) {
             console.error('Error loading semesters:', error);
             utils.showNotification('학기 목록을 불러올 수 없습니다.', 'error');
+        }
+    }
+
+    // 현재 날짜에 맞는 학기 자동 선택
+    async function loadCurrentSemester() {
+        try {
+            // 시간표 API를 사용하여 현재 학기 정보 가져오기
+            const response = await fetch('/api/timetable-data');
+            if (!response.ok) throw new Error('현재 학기를 불러올 수 없습니다.');
+            const data = await response.json();
+
+            if (data.semester && data.semester.id) {
+                // 현재 학기 설정
+                const semesterId = data.semester.id;
+                state.currentSemester = state.allSemesters.find(s => s.id === semesterId) || state.allSemesters[0];
+
+                if (elements.semesterSelect) {
+                    elements.semesterSelect.value = state.currentSemester.id;
+                }
+
+                return true;
+            } else if (state.allSemesters.length > 0) {
+                // Fallback: 첫 번째 학기 사용
+                state.currentSemester = state.allSemesters[0];
+                if (elements.semesterSelect) {
+                    elements.semesterSelect.value = state.currentSemester.id;
+                }
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error loading current semester:', error);
+            // Fallback
+            if (state.allSemesters.length > 0) {
+                state.currentSemester = state.allSemesters[0];
+                return true;
+            }
+            return false;
         }
     }
 
@@ -991,6 +1036,9 @@
         // 날짜 네비게이션
         ui.updateDateNavigation();
 
+        // 데이터가 전혀 없는 경우 체크
+        const hasData = data.total_time > 0 || (data.timeseries_data && data.timeseries_data.some(d => d > 0));
+
         // 요약 카드
         ui.updateSummaryCards(data);
 
@@ -1021,6 +1069,11 @@
 
         // 최근 활동
         ui.updateRecentActivity(data);
+
+        // 데이터가 없을 때 안내 메시지
+        if (!hasData) {
+            utils.showNotification('해당 기간에 학습 데이터가 없습니다.', 'info');
+        }
     }
 
     // ===========================
@@ -1158,19 +1211,64 @@
             // 학기 로드
             await loadSemesters();
 
-            // 과목 로드
-            if (state.currentSemester) {
+            // 현재 날짜 기준 학기 자동 선택
+            const hasSemester = await loadCurrentSemester();
+
+            if (hasSemester && state.currentSemester) {
+                // 과목 로드
                 await loadSubjects();
 
                 // 학습 데이터 로드
                 await loadStudyData();
+            } else {
+                // 학기가 없을 때
+                utils.showNotification('등록된 학기가 없습니다.', 'warning');
+                showEmptyState();
             }
         } catch (error) {
             console.error('Initialization error:', error);
             utils.showNotification('초기화 중 오류가 발생했습니다.', 'error');
+            showEmptyState();
         } finally {
             utils.showLoading(false);
         }
+    }
+
+    // 데이터 없을 때 empty state 표시
+    function showEmptyState() {
+        // Hero stats 초기화
+        elements.heroStreak.textContent = '0일';
+        elements.heroToday.textContent = '0h';
+        elements.heroGoal.textContent = '0%';
+        elements.totalStudyTime.textContent = '0h 0m';
+
+        // 인사이트 초기화
+        elements.bestSubject.textContent = '-';
+        elements.bestTime.textContent = '-';
+        elements.avgFocus.textContent = '-';
+        elements.weekTrend.textContent = '-';
+
+        // 빈 차트 표시
+        charts.updateMainChart(['0시', '1시', '2시', '3시', '4시', '5시', '6시', '7시', '8시', '9시', '10시', '11시', '12시', '13시', '14시', '15시', '16시', '17시', '18시', '19시', '20시', '21시', '22시', '23시'], Array(24).fill(0));
+        charts.updateSubjectChart([]);
+        charts.updatePatternChart({});
+
+        // 과목 리스트 empty state
+        elements.subjectList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-book-open"></i>
+                <p>학습 데이터가 없습니다</p>
+                <small>타이머를 시작하여 학습을 기록하세요</small>
+            </div>
+        `;
+
+        // 활동 리스트 empty state
+        elements.activityList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <p>최근 활동이 없습니다</p>
+            </div>
+        `;
     }
 
     // ===========================
