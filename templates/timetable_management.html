@@ -171,6 +171,20 @@
                  <p id="currentMemoDate" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;"></p> {# 오늘 날짜 표시 #}
                  <textarea id="dailyMemoText" rows="6" placeholder="과목을 선택하고 오늘 수업 메모를 입력하세요..." disabled></textarea>
 
+                 {# 과목별 투두 섹션 추가 #}
+                 <h4 class="memo-subtitle" style="margin-top: 20px;">
+                    <i class="fas fa-tasks"></i> 과목 투두 ( <span id="subjectTodoName">과목 선택</span> )
+                 </h4>
+                 <div class="subject-todo-input" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                     <input type="text" id="subjectTodoInput" placeholder="할 일 입력..." disabled style="flex: 1;">
+                     <button id="addSubjectTodoBtn" class="btn-add-todo" disabled style="padding: 8px 16px;">
+                        <i class="fas fa-plus"></i> 추가
+                     </button>
+                 </div>
+                 <ul id="subjectTodoList" class="subject-todo-list" style="list-style: none; padding: 0; margin: 0;">
+                     {# JS에서 동적으로 채워짐 #}
+                 </ul>
+
                  {# 저장 버튼 #}
                  <div class="save-button-container">
                      <button id="saveDailyMemoBtn" class="btn-save-daily" disabled>

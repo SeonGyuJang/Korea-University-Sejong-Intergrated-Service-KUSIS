@@ -1311,41 +1311,41 @@ def get_schedule():
                         "location": location
                     })
 
-            # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
-            if is_logged_in:
-                current_semester = None
-                all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
-                if all_semesters:
-                    current_found = False
-                    today_date_obj = today_kst.date()
-                    for s in all_semesters:
-                        start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
-                        if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
-                            current_semester = s
-                            current_found = True
-                            break
+        # 3. 오늘 요일의 시간표 (수업) - 로그인 사용자만
+        if is_logged_in:
+            current_semester = None
+            all_semesters = Semester.query.filter_by(user_id=user_id).order_by(Semester.year.desc()).all()
+            if all_semesters:
+                current_found = False
+                today_date_obj = today_kst.date()
+                for s in all_semesters:
+                    start = s.start_date if s.start_date else _get_semester_start_date_fallback(s.year, s.season)
+                    if start and start <= today_date_obj and today_date_obj <= start + timedelta(weeks=16): # 16주로 가정
+                        current_semester = s
+                        current_found = True
+                        break
 
-                    if not current_found and all_semesters:
-                        season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
-                        all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
-                        current_semester = all_semesters[0]
+                if not current_found and all_semesters:
+                    season_order = {"1학기": 1, "여름학기": 2, "2학기": 3, "겨울학기": 4}
+                    all_semesters.sort(key=lambda sem: (sem.year, season_order.get(sem.season, 99)), reverse=True)
+                    current_semester = all_semesters[0]
 
-                if current_semester and 1 <= today_day_of_week <= 5:
-                    today_subjects = Subject.query.join(TimeSlot).filter(
-                        Subject.semester_id == current_semester.id
-                    ).filter(
-                        TimeSlot.day_of_week == today_day_of_week
-                    ).all()
+            if current_semester and 1 <= today_day_of_week <= 5:
+                today_subjects = Subject.query.join(TimeSlot).filter(
+                    Subject.semester_id == current_semester.id
+                ).filter(
+                    TimeSlot.day_of_week == today_day_of_week
+                ).all()
 
-                    for subject in today_subjects:
-                        subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
-                        for ts in subject_timeslots_today:
-                            schedule_list.append({
-                                "type": "class",
-                                "time": ts.start_time,
-                                "title": subject.name,
-                                "location": ts.room
-                            })
+                for subject in today_subjects:
+                    subject_timeslots_today = [ts for ts in subject.timeslots if ts.day_of_week == today_day_of_week]
+                    for ts in subject_timeslots_today:
+                        schedule_list.append({
+                            "type": "class",
+                            "time": ts.start_time,
+                            "title": subject.name,
+                            "location": ts.room
+                        })
 
         schedule_list.sort(key=lambda x: x['time'] if x['time'] != '종일' else '00:00')
         return jsonify(schedule_list)
@@ -1684,10 +1684,17 @@ def get_daily_memo(subject_id, date_str):
         if "daily_memos" not in memo_data or not isinstance(memo_data["daily_memos"], dict):
             memo_data["daily_memos"] = {}
 
-        # 해당 날짜의 메모 반환
+        # 해당 날짜의 메모 및 과목 투두 반환
         daily_note = memo_data["daily_memos"].get(date_str, "")
+        todos = memo_data.get("todos", [])
+        subject_note = memo_data.get("note", "")
 
-        return jsonify({"status": "success", "note": daily_note})
+        return jsonify({
+            "status": "success",
+            "note": daily_note,
+            "todos": todos,
+            "subject_note": subject_note
+        })
 
     except Exception as e:
         print(f"Error fetching daily memo for subject {subject_id} on {date_str}: {e}")
@@ -1705,6 +1712,8 @@ def update_daily_memo(subject_id, date_str):
 
     data = request.json
     new_note = data.get('note', '')
+    new_todos = data.get('todos', None)  # 투두 목록 (선택 사항)
+    new_subject_note = data.get('subject_note', None)  # 과목 전체 메모 (선택 사항)
 
     try:
         # DB의 memo 필드 (JSON 문자열) 가져오기 및 파싱
@@ -1727,6 +1736,14 @@ def update_daily_memo(subject_id, date_str):
 
         # 해당 날짜 메모 업데이트
         memo_data["daily_memos"][date_str] = new_note.strip()
+
+        # 투두 목록 업데이트 (전달된 경우에만)
+        if new_todos is not None:
+            memo_data["todos"] = new_todos
+
+        # 과목 전체 메모 업데이트 (전달된 경우에만)
+        if new_subject_note is not None:
+            memo_data["note"] = new_subject_note.strip()
 
         # 업데이트된 memo 데이터를 다시 JSON 문자열로 변환하여 저장
         subject.memo = json.dumps(memo_data, ensure_ascii=False)

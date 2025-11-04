@@ -71,6 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveDailyMemoBtn = document.getElementById('saveDailyMemoBtn'); // Req 1
     let selectedSubjectForDailyMemo = null; // 일일 메모용으로 선택된 과목
 
+    // 과목 투두 관련 DOM (홈 화면과 연동)
+    const subjectTodoName = document.getElementById('subjectTodoName');
+    const subjectTodoInput = document.getElementById('subjectTodoInput');
+    const addSubjectTodoBtn = document.getElementById('addSubjectTodoBtn');
+    const subjectTodoList = document.getElementById('subjectTodoList');
+    let currentSubjectTodos = []; // 현재 과목의 투두 목록
+
     // 탭 DOM (좌측 위젯용)
     document.querySelectorAll('.timetable-side-content .widget-tabs .tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -195,6 +202,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saveDailyMemoBtn) saveDailyMemoBtn.addEventListener('click', saveDailyMemo);
         // *** 수정: viewAllMemosBtn 클릭 시 openAllMemosModal(currentSemesterId) 호출 ***
         if (viewAllMemosBtn) viewAllMemosBtn.addEventListener('click', () => openAllMemosModal(currentSemesterId));
+
+        // 과목 투두 이벤트 리스너
+        if (addSubjectTodoBtn) addSubjectTodoBtn.addEventListener('click', addSubjectTodo);
+        if (subjectTodoInput) {
+            subjectTodoInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addSubjectTodo();
+                }
+            });
+        }
 
         // 주차별 모아보기 모달 (Req 3)
         if (allMemosModal) allMemosModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', () => allMemosModal.classList.remove('active')));
@@ -576,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
          if (selectedSubjectForDailyMemo) {
              if(dailyMemoTitle) dailyMemoTitle.innerHTML = `<i class="fas fa-pencil-alt"></i> 오늘 메모 (${selectedSubjectForDailyMemo.name})`;
              if(dailyMemoSubjectName) dailyMemoSubjectName.textContent = selectedSubjectForDailyMemo.name;
+             if(subjectTodoName) subjectTodoName.textContent = selectedSubjectForDailyMemo.name;
              loadDailyMemo(); // 오늘 날짜 메모 로드
              enableDailyMemoPanel();
          } else {
@@ -642,9 +661,17 @@ document.addEventListener('DOMContentLoaded', () => {
              if (!response.ok) throw new Error('메모 로드 실패');
              const memoData = await response.json();
              if (memoData.status === 'success') {
-                currentDailyMemoData = { note: memoData.note || '' };
+                currentDailyMemoData = {
+                    note: memoData.note || '',
+                    subject_note: memoData.subject_note || ''
+                };
+                currentSubjectTodos = memoData.todos || [];
                 dailyMemoText.value = currentDailyMemoData.note;
                 if (currentMemoDateEl) currentMemoDateEl.textContent = `${todayDateStr} (${new Date().toLocaleDateString('ko-KR', { weekday: 'long' })})`;
+
+                // 투두 목록 렌더링
+                renderSubjectTodos();
+
                 enableDailyMemoPanel();
              } else {
                 throw new Error(memoData.message || '데이터 로드 실패');
@@ -653,6 +680,8 @@ document.addEventListener('DOMContentLoaded', () => {
              console.error(`Error loading memo for ${todayDateStr}:`, error);
              if (currentMemoDateEl) currentMemoDateEl.textContent = `${todayDateStr} (로드 실패)`;
              dailyMemoText.value = '메모 로드에 실패했습니다.';
+             currentSubjectTodos = [];
+             renderSubjectTodos();
              disableDailyMemoPanel();
          }
      }
@@ -673,7 +702,11 @@ document.addEventListener('DOMContentLoaded', () => {
              const response = await fetch(`/api/subjects/${selectedSubjectForDailyMemo.id}/memo/${todayDateStr}`, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(currentDailyMemoData) // note만 포함
+                 body: JSON.stringify({
+                     note: currentDailyMemoData.note,
+                     todos: currentSubjectTodos,  // 투두 목록 포함
+                     subject_note: currentDailyMemoData.subject_note
+                 })
              });
              const result = await response.json();
              if (result.status !== 'success') throw new Error(result.message || '저장 실패');
@@ -695,6 +728,80 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveDailyMemoBtn.innerHTML = '<i class="fas fa-times"></i> 저장 실패';
              }
          }
+     }
+
+     // 과목 투두 렌더링
+     function renderSubjectTodos() {
+         if (!subjectTodoList) return;
+         subjectTodoList.innerHTML = '';
+
+         if (currentSubjectTodos.length === 0) {
+             subjectTodoList.innerHTML = '<li style="color: var(--text-secondary); text-align: center; padding: 20px;">투두가 없습니다.</li>';
+             return;
+         }
+
+         currentSubjectTodos.forEach((todo, index) => {
+             const li = document.createElement('li');
+             li.style.display = 'flex';
+             li.style.alignItems = 'center';
+             li.style.gap = '8px';
+             li.style.padding = '8px';
+             li.style.borderBottom = '1px solid var(--border-color)';
+
+             const checkbox = document.createElement('input');
+             checkbox.type = 'checkbox';
+             checkbox.checked = todo.done;
+             checkbox.addEventListener('change', () => toggleSubjectTodo(index));
+
+             const taskText = document.createElement('span');
+             taskText.textContent = todo.task;
+             taskText.style.flex = '1';
+             taskText.style.textDecoration = todo.done ? 'line-through' : 'none';
+             taskText.style.color = todo.done ? 'var(--text-secondary)' : 'var(--text-primary)';
+
+             const deleteBtn = document.createElement('button');
+             deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+             deleteBtn.style.background = 'none';
+             deleteBtn.style.border = 'none';
+             deleteBtn.style.color = 'var(--color-danger)';
+             deleteBtn.style.cursor = 'pointer';
+             deleteBtn.style.padding = '4px 8px';
+             deleteBtn.addEventListener('click', () => deleteSubjectTodo(index));
+
+             li.appendChild(checkbox);
+             li.appendChild(taskText);
+             li.appendChild(deleteBtn);
+             subjectTodoList.appendChild(li);
+         });
+     }
+
+     // 과목 투두 추가
+     function addSubjectTodo() {
+         if (!subjectTodoInput || !selectedSubjectForDailyMemo) return;
+         const taskText = subjectTodoInput.value.trim();
+         if (taskText === '') return;
+
+         currentSubjectTodos.push({
+             task: taskText,
+             done: false
+         });
+
+         renderSubjectTodos();
+         subjectTodoInput.value = '';
+     }
+
+     // 과목 투두 토글
+     function toggleSubjectTodo(index) {
+         if (index < 0 || index >= currentSubjectTodos.length) return;
+         currentSubjectTodos[index].done = !currentSubjectTodos[index].done;
+         renderSubjectTodos();
+     }
+
+     // 과목 투두 삭제
+     function deleteSubjectTodo(index) {
+         if (index < 0 || index >= currentSubjectTodos.length) return;
+         currentSubjectTodos.splice(index, 1);
+         renderSubjectTodos();
      }
 
      // *** 수정: '주차별 메모 모아보기' 모달 열기 - 학기 ID 사용 ***
@@ -840,6 +947,8 @@ document.addEventListener('DOMContentLoaded', () => {
             saveDailyMemoBtn.disabled = false;
             saveDailyMemoBtn.innerHTML = '<i class="fas fa-save"></i> 메모 저장';
          }
+         if (subjectTodoInput) subjectTodoInput.disabled = false;
+         if (addSubjectTodoBtn) addSubjectTodoBtn.disabled = false;
      }
 
      // 일일 메모 패널 비활성화 - Req 1
@@ -849,6 +958,8 @@ document.addEventListener('DOMContentLoaded', () => {
             saveDailyMemoBtn.disabled = true;
             saveDailyMemoBtn.innerHTML = '<i class="fas fa-save"></i> 메모 저장';
          }
+         if (subjectTodoInput) subjectTodoInput.disabled = true;
+         if (addSubjectTodoBtn) addSubjectTodoBtn.disabled = true;
      }
 
     // 학점 진행률 업데이트
