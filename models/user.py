@@ -28,6 +28,11 @@ class User(db.Model):
     likes = db.relationship('PostLike', back_populates='user', lazy=True, cascade="all, delete-orphan")
     # --- [신규] 추가 끝 ---
 
+    # --- [수정] 캘린더 관계 추가 (Cascade Delete 용) ---
+    calendar_categories = db.relationship('CalendarCategory', backref='user', lazy=True, cascade="all, delete-orphan")
+    calendar_events = db.relationship('CalendarEvent', backref='user', lazy=True, cascade="all, delete-orphan")
+    # --- [수정] 추가 끝 ---
+
     @property
     def is_admin(self):
         return self.permission == 'admin'
