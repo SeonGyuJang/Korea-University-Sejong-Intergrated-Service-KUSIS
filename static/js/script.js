@@ -8,6 +8,7 @@ let todayStudyTime = 0; // DB에서 불러온 오늘의 총 공부 시간 (초)
 let currentTimetableItem = null; // 현재 선택된 'Subject' 객체
 
 let windowTimetableData = []; // 전역 시간표 데이터 (Subject 배열)
+let currentSemester = null; // 현재 학기 정보
 
 // [NEW] 과목별 색상 팔레트 (timetable_management.js와 동일하게 유지)
 const subjectColors = [
@@ -718,7 +719,8 @@ async function loadTimetable() {
              return;
          }
         const data = await response.json();
-        // data.semester 정보는 여기선 사용하지 않지만, timetable_management.js 에서는 사용됨
+        // data.semester 정보 저장
+        currentSemester = data.semester;
         windowTimetableData = data.subjects || [];
 
         // 홈 위젯의 과목 전체 메모 파싱
@@ -914,30 +916,10 @@ function positionTimetableSlots(subjects) {
 
 
 // --- 메모 모달 관련 함수들 (홈 화면 '과목 전체 메모'용) ---
-function openMemoModal(subject) {
+async function openMemoModal(subject) {
     if (!subject) return;
 
     currentTimetableItem = subject;
-
-    // subject.memo (과목 전체 메모)를 사용
-    let memoObj = subject.memo || { note: '', todos: [] };
-
-    // 데이터 일관성을 위해 파싱 로직 한 번 더 수행
-    if (typeof memoObj === 'string') {
-        try { memoObj = JSON.parse(memoObj); }
-        catch(e) { memoObj = { note: memoObj, todos: [] }; }
-    }
-    if (!memoObj || typeof memoObj !== 'object') {
-        memoObj = { note: '', todos: [] };
-    }
-    if (!Array.isArray(memoObj.todos)) {
-        memoObj.todos = [];
-    }
-    if (typeof memoObj.note !== 'string') {
-         memoObj.note = '';
-    }
-
-    currentTimetableItem.memo = memoObj; // 로컬 객체 업데이트
 
     // 모달 UI 업데이트
     const memoModal = document.getElementById('memoModal');
@@ -953,11 +935,47 @@ function openMemoModal(subject) {
     // 여러 시간 중 첫 번째 시간의 강의실 표시
     const room = subject.timeslots && subject.timeslots.length > 0 ? (subject.timeslots[0].room || '-') : '-';
     if (roomEl) roomEl.textContent = room;
-    if (memoTextEl) memoTextEl.value = memoObj.note || '';
 
-    renderTodoList(memoObj.todos || []); // todos 렌더링
+    // 오늘 날짜를 기준으로 daily_memo 로드
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // 메모 로드
+    try {
+        const response = await fetch(`/api/subjects/${subject.id}/memo/${todayDateStr}`);
+        const result = await response.json();
+        if (result.status === 'success') {
+            if (memoTextEl) memoTextEl.value = result.note || '';
+        }
+    } catch (error) {
+        console.error('Failed to load memo:', error);
+        if (memoTextEl) memoTextEl.value = '';
+    }
+
+    // Todo 테이블에서 과목별 투두 로드
+    await loadSubjectTodos(subject.id);
 
     memoModal.classList.add('active');
+}
+
+async function loadSubjectTodos(subjectId) {
+    const todoListUl = document.getElementById('memoTodoList');
+    if (!todoListUl) return;
+
+    try {
+        const response = await fetch(`/api/todos?subject_id=${subjectId}`);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            renderTodoList(result.todos || []);
+        } else {
+            console.error('Failed to load todos:', result.message);
+            renderTodoList([]);
+        }
+    } catch (error) {
+        console.error('Error loading todos:', error);
+        renderTodoList([]);
+    }
 }
 
 function renderTodoList(todos) {
@@ -970,75 +988,117 @@ function renderTodoList(todos) {
         return;
     }
 
-    if (!currentTimetableItem) return;
-    if (!currentTimetableItem.memo) {
-        currentTimetableItem.memo = { note: '', todos: [] };
-    }
-     if (!Array.isArray(currentTimetableItem.memo.todos)) {
-         currentTimetableItem.memo.todos = [];
-     }
-    // 현재 상태 반영
-    currentTimetableItem.memo.todos = todos;
-
-
     todos.forEach((todo, index) => {
         const li = document.createElement('li');
         li.className = todo.done ? 'todo-item done' : 'todo-item';
-        const todoId = `modal-todo-${index}-${Date.now()}`;
+        const todoId = `modal-todo-${todo.id || index}`;
 
         li.innerHTML = `
             <input type="checkbox" id="${todoId}" ${todo.done ? 'checked' : ''}>
             <label for="${todoId}" class="todo-label">${todo.task}</label>
-            <span class="todo-delete-btn" data-index="${index}">&times;</span>
+            <span class="todo-delete-btn" data-todo-id="${todo.id}">&times;</span>
         `;
 
-        // 체크박스 변경 이벤트
-        li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
-             if (currentTimetableItem && currentTimetableItem.memo && currentTimetableItem.memo.todos[index]) {
-                currentTimetableItem.memo.todos[index].done = e.target.checked;
-                li.classList.toggle('done', e.target.checked);
-             }
+        // 체크박스 변경 이벤트 - Todo 테이블 업데이트
+        li.querySelector('input[type="checkbox"]').addEventListener('change', async (e) => {
+            await updateTodoStatus(todo.id, e.target.checked);
+            li.classList.toggle('done', e.target.checked);
         });
 
-        // 삭제 버튼 클릭 이벤트
-        li.querySelector('.todo-delete-btn').addEventListener('click', (e) => {
-             if (currentTimetableItem && currentTimetableItem.memo && currentTimetableItem.memo.todos) {
-                const indexToRemove = parseInt(e.target.dataset.index, 10);
-                currentTimetableItem.memo.todos.splice(indexToRemove, 1);
-                renderTodoList(currentTimetableItem.memo.todos); // 목록 다시 렌더링
-             }
+        // 삭제 버튼 클릭 이벤트 - Todo 테이블에서 삭제
+        li.querySelector('.todo-delete-btn').addEventListener('click', async (e) => {
+            const todoId = parseInt(e.target.dataset.todoId, 10);
+            await deleteTodo(todoId);
         });
         todoListUl.appendChild(li);
     });
 }
 
+async function updateTodoStatus(todoId, done) {
+    try {
+        const response = await fetch(`/api/todos/${todoId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ done })
+        });
 
-function addTodoItem() {
+        const result = await response.json();
+        if (result.status !== 'success') {
+            console.error('Failed to update todo:', result.message);
+            alert('투두 업데이트에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating todo:', error);
+        alert('투두 업데이트 중 오류가 발생했습니다.');
+    }
+}
+
+async function deleteTodo(todoId) {
+    if (!confirm('이 할 일을 삭제하시겠습니까?')) return;
+
+    try {
+        const response = await fetch(`/api/todos/${todoId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            // 현재 과목의 투두 목록 다시 로드
+            if (currentTimetableItem && currentTimetableItem.id) {
+                await loadSubjectTodos(currentTimetableItem.id);
+            }
+        } else {
+            console.error('Failed to delete todo:', result.message);
+            alert('투두 삭제에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error deleting todo:', error);
+        alert('투두 삭제 중 오류가 발생했습니다.');
+    }
+}
+
+
+async function addTodoItem() {
     const input = document.getElementById('memoNewTodoInput');
     if (!input) return;
     const taskText = input.value.trim();
     if (taskText === '') return;
 
-    const newTodo = { task: taskText, done: false };
-
-    const todoListUl = document.getElementById('memoTodoList');
-    if (!todoListUl) return;
-    const emptyMsg = todoListUl.querySelector('.todo-empty');
-    if (emptyMsg) todoListUl.innerHTML = '';
-
-    if (!currentTimetableItem) return;
-    if (!currentTimetableItem.memo) {
-        currentTimetableItem.memo = { note: '', todos: [] };
-    }
-    if (!Array.isArray(currentTimetableItem.memo.todos)) {
-        currentTimetableItem.memo.todos = [];
+    if (!currentTimetableItem || !currentSemester) {
+        alert('과목 또는 학기 정보를 불러올 수 없습니다.');
+        return;
     }
 
-    currentTimetableItem.memo.todos.push(newTodo);
-    renderTodoList(currentTimetableItem.memo.todos); // 업데이트된 목록으로 다시 렌더링
+    // 오늘 날짜를 due_date로 사용
+    const today = new Date();
+    const dueDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    input.value = ''; // 입력 필드 초기화
-    input.focus();
+    try {
+        const response = await fetch('/api/todos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                task: taskText,
+                due_date: dueDateStr,
+                semester_id: currentSemester.id,
+                subject_id: currentTimetableItem.id
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'success') {
+            // 투두 목록 다시 로드
+            await loadSubjectTodos(currentTimetableItem.id);
+            input.value = ''; // 입력 필드 초기화
+            input.focus();
+        } else {
+            console.error('Failed to add todo:', result.message);
+            alert('투두 추가에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('Error adding todo:', error);
+        alert('투두 추가 중 오류가 발생했습니다.');
+    }
 }
 
 
@@ -1047,7 +1107,7 @@ function closeModal() {
      if (memoModal) memoModal.classList.remove('active');
 }
 
-// '과목 전체 메모' 저장
+// 날짜별 메모 저장
 async function saveMemo() {
     const memoTextEl = document.getElementById('memoText');
     if (!currentTimetableItem || !memoTextEl) {
@@ -1055,36 +1115,17 @@ async function saveMemo() {
         return;
     }
 
-    // currentTimetableItem.memo (로컬 객체)에서 최신 데이터를 가져옴
-    const memoText = memoTextEl.value;
-    const todos = currentTimetableItem.memo ? (currentTimetableItem.memo.todos || []) : [];
-
-    const memoData = {
-        note: memoText.trim(),
-        todos: todos
-    };
-
     const subject = currentTimetableItem;
     if (!subject.id) {
         alert("오류: 저장할 과목 ID가 없습니다.");
         return;
     }
 
-    // 서버로 전송할 데이터: 과목 정보 전체 + 업데이트된 memo
-    // timeslots는 ID 없이 전송 (백엔드에서 기존 것 삭제 후 재생성)
-    const timeslotsToSend = subject.timeslots.map(ts => ({
-        day: ts.day, start: ts.start, end: ts.end, room: ts.room
-    }));
+    // 오늘 날짜
+    const today = new Date();
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    const subjectDataToSend = {
-         name: subject.name,
-         professor: subject.professor,
-         credits: subject.credits,
-         grade: subject.grade,
-         timeslots: timeslotsToSend, // ID 없는 timeslot 정보
-         memo: memoData // 업데이트된 메모/Todo
-     };
-
+    const memoText = memoTextEl.value.trim();
 
     const saveButton = document.getElementById('saveMemoBtn');
     if (!saveButton) return;
@@ -1092,10 +1133,11 @@ async function saveMemo() {
     saveButton.textContent = '저장 중...';
 
     try {
-        const response = await fetch(`/api/subjects/${subject.id}`, {
+        // 날짜별 메모 API 사용
+        const response = await fetch(`/api/subjects/${subject.id}/memo/${todayDateStr}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subjectDataToSend)
+            body: JSON.stringify({ note: memoText })
         });
 
         const result = await response.json();
@@ -1103,11 +1145,7 @@ async function saveMemo() {
             throw new Error(result.message || 'Failed to save memo');
         }
 
-        // 성공 시 전역 데이터(windowTimetableData) 업데이트
-         const index = windowTimetableData.findIndex(s => s.id === subject.id);
-         if (index !== -1) {
-             windowTimetableData[index].memo = memoData;
-         }
+        alert('메모가 저장되었습니다.');
 
     } catch (error) {
         console.error('Failed to save memo to server:', error);
@@ -1117,7 +1155,5 @@ async function saveMemo() {
         saveButton.textContent = '저장';
     }
 
-    // 홈 화면 시간표 다시 그리기 (뱃지 업데이트 등)
-    displayTimetable(windowTimetableData);
     closeModal();
 }

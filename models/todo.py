@@ -10,6 +10,7 @@ class Todo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(10), db.ForeignKey('users.id'), nullable=False)
     semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)  # 과목별 투두를 위한 필드 추가
     task = db.Column(db.String(500), nullable=False)
     done = db.Column(db.Boolean, default=False, nullable=False)
     due_date = db.Column(db.Date, nullable=False)
@@ -21,5 +22,6 @@ class Todo(db.Model):
             'task': self.task,
             'done': self.done,
             'due_date': self.due_date.isoformat(),
-            'semester_id': self.semester_id
+            'semester_id': self.semester_id,
+            'subject_id': self.subject_id
         }

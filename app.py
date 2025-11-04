@@ -377,6 +377,21 @@ def create_initial_data():
                 db.session.rollback()
                 print(f"--- [MIGRATION] ERROR removing NOT NULL constraint from 'user_id': {user_e} ---")
 
+        # --- Todo 테이블 마이그레이션 (subject_id 추가) ---
+        if inspector.has_table('todos'):
+            todo_columns = [col['name'] for col in inspector.get_columns('todos')]
+
+            if 'subject_id' not in todo_columns:
+                print("--- [MIGRATION] 'subject_id' column not found in 'todos' table. Adding column and FK constraint... ---")
+                try:
+                    db.session.execute(text("ALTER TABLE todos ADD COLUMN subject_id INTEGER NULL"))
+                    db.session.execute(text("ALTER TABLE todos ADD CONSTRAINT fk_todos_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE"))
+                    db.session.commit()
+                    print("--- [MIGRATION] 'subject_id' column and FK constraint added to 'todos' table successfully! ---")
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"--- [MIGRATION] ERROR adding 'subject_id' to 'todos': {e} ---")
+
         # --- 마이그레이션 끝 ---
 
         # DailyMemo 테이블 삭제 (존재할 경우)
@@ -2782,9 +2797,23 @@ def get_todos():
     from flask import g
     user_id = g.user.id
     semester_id = request.args.get('semester_id', type=int)
+    subject_id = request.args.get('subject_id', type=int)  # 과목별 필터링 추가
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
 
+    # subject_id만 제공된 경우 (홈화면에서 과목별 투두 조회)
+    if subject_id and not (start_date_str and end_date_str):
+        try:
+            todos = Todo.query.filter(
+                Todo.user_id == user_id,
+                Todo.subject_id == subject_id
+            ).order_by(Todo.due_date, Todo.created_at).all()
+            return jsonify({'status': 'success', 'todos': [todo.to_dict() for todo in todos]})
+        except Exception as e:
+            print(f"Error fetching todos by subject: {e}")
+            return jsonify({'status': 'error', 'message': 'Todo 조회 중 오류 발생'}), 500
+
+    # 기존 방식: 날짜 범위로 조회 (시간표 관리탭)
     if not semester_id or not start_date_str or not end_date_str:
         return jsonify({'status': 'error', 'message': '학기 ID와 날짜 범위가 필요합니다.'}), 400
 
@@ -2792,12 +2821,18 @@ def get_todos():
         start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-        todos = Todo.query.filter(
+        query = Todo.query.filter(
             Todo.user_id == user_id,
             Todo.semester_id == semester_id,
             Todo.due_date >= start_date_obj,
             Todo.due_date <= end_date_obj
-        ).order_by(Todo.due_date, Todo.created_at).all()
+        )
+
+        # subject_id가 제공되면 추가 필터링
+        if subject_id:
+            query = query.filter(Todo.subject_id == subject_id)
+
+        todos = query.order_by(Todo.due_date, Todo.created_at).all()
 
         return jsonify({'status': 'success', 'todos': [todo.to_dict() for todo in todos]})
     except ValueError:
@@ -2819,6 +2854,7 @@ def create_todo():
     try:
         due_date_obj = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
         semester_id = int(data['semester_id'])
+        subject_id = data.get('subject_id')  # 과목 ID (선택 사항)
         task = data['task'].strip()
 
         if not task:
@@ -2828,9 +2864,16 @@ def create_todo():
         if not semester or semester.user_id != user_id:
             return jsonify({'status': 'error', 'message': '유효하지 않은 학기입니다.'}), 404
 
+        # subject_id가 제공된 경우 유효성 검사
+        if subject_id:
+            subject = db.session.get(Subject, subject_id)
+            if not subject or subject.semester_id != semester_id:
+                return jsonify({'status': 'error', 'message': '유효하지 않은 과목입니다.'}), 404
+
         new_todo = Todo(
             user_id=user_id,
             semester_id=semester_id,
+            subject_id=subject_id,  # 과목 ID 추가
             task=task,
             due_date=due_date_obj
         )
